@@ -570,19 +570,24 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
       merge commit when it has a status. A missing `merge_commit_sha` is read again on the
       next poll. Every push produces a new test merge commit, so read it again after each
       push.
-   3. CI is not judged until 2 minutes after the push. CI is green when every expected check
-      has succeeded or been skipped on the head commit, every applicable workflow has reported
-      at least one check on that commit, and every check observed on that commit has finished
-      and succeeded or been skipped, with none pending or failed. When the test merge commit
-      has any statuses or check runs, each must also have finished and succeeded or been
-      skipped, and a failure there is a CI failure. An expected check or an
+   3. CI is not judged until 2 minutes after the push. A check passes when its result is
+      `success`, `neutral`, or `skipped`. Any other finished result is a failure: `failure`,
+      `cancelled`, `timed_out`, `action_required`, `stale`, or a commit status of `failure` or
+      `error`. CI is green when every expected check has passed on the head commit, every
+      applicable workflow has reported at least one check on that commit, and every check
+      observed on that commit has finished and passed, with none pending or failed. When the
+      test merge commit has any statuses or check runs, each must also have finished and
+      passed, and a failure there is a CI failure. An expected check or an
       applicable workflow that has not reported is pending until the CI budget expires, then
       `blocked`. When the required checks are unknown, judge on the expected deferred checks,
-      the applicable workflows, and the checks observed on the head commit, and the report says
-      the required checks could not be read.
+      the applicable workflows, the checks observed on the head commit, and the statuses and
+      check runs of the test merge commit, and the report says the required checks could not
+      be read.
    4. CI is not applicable only when branch protection was read and requires nothing, no
       workflow applies, no deferred check is expected, and no check has been observed on the
-      head commit within 2 minutes of the push. The report says so.
+      head commit or the test merge commit within 2 minutes of the push. The report says
+      so. A status or check run observed on the test merge commit keeps the watch open
+      until it finishes.
    5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier) and
       Step 6 for the new diff, with the round allowance the Budgets section gives each cycle,
       before the fix is pushed. At medium and high tier, refresh `diff.patch` and use the

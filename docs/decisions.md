@@ -140,6 +140,18 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     commit when it has a status, so a green head commit alone could report done while the
     merge is blocked. GitHub Actions check runs attach to the head commit, so both
     commits are read, and the test merge commit is read again after each push.
+24. **A check passes when its result is `success`, `neutral`, or `skipped`.** Any other
+    finished result is a failure: `failure`, `cancelled`, `timed_out`, `action_required`,
+    `stale`, or a commit status of `failure` or `error`. GitHub counts success, skipped,
+    and neutral as successful, so a neutral check would otherwise never read as passed.
+25. **CI is not applicable only when nothing is required, applicable, expected, or
+    observed.** Branch protection was read and requires nothing, no workflow applies, no
+    deferred check is expected, and no check has been observed on the head commit or the
+    test merge commit within 2 minutes of the push. A status on the test merge commit
+    gates the PR, so the decision must see it too, else a pending or failing merge commit
+    status could end in done. A status or check run observed there keeps the watch open
+    until it finishes, and when the required checks are unknown, the test merge commit's
+    statuses and check runs are still judged.
 
 ## Part 4: Design decisions to confirm
 
@@ -162,7 +174,7 @@ and the acceptance item is named.
 3. **codex-lite 0.7.0 or later is required.** It provides `--timeout`, the status line,
    and base reviews that include uncommitted work. Whether Codex reviews a file marked
    with `git add -N`, and not only the pre-check, is unverified at 0.1.0. Acceptance
-   item 25 checks it.
+   item 27 checks it.
 4. **Default permission mode prompts at every Codex call.** codex-lite writes a request
    file under `~/.claude`, and that prompt persists. Unattended runs need auto mode or
    `--no-codex`. The README says so, and Step 0.1 says so at run time.
@@ -178,14 +190,14 @@ and the acceptance item is named.
    because the run budget records the start time before the permissions statement, and a
    prompt there would come before the run says it will prompt. Whether it can also
    cover codex-lite's Bash call is unverified at 0.1.0, and the default assumption is
-   that it cannot. Acceptance item 33 checks it.
+   that it cannot. Acceptance item 35 checks it.
 8. **How a command hands off to the skill is settled by a hand check.** The Skill tool,
    invoked as `ccl:ccl` with the invocation block as its args, is the default
    assumption because it loads the skill's own frontmatter. Acceptance item 1 confirms
    it.
 9. **The high tier fallback tries the Fable model override on the Agent tool first and
    uses Opus on an error.** There is no session model detection. This is unverified at
-   0.1.0. Acceptance item 31 checks it.
+   0.1.0. Acceptance item 33 checks it.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
     wrong guess would either run something unrelated or report false confidence. The job
     is named in the report and left to the CI gate.

@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 33 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 35 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -103,60 +103,70 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
     and the report treats the failing status as a CI failure and applies the CI repair
     rules. Rerun after any change to Step 7.3.
 
+20. **Neutral check run.** Setup: a pull request workflow with a check run that
+    concludes `neutral`, all other checks passing. Command: `/ccl:run #1 --no-codex`.
+    Expected: `done`, with the neutral check counted as passed. Rerun after any change to
+    Step 7.3.
+21. **Pending status on the test merge commit.** Setup: no required check, no applicable
+    workflow, and an external service that posts a pending status on the PR's test merge
+    commit that later turns to failure. Command: `/ccl:run #1 --no-codex`. Expected: the
+    run does not report CI not applicable, and the report treats the failure as a CI
+    failure and applies the CI repair rules. Rerun after any change to Step 7.3.
+
 ## M2: medium tier
 
-Setup for items 20 to 26: a throwaway repo with two issues (#1 and #2) in one area,
+Setup for items 22 to 28: a throwaway repo with two issues (#1 and #2) in one area,
 codex-lite 0.7.0 or later installed and enabled, and `codex` on PATH, unless the item
 says otherwise.
 
-20. **Bundled issues at medium tier.** Command: `/ccl:run #1 #2`. Expected: `done`, at
+22. **Bundled issues at medium tier.** Command: `/ccl:run #1 #2`. Expected: `done`, at
     least one Step 3 round with the thread id recorded in `run.md`, rejected findings
     listed with reasons, a PR body with a closing reference for each issue, and the tier
     medium, not high, because bundling alone does not raise it. Rerun after any change
     to Steps 3 to 5 or the tier rules.
-21. **Parallel and ordered slices.** Setup: one plan with two independent slices, and
+23. **Parallel and ordered slices.** Setup: one plan with two independent slices, and
     one whose order of work makes the second depend on the first. Command:
     `/ccl:run #1 #2` for each. Expected: the independent slices run in one Workflow, and
     the dependent slices run in sequence, one Agent call each. Rerun after any change to
     Step 4.2.
-22. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
+24. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
     Opus subagents, and the report names both swaps. Rerun after any change to the
     fallback table.
-23. **Codex missing from PATH.** Setup: codex-lite installed, `codex` removed from PATH.
+25. **Codex missing from PATH.** Setup: codex-lite installed, `codex` removed from PATH.
     Command: `/ccl:run #1 #2`. Expected: the report names the swap and the reason. Rerun
     after any change to Step 0.6.
-24. **Undecidable objection.** Setup: an issue whose plan draws a blocking objection the
+26. **Undecidable objection.** Setup: an issue whose plan draws a blocking objection the
     orchestrator cannot decide. Command: `/ccl:run #1`. Expected: `stopped` with both
     positions printed in the report. Rerun after any change to Step 3.5.
-25. **New file in a Codex review.** Setup: a slice that only adds a new file. Command:
+27. **New file in a Codex review.** Setup: a slice that only adds a new file. Command:
     `/ccl:run #1 --effort medium`. Expected: a Step 5 finding that names the new file.
     This confirms Codex reviews files marked with `git add -N`, not only that the
     pre-check passes. If it does not, stop and revisit how new files are compared. Rerun
     after any codex-lite upgrade and after any change to the `git add -N` step.
-26. **Codex timeout.** Setup: `.ccl.json` with `{"timeouts": {"codex": 1}}` and a large
+28. **Codex timeout.** Setup: `.ccl.json` with `{"timeouts": {"codex": 1}}` and a large
     plan. Command: `/ccl:run #1`. Expected: the Step 3 call ends in `timeout` and the
     run ends in `blocked` naming the Codex budget. Rerun after any change to budgets or
     the status handling.
 
 ## M3: high tier
 
-Setup for items 27 to 31: a throwaway repo with a migration file, and Codex installed
+Setup for items 29 to 33: a throwaway repo with a migration file, and Codex installed
 unless the item says otherwise.
 
-27. **Risk floor applied.** Command: `/ccl:run "add a column" --effort low`. Expected:
+29. **Risk floor applied.** Command: `/ccl:run "add a column" --effort low`. Expected:
     the run is high tier, and the report says the floor was applied and why. Rerun after
     any change to the risk floor.
-28. **Risk floor not applied.** Command:
+30. **Risk floor not applied.** Command:
     `/ccl:run "fix a typo in the migrations README"`. Expected: low tier, and the report
     says why the floor did not apply. Rerun after any change to the risk floor.
-29. **Re-evaluation after Step 4.** Setup: a task estimated medium whose implementation
+31. **Re-evaluation after Step 4.** Setup: a task estimated medium whose implementation
     ends up removing an auth check. Command: `/ccl:run #1`. Expected: the tier rises to
     high after Step 4, and the report shows the `gpt-6-astra` final review. Rerun after
     any change to the re-evaluation rule.
-30. **Round review with two sources.** Setup: a high tier run. Expected: the report
+32. **Round review with two sources.** Setup: a high tier run. Expected: the report
     shows Step 4.4 rounds with findings from both the orchestrator and Codex
     `gpt-6-sol`. Rerun after any change to Step 4.4.
-31. **Fable fallback.** Command: a high tier run with `--no-codex`. Expected: the Step 5
+33. **Fable fallback.** Command: a high tier run with `--no-codex`. Expected: the Step 5
     reviewer is a Fable subagent, or Opus with the Fable error recorded. This confirms
     the Agent tool accepts the Fable model override in this session and that an error
     falls through to Opus. Rerun after any change to the fallback table or the session's
@@ -164,11 +174,11 @@ unless the item says otherwise.
 
 ## Environment checks
 
-32. **Codex model ids.** Setup: a ChatGPT account with Codex. Command: run a
+34. **Codex model ids.** Setup: a ChatGPT account with Codex. Command: run a
     `/codex-lite:ask --model gpt-6-sol --timeout 60` call, then the same with
     `gpt-6-astra`. Expected: both return status `ok`. Rerun before each release and
     whenever a Codex call fails with a model error.
-33. **Pre-approval of Codex calls.** Setup: default permission mode, and a command with
+35. **Pre-approval of Codex calls.** Setup: default permission mode, and a command with
     `allowed-tools` limited to read-only `git` and `gh`. Command: `/ccl:run #1` at
     medium tier. Expected: record whether the codex-lite Bash call prompts. The default
     assumption is that it does. Rerun after any change to a command's `allowed-tools` or
