@@ -418,8 +418,9 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     for one new file. Command: `/ccl:run #1 --no-codex`. Expected: the new file has the
     ending the implementer rule defines, `.gitattributes` first, else the majority in its
     directory, else the majority in the repository, here CRLF, read from the `w/` column
-    of `git ls-files --eol` (`w/crlf`), and no edited file changed its
-    endings. Then plant an LF new file in a slice and rerun: Step 4.3 raises a
+    of `git ls-files --eol` (`w/crlf`), no edited file changed its endings, and a new
+    binary file (`w/-text`) or a new file with no line ending (`w/none`) draws no finding.
+    Then plant an LF new file in a slice and rerun: Step 4.3 raises a
     finding that names the file, and the implementer fixes it before review. Rerun
     after any change to the Implementer prompt or Step 4.3.
 68. **Parallel Agent calls.** Setup: two independent slices in two areas that share no

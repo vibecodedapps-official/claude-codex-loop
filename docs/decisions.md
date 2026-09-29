@@ -412,7 +412,8 @@ run that taught it.
    PRs cite it with `Refs <owner>/<repo>#n`. Codex `review` reads only the session's
    checkout, so an additional repository is reviewed through `ask` with a patch file,
    and the `code-review` skill covers the primary only. Every `gh` call for an additional
-   repository is targeted with `-R <owner>/<repo>` or run from that checkout, and every
+   repository is run from that checkout or targeted with `-R <owner>/<repo>` where the
+   subcommand accepts it (`gh api` does not, so its endpoint is spelled out), and every
    `git` call uses `git -C <path>`, so no call lands on the wrong repository. The
    primary's `.ccl.json` governs `commit` and `timeouts`, and each repository's own
    `checks` list is read for that repository. The
@@ -456,9 +457,10 @@ run that taught it.
    first, and retried once only if it did not take effect. Carve-out 3 applies only to an
    explicit denial, so a drop no longer ends a run in `blocked`. Git hides skip-worktree
    and assume-unchanged edits from `git status --porcelain`, so the tree reads clean.
-   When status and index are clean and at least one path marked `S` or `h` in `git
-   ls-files -v` differs from `HEAD`, Step 0.3 creates a detached worktree from the base
-   commit as the run's checkout. The plugin does not stash, and a reset was denied as
+   When status and index are clean and at least one path marked `S`, `h`, or `s` in
+   `git ls-files -v` differs from `HEAD` (compared through `git cat-file --filters`, so
+   line-ending conversion is not read as an edit), Step 0.3 creates a detached worktree
+   from the base commit as the run's checkout. The plugin does not stash, and a reset was denied as
    destructive on the live run. This is a narrow use of the deferred `--worktree`
    feature, not the feature. The run installs the repository's dependencies in the
    worktree before the baseline when the instruction files or a lockfile name an install

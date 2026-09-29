@@ -137,8 +137,9 @@ directly. In this mode:
 - Each repository gets its own base commit, its own branch under one shared name, its
   own baseline, and its own checks. Artifacts live only in the primary's
   `.ccl/<run-id>/`. No slice spans repositories. Every `gh` call for an additional
-  repository is targeted with `-R <owner>/<repo>` or run from that checkout, and every
-  `git` call with `git -C <path>`.
+  repository is run from that checkout or targeted with `-R <owner>/<repo>` where the
+  subcommand accepts it (`gh api` does not; its endpoint is spelled out), and every `git`
+  call with `git -C <path>`.
 - Codex `review` covers the primary. Each additional repository with a diff is reviewed
   through `codex-lite:ask` with a patch file. At high tier and above, `/code-review`
   covers the primary, and a Claude Opus subagent fills the Claude slot for each

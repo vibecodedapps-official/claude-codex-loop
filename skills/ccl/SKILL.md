@@ -455,9 +455,11 @@ names, for each repository, and leaves the rest of that step as written.
 - `.ccl.json`: the primary's governs `commit` and `timeouts`. Each repository's own `checks`
   list is read for that repository's Step 3.7.3 and Step 6.
 - `gh` and `git` targets: every `gh` call for an additional repository (PR create and edit,
-  checks, CI reads under Step 7.3.1 including `gh api repos/{owner}/{repo}/...`, and issue
-  comments) runs with `-R <owner>/<repo>` or inside one Bash call as `cd <path> && ...`.
-  Every `git` call for it runs as `git -C <path>`.
+  checks, CI reads under Step 7.3.1, and issue comments) runs inside one Bash call as `cd
+  <path> && ...`, or with `-R <owner>/<repo>` where the subcommand accepts it. `gh api` does
+  not accept `-R`: run it from the checkout, or spell the endpoint out as
+  `repos/<owner>/<repo>/...` instead of `repos/{owner}/{repo}/...`. Every `git` call for it
+  runs as `git -C <path>`.
 - Step 0.1: read the instruction files and ask-first rules in every repository and union
   them. The permission statement lists each repository's push and PR.
 - Steps 0.2 to 0.4 run per repository. Record a base commit and a planning snapshot for
@@ -572,10 +574,12 @@ it. Step 0 creates nothing except artifacts.
    (untracked files that are not ignored count as dirty) and `git diff --cached --quiet`
    passes. If either is dirty, stop with `blocked` and say what is dirty. Do not stash.
    Git hides skip-worktree and assume-unchanged edits from both commands, so when both pass,
-   run `git ls-files -v` and, for each path marked `S` or `h`, compare its content with `git
-   show HEAD:<path>` (`cmp`). When status and index are clean and at least one flagged path
-   differs, the exception applies: create a detached worktree at `.ccl/<run-id>/worktree`
-   from the base commit with `git worktree add --detach`, use it as the run's checkout for
+   run `git ls-files -v` and, for each path marked `S`, `h`, or `s` (both flags), compare
+   its content with `git cat-file --filters HEAD:<path>` (`cmp`), which applies the
+   checkout's line-ending conversion so a CRLF working copy is not read as an edit. When
+   status and index are clean and at least one flagged path differs, the exception applies:
+   create a detached worktree at `.ccl/<run-id>/worktree` from the base commit with `git
+   worktree add --detach`, use it as the run's checkout for
    every later step, and record it in `run.md`. When status is dirty for any other reason,
    the run ends in `blocked` as above. The exception is not available in Multi-repo mode. In
    this path:
@@ -745,7 +749,8 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    files>`. The expected ending is the one implementer prompt item 6 defines
    (`.gitattributes` first, else the majority of existing files in the same directory, else
    the majority of tracked files, read from the `w/` column of `git ls-files --eol`). A new
-   file whose `w/` differs from it is a finding for the implementer.
+   file whose `w/` differs from it is a finding for the implementer. A file whose `w/` is
+   `-text` (binary) or `none` (no line ending) is not compared.
 4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
    non-blocking finding in the same round only when the fix stays inside the slice's files and
    the plan's scope. Otherwise list it in the report as deferred, with a short description and
