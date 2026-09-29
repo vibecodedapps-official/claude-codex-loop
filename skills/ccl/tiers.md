@@ -1,7 +1,8 @@
 # Tiers, roles, and fallbacks
 
-Read this file during Step 1, before the estimate in Step 1.5. It holds the effort tier table, the
-estimate rule, the risk floor, re-evaluation, and the reviewer roles with their fallbacks.
+Read this file during Step 1, before the estimate in Step 1.5. It holds the effort tier
+table, the estimate rule, the implementer choice at xhigh and max, the risk floor,
+re-evaluation, and the reviewer roles with their fallbacks.
 
 ## Roles
 
@@ -10,7 +11,8 @@ estimate rule, the risk floor, re-evaluation, and the reviewer roles with their 
 | Orchestrator and primary reviewer | The session's current Claude model (Opus or Fable) | none, the run stops |
 | Plan reviewer, medium, high, and xhigh tier | Codex `gpt-6-sol` | Agent tool, model `opus` |
 | Plan reviewer, max tier | Codex `gpt-6-astra` | Agent tool, model `fable`; on an error from that call, model `opus` |
-| Implementer | Claude Sonnet subagents, Agent tool model `sonnet` | none, the run stops |
+| Implementer, low, medium, and high tier | Agent tool model `sonnet` | none, the run stops |
+| Implementer, xhigh and max tier | Agent tool model `sonnet`, or `opus` when the Opus criteria apply to the slice | on a tool error from an `opus` call, `sonnet`, and the error is recorded |
 | Final reviewer (Step 5), high and xhigh tier | Codex `gpt-6-sol` | Agent tool, model `opus` |
 | Final reviewer (Step 5), max tier | Codex `gpt-6-astra` | Agent tool, model `fable`; on an error from that call, model `opus` |
 
@@ -24,8 +26,14 @@ Rules for roles:
 - For the max tier stages (`gpt-6-astra`), try the `fable` model on the Agent tool first.
   If that call returns an error, use `opus` and record the error. Do not detect the
   session's model.
-- A fallback swaps one reviewer. It never removes a stage. The tier is set by the task's
-  risk and does not change because a reviewer is unavailable.
+- An implementer call at model `opus`, through the Agent tool or inside a Workflow, whose
+  tool call itself returns an error is rerun with the same prompt at `sonnet`. The slice's
+  effective model becomes `sonnet`. Log the error and the swap, and name it in the report
+  as an implementer swap. Do not stop the run. This does not cover a permission denial
+  (Approval scope, carve-out 3), a call that runs past its subagent timeout (a budget
+  expiry), or any reviewer call, whose fallbacks stay as the table lists.
+- A fallback swaps one reviewer or one implementer. It never removes a stage. The tier is
+  set by the task's risk and does not change because a reviewer is unavailable.
 - A fallback reviewer gets the same request text, the same files, and the same required
   reply shape as the Codex reviewer it replaces.
 - Fall back to the Claude reviewer when `--no-codex` is set, when Codex was found
@@ -36,24 +44,25 @@ Rules for roles:
 - Write every swap to the run log with the stage, the reason, and the fallback model. Every
   swap is named in the final report.
 - If no reviewer is available for a required stage, the run ends in `blocked`. If the
-  orchestrator or the implementer is unavailable, the run stops.
+  orchestrator is unavailable, or an implementer call at `sonnet` errors, the run stops.
 
 ## Effort tiers
 
 | Step | Low | Medium | High | xhigh | Max |
 |---|---|---|---|---|---|
 | 1 Review and verify | yes | yes | yes | yes | yes |
-| 2 Plan | orchestrator drafts, one slice | orchestrator drafts, one slice | orchestrator drafts, one slice | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices |
+| 2 Plan | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices |
 | 3 Plan review and converge | skipped | Codex `gpt-6-sol`, converge | Codex `gpt-6-sol`, converge | Codex `gpt-6-sol`, converge | Codex `gpt-6-astra`, converge |
-| 4 Implement | one Sonnet agent, orchestrator reviews | one Sonnet agent, orchestrator reviews | one Sonnet agent, orchestrator reviews | Sonnet, one per slice, orchestrator reviews | Sonnet, one per slice, orchestrator reviews |
+| 4 Implement | Sonnet, one per slice, orchestrator reviews | Sonnet, one per slice, orchestrator reviews | Sonnet, one per slice, orchestrator reviews | Sonnet or Opus per slice, orchestrator reviews | Sonnet or Opus per slice, orchestrator reviews |
 | 5 Final review | skipped | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
 | 6 Checks | yes | yes | yes | yes | yes |
 | 7 Publish | yes | yes | yes | yes | yes |
 
 Low tier skips Step 3. Low and medium tier skip all of Step 5, including 5.1; Step 6 then
-runs the full check set. Low, medium, and high plans have one slice, so their whole
-implementation runs under one subagent budget and one round cap. `--plan-only` stops at
-Step 3.6 at every tier.
+runs the full check set. Every implementer call keeps the per-call subagent timeout, Step 4
+keeps its cap of 3 rounds per slice, and the run budget still bounds the whole run. A plan
+with three slices has three independent round caps, and an implementer swap adds a call to
+that slice. `--plan-only` stops at Step 3.6 at every tier.
 
 ## Estimate rule
 
@@ -64,10 +73,8 @@ file the change spans, on top of that.
 - Low: one file or one function, a clear fix, and none of the risk floor triggers.
 - Medium: several files in one area, or one issue with tests, or any doc restructure.
 - High: a cross-cutting change inside one deliverable, or any risk floor trigger.
-- xhigh: one change whose scope spans several areas of the code that share no file, so the
-  plan splits it into two or more slices with disjoint files, whether they can run in
-  parallel or must run in order. The split is a property of the change's scope, not of
-  how many inputs describe it.
+- xhigh: one change whose scope spans several areas of the code that share no file. This
+  sets review depth. Slice count is set by the plan at every tier.
 - Max: an xhigh-shaped change that also has a risk floor trigger.
 
 Bundling issues does not by itself raise the tier; estimate the bundle as one change. Two
@@ -79,6 +86,29 @@ the risk floor below.
 
 Record the estimate, the reason, any floor applied, and any re-evaluation in the run log
 and in the final report.
+
+## Implementer choice at xhigh and max
+
+At low, medium, and high tier every implementer is `sonnet`. At xhigh and max, choose the
+implementer model per slice in Step 2. Choose `opus` for a slice when any of these hold;
+otherwise choose `sonnet`:
+
+- the slice carries a risk floor trigger: its change adds, alters, or removes an item in
+  the risk floor list
+- the slice owns more than eight files, counting files it creates
+- the slice adds a new module, type, interface, or rule section that another file in the
+  slice, or in another slice, calls, implements, or cites
+
+Record the choice in the plan next to the slice, with the criterion that applied, or
+"none" for `sonnet`. Log it in the run log when the slice's agent starts, and list it in
+the final report per slice with the reason. The plan reviewer may object to a choice; the
+objection is handled like any other.
+
+The slice's effective model is the chosen model, or `sonnet` after an implementer swap (see
+Rules for roles). Every later call for that slice, in Step 4.3, Step 5.3, and CI repair,
+whether the agent is continued or fresh, including a fresh agent replacing one that ran
+inside a Workflow, uses the effective model. The single post-cap fix stays the
+orchestrator's.
 
 ## Risk floor
 

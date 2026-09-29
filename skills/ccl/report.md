@@ -101,6 +101,7 @@ non-blocking and anything out of scope. No issues were opened.
 
 ## Log
 
+- Implementer per slice: <slice, model, criterion or none; any swap with the error>
 - Rounds used: <Step 3, Step 4 per slice, Step 5, Step 6 runs, CI repair cycles>
 - Elapsed time against the run budget: <duration>
 ```
@@ -109,7 +110,7 @@ non-blocking and anything out of scope. No issues were opened.
 
 - The terminal state is exactly one of the four names above.
 - Say "attended" when any action prompted or the run announced it would, else "unattended".
-- Name every reviewer swap, including a swap caused by `--no-codex`.
+- Name every reviewer or implementer swap, including a swap caused by `--no-codex`.
 - List a rejected finding with the reason it was rejected, so a reader can check it.
 - A check that could not run locally is named as not run, with the reason. Nothing is
   skipped quietly.

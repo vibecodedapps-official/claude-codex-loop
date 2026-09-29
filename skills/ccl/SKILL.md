@@ -28,10 +28,10 @@ allowed-tools:
 # ccl orchestrator
 
 You are the orchestrator of one run of the `ccl` loop: plan, review the plan, implement with
-Sonnet subagents, review the work, check, and publish a pull request, for one unit of work.
-You review and decide. Codex gives a second opinion. Sonnet implements. Follow the steps below
-in order. Each step keeps the number of its source rule, so any rule can be checked against
-its step.
+Claude subagents, review the work, check, and publish a pull request, for one unit of work.
+You review and decide. Codex gives a second opinion. Sonnet implements below xhigh; Sonnet or
+Opus per slice at xhigh and max. Follow the steps below in order. Each step keeps the
+number of its source rule, so any rule can be checked against its step.
 
 The `allowed-tools` list above pre-approves only read-only `git` and `gh` commands and `date`.
 Every write, push, PR, comment, and Codex call stays subject to the session's permission mode.
@@ -61,9 +61,9 @@ build mode. Repair mode, merging, and worktrees are not part of this version.
 
 - Bash: `git`, `gh`, `date`, and the repo's checks.
 - Read, Write, Edit: the run's artifacts, and only the files this run owns.
-- Agent: the Sonnet implementers, and fallback reviewers.
+- Agent: the implementers (Sonnet, or Opus at xhigh and max), and fallback reviewers.
 - SendMessage: continue an implementer or a fallback reviewer that can be continued.
-- Workflow: parallel Sonnet implementers for independent slices.
+- Workflow: parallel implementers for independent slices.
 - Skill: `codex-lite:ask` and `codex-lite:review`, the only way Codex is called.
 - TaskStop: stop a background check whose budget has expired.
 
@@ -150,10 +150,11 @@ report names the branch, the state, and what would unblock it.
 
 These are in this skill's base directory.
 
-- `tiers.md`: the tier table, the estimate rule, the risk floor, re-evaluation, and the roles
-  table with each stage's reviewer, its fallback, and the exact model names to use. Read it
-  once Step 1.1 to 1.4 are done, before the estimate in Step 1.5. It is the source for every
-  model id and Agent-tool model name below.
+- `tiers.md`: the tier table, the estimate rule, the implementer choice at xhigh and max,
+  the risk floor, re-evaluation, and the roles table with each stage's reviewer, its
+  fallback, and the exact model names to use. Read it once Step 1.1 to 1.4 are done, before
+  the estimate in Step 1.5. It is the source for every model id and Agent-tool model name
+  below.
 - `report.md`: the final report template. Read it at every terminal state.
 - `pr-body.md`: the PR body template. Read it at Step 7.2.
 
@@ -190,7 +191,8 @@ the ask-first rules found; the Codex availability result; each permission prompt
 occurred; the discovered checks with source, whether they run locally, and baseline result;
 every edit made after Step 5.1's last full check run (path, step, reason); per round, the
 findings received, verified, rejected with reason, and fixed; every reviewer swap with its
-reason; every Codex thread id with its stage; and the tier re-evaluation after Step 4.
+reason; the implementer model per slice with its criterion, and every implementer swap with
+its error; every Codex thread id with its stage; and the tier re-evaluation after Step 4.
 
 ### Ignoring `.ccl/`
 
@@ -290,8 +292,8 @@ verifying the finding, not by taking the reviewer's label.
 
 ### Implementer prompt
 
-Each implementer is a Sonnet subagent (Agent tool model `sonnet`, or the Workflow's agent
-with the same model). Its prompt contains:
+Each implementer is a Claude subagent at the slice's effective model (Agent tool model
+`sonnet` or `opus`, or the Workflow's agent with the same model). Its prompt contains:
 
 1. Its slice from `plan.md`: the files it owns, the change, the acceptance criteria it serves,
    and the tests it must add or change.
@@ -389,10 +391,13 @@ Per input the plan covers: scope, acceptance criteria, and buildable-here status
 inputs: shared changes, migrations or RPCs, tests, checks to run, order of work, and how the
 work splits into slices that do not share files. For each slice give the files it owns, the
 change, the acceptance criteria it serves, the tests to add or change, and the checks it
-must pass. State in the order of work which slices are independent and which must run in
-order. A low, medium, or high tier plan has exactly one slice. An xhigh or max tier plan has
-one or more slices. With `--branch` and plan-only, record the name in the plan and create
-nothing.
+must pass. A plan at any tier has one or more slices that share no file. You set the count
+from the change: split when two parts of the work touch disjoint files and one agent would
+otherwise carry more than one area or more than one subagent timeout of work; do not split
+work that shares a file. State in the order of work which slices are independent and which
+must run in order. At xhigh and max, record the implementer model per slice with the
+criterion, from the Implementer choice section of `tiers.md`. With `--branch` and
+plan-only, record the name in the plan and create nothing.
 
 Low tier: continue to Step 3.6.
 
@@ -439,21 +444,29 @@ the plan. It is already written. Nothing else runs: no branch, no checks, no com
 
 ## Step 4: implement and iterate
 
-1. Give each Sonnet agent the implementer prompt from Mechanics. No two agents edit the same
+1. Give each implementer the implementer prompt from Mechanics. No two agents edit the same
    file at the same time.
-2. Run one Sonnet agent per slice:
-   1. One slice, at any tier: one Agent call.
-   2. xhigh and max tier, several slices that the plan's order of work shows are independent:
-      one Workflow whose script runs one Sonnet agent per slice in parallel. This skill's use
-      of the Workflow tool is the user's opt-in. If a Workflow authoring skill is listed, load
-      it before writing the script.
-   3. xhigh and max tier, slices with an ordering dependency: one Agent call each, in that
-      order.
+2. Run one implementer per slice, at every tier, at the slice's model: `sonnet` below xhigh,
+   the plan's choice at xhigh and max. Log each slice's model in `run.md` when its agent
+   starts.
+   1. One slice: one Agent call.
+   2. Several slices that the plan's order of work shows are independent: one Workflow whose
+      script runs one agent per slice in parallel. This skill's use of the Workflow tool is
+      the user's opt-in. If a Workflow authoring skill is listed, load it before writing the
+      script.
+   3. Slices with an ordering dependency: one Agent call each, in that order.
+   4. If an implementer call at model `opus`, through the Agent tool or inside a Workflow,
+      returns a tool error, rerun the same prompt at `sonnet` and set the slice's effective
+      model to `sonnet`. Log the error and the swap in `run.md`; the report names it as an
+      implementer swap. Do not stop the run. This does not cover a permission denial
+      (Approval scope, carve-out 3), a call that runs past its subagent timeout (Budgets,
+      enforcement 4), or any reviewer call (the roles table in `tiers.md`).
 3. Review each slice's diff against the plan and its acceptance criteria (`git diff
    <base-commit> -- <slice files>`, new files marked with `git add -N`). Send findings back to
    the same agent with SendMessage when it can be continued. Agents run inside a Workflow do not
-   persist, and an agent that cannot be continued is replaced: give a fresh agent the findings
-   and the slice's current diff. Either way it counts as a round.
+   persist, and an agent that cannot be continued is replaced: give a fresh agent at the
+   slice's effective model the findings and the slice's current diff. Either way it counts
+   as a round.
 4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
    non-blocking finding in the same round only when the fix stays inside the slice's files and
    the plan's scope. Otherwise list it in the report as deferred, with a short description and
@@ -481,8 +494,9 @@ Low and medium tier skip Step 5 entirely, including 5.1. Step 6 runs the full se
 3. Verify each finding before acting on it, and decide whether it is blocking. Fix confirmed
    blocking findings. Fix a confirmed non-blocking finding only when the fix stays inside the
    plan's scope. Otherwise defer it and list it in the report. Reject findings that do not
-   hold and record the reason. Fixes go to a Sonnet agent (continued, or fresh with the finding
-   and the current diff), except the single post-cap fix, which you make yourself.
+   hold and record the reason. Fixes go to the slice's implementer at its effective model
+   (continued, or fresh with the finding and the current diff), except the single post-cap
+   fix, which you make yourself.
 4. Resend in the same thread with `codex-lite:ask --resume <thread id>` and `diff.patch` until
    the reviewer has no confirmed blocking finding, with a cap of 3 rounds. A confirmed
    blocking finding still open after the cap ends the run in `blocked`. Any fix made in Step 5
@@ -635,7 +649,7 @@ At every terminal state:
    2. Attended or unattended, and the prompts that occurred.
    3. Effort tier and why, including any risk floor and any re-evaluation.
    4. What changed, per input, with its completion status.
-   5. Decisions made, including every reviewer swap.
+   5. Decisions made, including every reviewer or implementer swap.
    6. Findings rejected and why.
    7. Checks not run and why, and checks failing at baseline.
    8. Deferred items, each with a short description and reason, including findings deferred as
