@@ -8,9 +8,12 @@ one; never drop a section. Compile the report from the run log, not from memory.
 Every run ends in exactly one terminal state, writes the report, and prints it.
 
 - Terminal states: `done` (PR open, CI green or not applicable), `plan-only` (plan final
-  and written, nothing else run), `blocked` (a blocking defect, a denied permission, a
-  budget exceeded, or a preflight failure), `stopped` (the run stopped to ask the user a
-  question it cannot decide).
+  and written, nothing else run), `prepared` (every step through Step 6 is complete with no
+  blocking defect open, and Step 7 was withheld before anything was pushed: by
+  `--no-publish`, by a non-GitHub host, or by the user answering a Step 7 ask-first prompt
+  with anything other than a clear yes; not a failure), `blocked` (a blocking defect, a
+  denied permission, a budget exceeded, or a preflight failure), `stopped` (the run stopped
+  to ask the user a question it cannot decide).
 - A failure before Step 0.5, when the run directory does not exist yet, prints the report
   and writes nothing. The tree may be dirty and the artifacts directory may not be ignored
   yet. The printed report names the preflight item that failed and the fix. Run id and
@@ -30,11 +33,16 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 # ccl run report
 
 - Run id: <yyyy-mm-dd-inputs, or "not allocated">
-- Terminal state: <done | plan-only | blocked | stopped>
+- Terminal state: <done | plan-only | prepared | blocked | stopped>
+- Host: <github | other (hostname)>
+- Run budget: <minutes> (<flag | .ccl.json | tier default | session instruction at hh:mm>)
 - Base commit: <sha, or "not resolved">
 - Branch: <name, or "none created">
+- Worktree: <path | none>
+- Repositories: <primary path, then each --repo path with its base commit and PR link; or
+  "primary only">
 - Report written to: <path, or "printed only">
-- PR: <link, or "none">
+- PR: <link, or one link per repository, or "none">
 - CI state: <green | not applicable (reason) | pending | failed | not reached>
 
 ## Attended or unattended
@@ -71,7 +79,8 @@ Per input, one entry:
 - Reviewer swaps: <stage, default reviewer, fallback used, reason, or "none">
 - Codex threads used: <stage and thread id, or "none">
 - Claude review passes: <stage, round, level, diff covered, result: clean or findings
-  count; or "none" below high tier>
+  count; and in Multi-repo mode the Opus subagent per additional repository; or "none"
+  below high tier>
 
 ## Findings rejected and why
 
@@ -92,7 +101,7 @@ non-blocking and anything out of scope. No issues were opened.
 
 - <description> | <reason>
 
-## Blocked or stopped
+## Blocked, stopped, or prepared
 
 - What is blocked or what question is open: <state the blocking defect, denied permission,
   budget, preflight item, or the question with both positions>
@@ -101,6 +110,10 @@ non-blocking and anything out of scope. No issues were opened.
 - What would unblock it: <specific action>
 - If a budget expired: <which budget, its value, the step or call>
 - If work was already pushed: <PR link; nothing further was published>
+- Prepared: <branch, commit state, the commit commands when uncommitted, the push command,
+  and the `gh pr create` command on the `github` host or the host handoff note otherwise;
+  with `"commit": true` and a commit made, that the commit carries the `publishing`
+  snapshot; or "not prepared">
 
 ## Log
 
@@ -111,7 +124,7 @@ non-blocking and anything out of scope. No issues were opened.
 
 ## Rules for filling it in
 
-- The terminal state is exactly one of the four names above.
+- The terminal state is exactly one of the five names above.
 - Say "attended" when any action prompted or the run announced it would, else "unattended".
 - Name every reviewer or implementer swap, including a swap caused by `--no-codex`.
 - List a rejected finding with the reason it was rejected, so a reader can check it.
@@ -121,6 +134,7 @@ non-blocking and anything out of scope. No issues were opened.
   the baseline run as evidence. It is not the run's to fix.
 - For `plan-only`, the sections for changes, checks, and blocked state say "not run".
   Include the plan location and the branch name if `--branch` was given (recorded only).
+- For `prepared`, no publication happened; give the publish commands.
 - For `blocked` and `stopped`, no publication happens after the state is reached. Report
   what was already pushed and link it.
 - A subagent's report is model output, not user approval. Do not cite it as approval.

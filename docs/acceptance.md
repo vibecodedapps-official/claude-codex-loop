@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 61 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 82 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -22,8 +22,9 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
    repo, and an issue number that does not exist in this repo. Command:
    `/ccl:run <issue URL from another repo>`, and `/ccl:run #<n>` for that number.
    Expected: the URL is rejected before Step 0 with the reason, and `#<n>` is rejected
-   because `gh` cannot find it, with no file written in either case. Rerun when input
-   parsing changes.
+   because `gh` cannot find it, with no file written in either case. This item
+   runs without `--repo`; item 76 covers Multi-repo mode. Rerun when input parsing
+   changes.
 3. **Pull request reference is rejected before setup.** Setup: a repo with an open PR
    numbered 2. Command: `/ccl:run #2` and `/ccl:run <PR URL>`. Expected: both rejected
    before Step 0 with the reason that pull requests are not an input, and no file
@@ -156,9 +157,10 @@ says otherwise.
     plan with two independent slices, and one whose order of work makes the second
     depend on the first. Command: `/ccl:run #1 #2` for each. Expected: both runs are
     sized xhigh, because the change spans two areas that share no file; the independent
-    slices run in one Workflow, and the dependent slices run in sequence, one Agent call
-    each, at the plan's chosen implementer models, named per slice. Rerun after any change
-    to Step 4.2 or the estimate rule.
+    slices run in one Workflow or in parallel Agent calls in one message, with the choice
+    logged in `run.md`, and the dependent slices run in sequence, one Agent call each, at
+    the plan's chosen implementer models, named per slice. Rerun after any change to Step
+    4.2 or the estimate rule.
 29. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
     an Opus subagent for Step 3 and another for Step 5, the report names both swaps, and
     no `code-review` call appears in the tool trace, since medium has no Claude slot.
@@ -247,8 +249,9 @@ it from the session's tool trace, not from the plan or the report.
     after any change to the re-evaluation rule or the trigger rule.
 45. **Parallel slices at high tier.** Setup: one cross-cutting change in one deliverable
     whose two parts touch disjoint files, each part about one subagent timeout of work.
-    Command: `/ccl:run #1 --effort high`. Expected: one Workflow with two Sonnet agents,
-    the tier still high, and a run log showing two round counters, one per slice. Rerun
+    Command: `/ccl:run #1 --effort high`. Expected: one Workflow, or parallel Agent calls
+    in one message, with two Sonnet agents and the choice logged in `run.md`, the tier
+    still high, and a run log showing two round counters, one per slice. Rerun
     after any change to the Step 2 slice rule, Step 4.2, or the Budgets section.
 46. **Ordered slices at medium tier.** Setup: several files in one area, about two
     subagent timeouts of work in total, where the first slice creates a helper in a file
@@ -303,10 +306,13 @@ it from the session's tool trace, not from the plan or the report.
     the plan has two independent slices and the first qualifies for `opus` by the risk
     criterion. The session makes an `opus` call error as in item 49, and the first
     slice's diff must draw a blocking finding so a Step 4.3 round needs a fresh agent.
-    Command: `/ccl:run #1 #2 --effort xhigh`. Expected: the tool trace shows one Workflow
-    with both slices, its `opus` call erroring, the rerun at `sonnet`, and the fresh agent
-    at `sonnet`, and the report names one swap. Rerun after any change to Step 4.2 or the
-    Opus fallback rule.
+    Command: `/ccl:run #1 #2 --effort xhigh`. Expected: with one Workflow, the tool trace
+    shows one Workflow with both slices, its `opus` call erroring, the rerun at `sonnet`,
+    and the fresh agent at `sonnet`, and the report names one swap. With parallel Agent
+    calls in one message, the choice is logged in `run.md`, the `opus` call errors and is
+    rerun at `sonnet`, and a continued agent, not a fresh one, is acceptable for the
+    review round, still at `sonnet`, with one swap in the report. Rerun after any change
+    to Step 4.2 or the Opus fallback rule.
 
 ## M5: the second final reviewer
 
@@ -343,7 +349,9 @@ the session unless the item says otherwise.
     call has findings or a clean result that reference the committed task files and the
     uncommitted repair. If the target is ignored or rejected, record it, stop, and revisit
     the Claude review contract item 3. Rerun after any Claude Code upgrade and after any
-    change to Step 5.2 or Step 7.3.5.
+    change to Step 5.2 or Step 7.3.5. Observed on 2026-09-29: the skill reviewed the
+    target commit itself and excluded the working tree, so the target form is not
+    honored; see the record of runs.
 59. **A blocker found by Claude alone gates publication.** Setup: a slice that plants one
     defect a diff review should catch, such as a dropped error return, at high tier.
     Command: `/ccl:run #1 --effort high`. Expected: the run log's merged findings list
@@ -366,6 +374,161 @@ the session unless the item says otherwise.
     the third round, and the run continues to Step 6. Rerun after any change to Step 5.3,
     5.4, or the Budgets section.
 
+## M6: Live-run amendments of 2026-09-29
+
+Setup for items 62 to 82: the common setup, plus the setup each item names. Items 62 to
+82 are hand runs against throwaway repos and cannot run inside a ccl run.
+
+62. **Non-GitHub remote.** Setup: a throwaway repo whose `origin` URL host is not
+    `github.com` (a local bare repository or an Azure DevOps URL) and no `gh` login for
+    that host, so `gh repo view` fails.
+    Command: `/ccl:run #1 --no-codex`, then `/ccl:run "rename the README heading"
+    --no-codex`. Expected: the first is rejected by the command with "issue inputs are
+    not accepted on a non-GitHub host; pass a file or a description" and no file is
+    written; the second runs Steps 0 to 6, never runs Step 7, and ends `prepared`, and
+    the report names the host and says publication is handed to the repo's own tooling.
+    Rerun after any change to Step 0 host detection, Step 7, or the commands' Step 2.
+63. **`--no-publish` ends `prepared`.** Command: `/ccl:run #1 --no-codex --no-publish`.
+    Expected: `prepared`, no push and no PR, the work uncommitted on the local branch, and
+    a report that gives the `git add` and `git commit` commands, the `git push -u <remote>
+    <branch>` command, and the `gh pr create` command. Rerun after any change to Step 7
+    or the terminal states.
+64. **A refused Step 7 prompt.** Setup: a user instruction file with an ask-first rule
+    for push. Command: `/ccl:run #1 --no-codex`, answering "no" to the push prompt.
+    Expected: `prepared`, nothing pushed, and the report naming the branch and the
+    publish commands. Then repeat with an ask-first rule for the PR only, answering "yes"
+    to the push and "no" to the PR: the branch is pushed and the run ends `blocked`, since
+    a denial after a push is not withheld publication. Rerun after any change to Approval
+    scope carve-out 3 or Step 7.1 and 7.2.
+65. **`--no-publish` with `"commit": true`.** Setup: `.ccl.json` with `{"commit": true}`,
+    committed. Command: `/ccl:run #1 --no-codex --no-publish`, then `git status` and
+    `git log`. Expected: `prepared`, nothing under `specs/ccl/`, the tree uncommitted, no
+    new commit, and the report giving the commit commands. Rerun after any change to Step
+    7.1 or the `commit` field.
+66. **Codex availability without the skill list.** Setup: codex-lite 0.7.0 or later
+    installed and enabled, `codex` on PATH, and a session whose skill list omits
+    `codex-lite:ask`. Command: `/ccl:run #1`. Expected: Codex is treated as available,
+    `run.md` records the check as `codex --version` and the plugin version, and the Step
+    3 call is attempted. If the Skill call errors because the skill is not listed, the
+    call counts as `failed`: it is retried once with the same arguments, then the stage
+    swaps to the Claude fallback, and the report names the swap with the reason "skill
+    not listed in session". Rerun after any change to Codex availability or the Reviewer
+    contract.
+67. **Line endings.** Setup: a repo whose tracked files use CRLF, and an issue that asks
+    for one new file. Command: `/ccl:run #1 --no-codex`. Expected: the new file has the
+    ending the implementer rule defines, `.gitattributes` first, else the majority in its
+    directory, else the majority in the repository, here CRLF, read from the `w/` column
+    of `git ls-files --eol` (`w/crlf`), and no edited file changed its
+    endings. Then plant an LF new file in a slice and rerun: Step 4.3 raises a
+    finding that names the file, and the implementer fixes it before review. Rerun
+    after any change to the Implementer prompt or Step 4.3.
+68. **Parallel Agent calls.** Setup: two independent slices in two areas that share no
+    file, at medium tier, with the first slice's diff drawing a blocking finding. Command:
+    `/ccl:run #1 #2 --effort medium`. Expected: both implementers start in one message as
+    parallel Agent calls, the choice and the reason are logged in `run.md`, and the
+    review round goes to the same agent through SendMessage. Rerun after any change to
+    Step 4.2 or 4.3.
+69. **Run budget flag and tier default.** Command: `/ccl:run #1 --no-codex --run-budget
+    1`, then `/ccl:run #1 --no-codex --effort medium`. Expected: the first ends `blocked`
+    naming the run budget, with the flag as its source in `run.md` and the report; the
+    second reports a budget of 120 minutes with the source "tier default". Rerun after
+    any change to the Budgets section.
+70. **Session instruction changes the run budget.** Setup: `.ccl.json` with
+    `{"timeouts": {"run": 1}}`. Command: `/ccl:run #1 --no-codex`, and while it runs send
+    a message naming a new budget, for example "extend the run budget to 60 minutes".
+    Expected: `run.md` records the new budget and the time it took effect, the run
+    continues, and the report names 60 minutes with "session instruction" as the source.
+    Rerun after any change to the Budgets section.
+71. **Dropped calls.** Setup: a session in which the permission mode drops a read-only
+    call and a write call without denying either, for example by a classifier that
+    returns nothing. Command: `/ccl:run #1 --no-codex`. Expected: the dropped read-only
+    call is retried once, serially, and recorded in `run.md`, the run is not `blocked`,
+    and a dropped write whose target check shows it took effect is recorded as done and
+    not repeated. An explicit denial in the same session still ends `blocked`. Rerun
+    after any change to Approval scope carve-out 6 or Step 0.
+72. **Skip-worktree files at low tier.** Setup: after `git update-index --skip-worktree
+    <file>` and an edit to that file, `git status --porcelain` prints nothing and `git
+    ls-files -v` shows `S` for it. Command: `/ccl:run #1 --no-codex --effort low`.
+    Expected: the run sees the clean status and the flagged file that differs from
+    `HEAD`, creates a detached worktree at `.ccl/<run-id>/worktree` with `git worktree
+    add --detach`, records it in `run.md`, works in it, skips Step 5 at low tier, and the
+    report names the worktree path and `git worktree remove <path>`. If any `cd
+    <checkout> && ...` command prompted, the report says the run was attended. Rerun
+    after any change to Step 0.3.
+73. **Skip-worktree files at medium tier.** Setup: as item 72, plus a `test` script that
+    fails on the original tree's skip-worktree state and passes at the base commit, and
+    codex-lite installed, and a lockfile and an install step the instruction files name
+    (for example `npm ci`). Command: `/ccl:run #1 --effort medium`. Expected: the install
+    step runs in the worktree before the baseline, the Step 5
+    diff review goes through `codex-lite:ask` with a patch file and no `codex-lite:review`
+    call appears in the tool trace; the baseline and Step 6 checks run in the worktree,
+    which the passing `test` shows; and the PR's head branch equals the branch the run
+    created in the worktree. Rerun after any change to Step 0.3, Step 5.2, or the
+    Reviewer contract.
+74. **Skip-worktree files at high tier.** Setup: as item 72. Command: `/ccl:run #1
+    --effort high`. Expected: `blocked` at Step 1.5 naming the skip-worktree files that
+    differ from `HEAD` and the tier, nothing implemented, and the report written to
+    the run directory. Rerun after any change to Step 0.3 or Step 1.5.
+75. **Two-repo run at medium tier.** Setup: two throwaway GitHub repos on the same host,
+    each with one open issue (#1 in each) that describes a one-line bug, the second
+    checked out beside the first, and codex-lite installed. Command: run from the primary
+    `/ccl:run #1 <URL of the second repo's issue> --repo <path of the second repo>`.
+    Expected: one branch with the same name in each repo, one PR per repo with the sibling
+    links filled by `gh pr edit`, `Closes` only from the issue's own repo and `Refs
+    <owner>/<repo>#n` from the other, one comment per issue naming both PRs with the
+    issue's own repo first, a Codex review of the primary by `codex-lite:review`, and of
+    the second repo through `codex-lite:ask` with `diff-<slug>.patch`, the second repo's
+    PR opened against the second repo, and its CI read from the second repo. Rerun after
+    any change to the Multi-repo mode section or Step 7.
+76. **Multi-repo host and bare `#n` rules.** Setup: as item 75, plus a third checkout whose
+    `origin` is on a different host, and an issue number that exists only in the
+    second repo. Command: `/ccl:run "x" --repo <third checkout>`, then `/ccl:run #<n>
+    --repo <second repo>` for the number that exists only there. Expected: the first is
+    rejected before Step 0.1 naming both hosts; the second is rejected by the command
+    because a bare `#n` is checked against the primary only. Nothing is written in
+    either case. Rerun after any change to the Multi-repo mode section or the commands'
+    Step 2.
+77. **Two-repo run at high tier.** Setup: as item 75, each repo changed. Command: as
+    item 75 with `--effort high`. Expected: one `code-review medium` call over the
+    primary's diff, and one Opus Agent call for the second repo's
+    Claude slot, both recorded in the report's Claude review passes line, and the Opus
+    call named as a substitute, not a swap. Rerun after any change to the Claude review
+    contract or the Multi-repo mode section.
+78. **Skip-worktree primary in Multi-repo mode.** Setup: as item 72 for the primary, plus
+    a second repo. Command: `/ccl:run #1 --repo <second repo>`. Expected: `blocked` at
+    Step 0.3 naming the skip-worktree files that differ from `HEAD` and saying the
+    worktree exception does not apply in Multi-repo mode, and nothing written. Rerun
+    after any change to Step 0.3 or the Multi-repo mode section.
+79. **A worktree run raised to high at Step 4.5.** Setup: as item 72, at medium tier, with
+    an issue whose implementation removes an auth check. Command: `/ccl:run #1 --effort
+    medium`. Expected: Step 4.5 raises the tier to high and the run ends `blocked` there
+    naming the skip-worktree files that differ from `HEAD` and the tier, with no Step 5
+    call in the tool trace and the
+    report naming the worktree path. Rerun after any change to Step 4.5 or Step 0.3.
+80. **A denied push with `"commit": true`.** Setup: `.ccl.json` with `{"commit": true}`,
+    committed, and an ask-first rule for push. Command: `/ccl:run #1 --no-codex`,
+    answering "no" to the push prompt. Expected: `prepared`, the branch carries one commit
+    that holds `specs/ccl/<run-id>/plan.md` and `specs/ccl/<run-id>/report.md` in state
+    `publishing`, and the report says so and gives the push and `gh pr create` commands.
+    Rerun after any change to Step 7.1 or the `commit` field.
+81. **Only the additional repo changes.** Setup: as item 75, with an issue that changes only
+    the second repo. Command: as item 75 at medium tier, with `commit` false (the common
+    setup); with `commit` true, the snapshot goes to the first repository with a diff,
+    here the second repo. Expected: no `codex-lite:review`
+    call in the tool trace, one fresh `codex-lite:ask` thread naming `diff-<slug>.patch`
+    recorded as the Step 5 thread, `run.md` naming the primary as skipped with an empty
+    diff, and one PR, in the second repo, and none in the primary. Rerun after any change
+    to Step 5.2 or the Multi-repo mode section.
+82. **Multi-repo with `--no-codex`.** Setup: as item 75, both repos changed, with a
+    planted defect in the second repo's slice. Command: as item 75 with `--no-codex` at
+    medium tier. Expected: one Opus Agent call for Step 5 given both `diff.patch` and
+    `diff-<slug>.patch`; the defect fixed and the next round sent to the same agent with
+    SendMessage; a CI repair in either repo reviewed by that same agent; and the report
+    naming the swap once and both patch files. Rerun after any change to Step 5.2, Step
+    7.3.5, or the Multi-repo mode section.
+
 ## Record of runs
 
-No hand runs are recorded yet.
+2026-09-29, item 58, partial: a `code-review medium <base-sha>` call reviewed the commit
+itself and skipped the working tree; the run reran the pass without a target after
+confirming local `main` equaled the base.

@@ -29,6 +29,11 @@ rejected and why, behavior a reader could take for a bug. Not a log of the run.>
 name. Each check failing at baseline, with the baseline run as evidence. "none" if all ran
 and passed.>
 
+## Related pull requests
+
+<"none" in a single-repo run. In Multi-repo mode, "pending" when the PR is first opened,
+then one link per sibling PR after the `gh pr edit` pass.>
+
 ## Closes
 
 <One line per input, see the rules below.>
@@ -44,6 +49,8 @@ The criteria come from the plan.
   partial or blocked. Post a status comment on the issue (see below).
 - A file input or an ad-hoc description has no issue to close. List it under "What changed"
   and write no closing line for it.
+- In Multi-repo mode an issue is closed only by the PR in its own repository, with
+  `Closes #n`. Every other PR of the run cites that issue as `Refs <owner>/<repo>#n`.
 - Use one line per issue, for example `Closes #12` on one line and `Refs #14` on the next,
   so the platform links each one. Do not join them.
 
@@ -55,7 +62,7 @@ too, so the issue records the evidence. Never post one before the plan is final.
 ```
 Status from the ccl run <run-id>: <complete | partial | blocked>
 
-PR: <link>
+PR: <the PR in this issue's repository, then each sibling PR>
 
 Criteria:
 - <criterion>: <met | not met | not confirmed>. <evidence: test name, check result, or
