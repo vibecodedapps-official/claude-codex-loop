@@ -243,10 +243,10 @@ gets `gpt-6-astra` and a high run that is only cross-cutting gets `gpt-6-sol`; a
 xhigh final review, judged from the estimate or the diff after implementation, so an
 xhigh run forced on a floored task, or whose diff gained a trigger, gets `gpt-6-astra`
 while staying xhigh. After implementation the floor is applied to the diff again; the
-estimate is not repeated, so a run never rises above high. At high tier and above a final review round is both
-reviewers over the same diff, with one shared cap of 3 rounds. When Codex is unavailable,
-a Claude subagent replaces the Codex reviewer and the stage still runs; the `/code-review`
-pass is never swapped.
+estimate is not repeated, so a run never rises above high. At high tier and above a final
+review round is both reviewers over the same diff, with one shared cap of 3 rounds. When
+Codex is unavailable, a Claude subagent replaces the Codex reviewer and the stage still
+runs; the `/code-review` pass is never swapped.
 
 Every step that repeats is capped at 3 rounds. Time is bounded per call and per run.
 
