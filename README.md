@@ -149,13 +149,14 @@ not depend on it. A subagent's report is model output, not approval.
 | Final review | skipped | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
 
 Review of the inputs, checks, and publish run at every tier. The tier is sized from
-behavioral risk, and xhigh and max from how many independent areas the change spans.
-Bundling issues does not raise it. A change that adds, alters, or removes an auth check,
-a permission rule, a schema or migration, a row-level security policy, a data access
-path, or a public API's signature or behavior is at least high tier, and `--effort`
-cannot lower that. xhigh and max are above the floor. The tier is re-evaluated against
-the diff after implementation. When Codex is unavailable, a Claude subagent replaces the
-reviewer and the stage still runs.
+behavioral risk, and xhigh and max from how many areas that share no file the change
+spans. Bundling issues does not raise it. A change that adds, alters, or removes an auth
+check, a permission rule, a schema or migration, a row-level security policy, a data
+access path, or a public API's signature or behavior is at least high tier, and
+`--effort` cannot lower that. xhigh and max are above the floor. After implementation
+the floor is applied to the diff again; the estimate is not repeated, so a run never
+rises above high after implementation. When Codex is unavailable, a Claude subagent
+replaces the reviewer and the stage still runs.
 
 Every step that repeats is capped at 3 rounds. Time is bounded per call and per run.
 

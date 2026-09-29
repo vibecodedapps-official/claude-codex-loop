@@ -49,8 +49,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Why: <the estimate rule outcome in one or two sentences>
 - Risk floor: <applied, with the trigger | not applied, with why (incidental edit or no
   trigger)>
-- `--effort` request: <none | value, and if it was below the floor, that it was refused and
-  the run continued at high, or if it was above the floor, that it was honored>
+- `--effort` request: <none | value, and whether it was below the floor (refused, run
+  continued at high), at the floor (honored), or above the floor (honored)>
 - Re-evaluation after Step 4: <tier unchanged | rose to high, with the diff evidence and
   the Step 5 review that ran>
 

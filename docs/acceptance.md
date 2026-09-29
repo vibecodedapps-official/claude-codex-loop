@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 43 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 44 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -152,11 +152,10 @@ says otherwise.
     to Steps 3 to 5 or the tier rules.
 28. **Parallel and ordered slices.** Setup: two areas of code that share no file, one
     plan with two independent slices, and one whose order of work makes the second
-    depend on the first. Command:
-    `/ccl:run #1 #2 --effort xhigh` for each. Expected: the run is at xhigh, since only
-    xhigh and max plans split into slices, the independent slices run in one Workflow,
-    and the dependent slices run in sequence, one Agent call each. Rerun after any change
-    to Step 4.2.
+    depend on the first. Command: `/ccl:run #1 #2` for each. Expected: both runs are
+    sized xhigh, because the change spans two areas that share no file; the independent
+    slices run in one Workflow, and the dependent slices run in sequence, one Agent call
+    each. Rerun after any change to Step 4.2 or the estimate rule.
 29. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
     an Opus subagent for Step 3, the report names that one swap, and no Step 5 review
     runs. Rerun after any change to the fallback table.
@@ -178,8 +177,8 @@ says otherwise.
 
 ## M3: high tier
 
-Setup for items 34 to 38: a throwaway repo with a migration file, and Codex installed
-unless the item says otherwise.
+Setup for items 34 to 37: a throwaway repo with a migration file, and Codex installed
+unless the item says otherwise. Item 38 uses the M4 setup.
 
 34. **Risk floor applied.** Command: `/ccl:run "add a column" --effort low`. Expected:
     the run is high tier, and the report says the floor was applied and why. Rerun after
@@ -194,7 +193,7 @@ unless the item says otherwise.
 37. **Re-evaluation does not add a round review.** Setup: as item 36. Expected: Step 4
     has orchestrator findings only, and no Codex thread is recorded for Step 4. Rerun
     after any change to Step 4 or the re-evaluation rule.
-38. **Fable fallback.** Command: a max tier run with `--no-codex`. Expected: the Step 5
+38. **Fable fallback.** Command: `/ccl:run #1 --effort max --no-codex`. Expected: the Step 5
     reviewer is a Fable subagent, or Opus with the Fable error recorded. This confirms
     the Agent tool accepts the Fable model override in this session and that an error
     falls through to Opus. Rerun after any change to the fallback table or the session's
@@ -214,7 +213,7 @@ unless the item says otherwise.
 
 ## M4: xhigh and max tier
 
-Setup for items 41 to 43: a throwaway repo with a migration file and two areas of code
+Setup for items 41 to 44: a throwaway repo with a migration file and two areas of code
 that share no file, and Codex installed unless the item says otherwise.
 
 41. **Max tier reviews use `gpt-6-astra`.** Command: `/ccl:run #1 --effort max`.
@@ -227,6 +226,11 @@ that share no file, and Codex installed unless the item says otherwise.
 43. **Xhigh with a single-slice plan.** Command: `/ccl:run #1 --effort xhigh` for a
     one-line bug. Expected: the plan has one slice, and Step 4 makes one Agent call.
     Rerun after any change to Step 4.2.
+44. **Re-evaluation does not raise an xhigh run.** Setup: a task sized xhigh whose
+    implementation ends up removing an auth check. Command: `/ccl:run #1 #2`. Expected:
+    the tier stays xhigh, the report says the floor applied at re-evaluation and the tier
+    was unchanged, and Step 5 runs once with `gpt-6-sol`. Rerun after any change to the
+    re-evaluation rule.
 
 ## Record of runs
 

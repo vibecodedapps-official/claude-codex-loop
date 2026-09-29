@@ -57,18 +57,17 @@ Step 3.6 at every tier.
 ## Estimate rule
 
 Apply after Step 1. Low, medium, and high are sized from the behavior the change has, not
-from how many issues there are. xhigh and max are sized from how many independent areas
-the change spans, on top of that.
+from how many issues there are. xhigh and max are sized from how many areas that share no
+file the change spans, on top of that.
 
 - Low: one file or one function, a clear fix, and none of the risk floor triggers.
 - Medium: several files in one area, or one issue with tests, or any doc restructure.
 - High: a cross-cutting change inside one deliverable, or any risk floor trigger.
 - xhigh: one change whose scope spans several areas of the code that share no file, so the
-  plan splits it into two or more independent slices. The split is a property of the
-  change's scope, not of how many inputs describe it.
-- Max: an xhigh-shaped change that also has a risk floor trigger, or a change to shared
-  code or configuration that every other area depends on (build, CI, auth or data layer
-  used by all slices).
+  plan splits it into two or more slices with disjoint files, whether they can run in
+  parallel or must run in order. The split is a property of the change's scope, not of
+  how many inputs describe it.
+- Max: an xhigh-shaped change that also has a risk floor trigger.
 
 Bundling issues does not by itself raise the tier; estimate the bundle as one change. Two
 issues that each touch one file in one area are still medium. A bundle is xhigh only when

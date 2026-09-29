@@ -18,7 +18,9 @@
 - Medium tier no longer has a final review. It keeps the plan review, and Step 6 still
   runs the full check set.
 - The estimate rule has five buckets. Low, medium, and high are sized from behavioral
-  risk; xhigh and max from how many independent areas the change spans.
+  risk; xhigh and max from how many areas that share no file the change spans.
+- After implementation only the risk floor is applied to the diff again. The estimate
+  rule is not, so a run never rises above high after Step 4.
 
 ## 0.1.0 - 2026-09-28
 

@@ -442,14 +442,13 @@ the plan. It is already written. Nothing else runs: no branch, no checks, no com
 1. Give each Sonnet agent the implementer prompt from Mechanics. No two agents edit the same
    file at the same time.
 2. Run one Sonnet agent per slice:
-   1. One slice (every low, medium, and high tier plan): one Agent call.
+   1. One slice, at any tier: one Agent call.
    2. xhigh and max tier, several slices that the plan's order of work shows are independent:
       one Workflow whose script runs one Sonnet agent per slice in parallel. This skill's use
       of the Workflow tool is the user's opt-in. If a Workflow authoring skill is listed, load
       it before writing the script.
    3. xhigh and max tier, slices with an ordering dependency: one Agent call each, in that
       order.
-   Low, medium, and high plans have one slice, so parallel work exists only at xhigh and max.
 3. Review each slice's diff against the plan and its acceptance criteria (`git diff
    <base-commit> -- <slice files>`, new files marked with `git add -N`). Send findings back to
    the same agent with SendMessage when it can be continued. Agents run inside a Workflow do not

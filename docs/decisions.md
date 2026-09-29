@@ -51,9 +51,9 @@ These followed a second review of the design, with a second opinion from Codex.
    checks.** Not from every workflow file, because path and branch filters make
    workflow-derived expectations false blockers.
 7. **Effort below xhigh is estimated from behavioral risk; xhigh and max are sized from
-   how many independent areas the change spans.** Bundling issues does not raise the tier.
-   The tier is re-evaluated against the diff after Step 4, since the plan can
-   underestimate what the implementation touches.
+   how many areas that share no file the change spans.** Bundling issues does not raise
+   the tier. After Step 4 the risk floor is applied to the actual diff, since the plan can
+   underestimate what the implementation touches; the estimate rule is not applied again.
 8. **The Reviewer contract records how the loop uses codex-lite.** The rules that
    earlier drafts held as exceptions became one section, so every stage follows the same
    rules.
@@ -247,9 +247,10 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    vocabulary, so the names mean the same thing in both places.
 2. **The Codex round review during implementation is dropped.** The orchestrator is the
    only reviewer that knows the plan, and the final review already covers the diff.
-3. **The risk floor targets high, the middle tier.** A floored task gets `gpt-6-sol`
-   reviews of the plan and the diff without forcing the cost of the top tiers. A
-   requested xhigh or max stands, because it is above the floor.
+3. **The risk floor targets high, the middle tier.** A floored task that is not
+   xhigh-shaped gets `gpt-6-sol` reviews of the plan and the diff without forcing the
+   cost of the top tiers. A floored task that is xhigh-shaped is max by the estimate
+   rule. A requested xhigh or max stands, because it is above the floor.
 4. **One slice below xhigh.** Concurrency is now a tier property, so the tier sets both
    review depth and slice count.
 5. **Medium reviews the plan and not the diff.** The plan review catches scope errors,
@@ -259,12 +260,17 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    files in one area, one issue with tests, or any doc restructure. High is a
    cross-cutting change inside one deliverable, or any risk floor trigger. Xhigh is one
    change whose scope spans several areas that share no file, so the plan splits it into
-   two or more independent slices. Max is an xhigh-shaped change that also has a risk
-   floor trigger, or a change to shared code or configuration that every other area
-   depends on, such as build, CI, or an auth or data layer used by all slices. Bundling
-   issues does not by itself raise the tier: a bundle is xhigh only when the change it
-   describes, taken as one change, spans several areas with no shared file. Independence
-   of areas is what makes parallel slices safe, so it is what earns the top tiers.
+   two or more slices with disjoint files, in parallel or in order. Max is an
+   xhigh-shaped change that also has a risk floor trigger. A change to shared build, CI,
+   auth, or data code is not max on its own: the floor already covers the risky layers,
+   and a one-file CI edit is low. Bundling issues does not by itself raise the tier: a
+   bundle is xhigh only when the change it describes, taken as one change, spans several
+   areas with no shared file. File separation between areas is what makes several slices
+   safe, whether they run in parallel or in order, so it is what earns the top tiers.
+7. **Re-evaluation after Step 4 is floor-only.** The estimate rule is not applied again
+   to the diff. With the max criterion, a re-estimate would have sent an xhigh run whose
+   diff added an auth check to max and `gpt-6-astra`, while the rise rule said only runs
+   below high rise, and only to high. One rule, the floor, removes the conflict.
 
 ## Rules stated elsewhere in the loop, with reasons
 
