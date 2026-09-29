@@ -43,7 +43,7 @@ These followed a second review of the design, with a second opinion from Codex.
 4. **One implementer per slice at every tier, parallel only for independent slices.**
    Low, medium, and high plans have one slice, so parallel work exists only at xhigh and
    max. Slices share one working tree, so the rule that no two slices share a file is
-   what keeps parallel work safe.
+   what keeps parallel work safe. Superseded by Part 6: slices exist at every tier.
 5. **No issue comment before the plan, and no new publication on `blocked`.** A run that
    has not finished its work should not speak on the issue, and a blocked run must not
    add more public state.
@@ -255,7 +255,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    review depth and slice count. The cost is accepted: work that 0.1.0 could split into
    two parallel agents now runs as one agent under one subagent budget (20 minutes by
    default) and one round cap. A change that needs more than that at high tier is a sign
-   it spans several areas and belongs at xhigh, or needs `--effort xhigh`.
+   it spans several areas and belongs at xhigh, or needs `--effort xhigh`. Superseded by
+   Part 6 item 1.
 5. **Medium reviews the plan and not the diff.** The plan review catches scope errors,
    and Step 6's full check run still covers the diff.
 6. **The estimate rule has five buckets, and decision 7 of Part 2 is qualified.** Low is
@@ -263,7 +264,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    files in one area, one issue with tests, or any doc restructure. High is a
    cross-cutting change inside one deliverable, or any risk floor trigger. Xhigh is one
    change whose scope spans several areas that share no file, so the plan splits it into
-   two or more slices with disjoint files, in parallel or in order. Max is an
+   two or more slices with disjoint files, in parallel or in order. Since Part 6 the split
+   is a plan property at every tier; the sizing boundary is unchanged. Max is an
    xhigh-shaped change that also has a risk floor trigger. A change to shared build, CI,
    auth, or data code is not max on its own: the floor already covers the risky layers,
    and a one-file CI edit is low. Bundling issues does not by itself raise the tier: a
@@ -274,6 +276,34 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    to the diff. With the max criterion, a re-estimate would have sent an xhigh run whose
    diff added an auth check to max and `gpt-6-astra`, while the rise rule said only runs
    below high rise, and only to high. One rule, the floor, removes the conflict.
+
+## Part 6: Slices at every tier and Opus implementers, 2026-09-28
+
+1. **Slice count is a plan property at every tier.** This supersedes Part 5 item 4 and
+   qualifies Part 2 item 4. The no-shared-file rule is what makes several slices safe,
+   and it does not depend on tier. Part 5 item 4 had a cost that was too high: a whole
+   high change ran under one round cap and one implementer. Now every implementer call
+   keeps the per-call subagent timeout, Step 4 keeps its cap of 3 rounds per slice, and
+   the run budget still bounds the whole run. A high plan with three slices has three
+   independent round caps, one per slice, where 0.2.0 had one.
+2. **Xhigh and max set review depth only.** They are still sized by how many areas that
+   share no file the change spans, but slice count no longer follows from the tier. Low
+   is one file or one function, so in practice it cannot split. That is a consequence,
+   not a rule.
+3. **At xhigh and max the implementer is Sonnet or Opus per slice, by written
+   criteria.** The criteria are a risk floor trigger, more than eight files, or a new
+   module, type, interface, or rule section that another file cites. A prompt-only loop
+   with open judgment gives different runs under different orchestrator models, so the
+   criteria are written down and the choice is recorded in the plan with the criterion.
+4. **An Opus implementer call that errors falls back to Sonnet.** This mirrors the fable
+   to opus reviewer fallback. An implementer swap never removes a stage, and the swap is
+   recorded in the log and the report.
+5. **The choice is per slice, not per run.** A max run often has one hard slice and
+   several small ones, so a run-wide model would overpay for the small ones or underpay
+   for the hard one.
+6. **The fallback covers only an implementer tool error.** A permission denial and a
+   budget expiry keep their own rules, and a reviewer call keeps its own fallback.
+   Routing around a denial or a timeout would turn a control into a suggestion.
 
 ## Rules stated elsewhere in the loop, with reasons
 

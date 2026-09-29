@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 44 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 54 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -155,7 +155,8 @@ says otherwise.
     depend on the first. Command: `/ccl:run #1 #2` for each. Expected: both runs are
     sized xhigh, because the change spans two areas that share no file; the independent
     slices run in one Workflow, and the dependent slices run in sequence, one Agent call
-    each. Rerun after any change to Step 4.2 or the estimate rule.
+    each, at the plan's chosen implementer models, named per slice. Rerun after any change
+    to Step 4.2 or the estimate rule.
 29. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
     an Opus subagent for Step 3, the report names that one swap, and no Step 5 review
     runs. Rerun after any change to the fallback table.
@@ -224,13 +225,62 @@ that share no file, and Codex installed unless the item says otherwise.
     says the floor was applied and that the requested tier was above it. Rerun after any
     change to the risk floor.
 43. **Xhigh with a single-slice plan.** Command: `/ccl:run #1 --effort xhigh` for a
-    one-line bug. Expected: the plan has one slice, and Step 4 makes one Agent call.
-    Rerun after any change to Step 4.2.
+    one-line bug. Expected: the plan has one slice, Step 4 makes one Agent call, and the
+    implementer is Sonnet, with the reason that no Opus criterion applies. Rerun after
+    any change to Step 4.2 or to the Implementer choice section of `tiers.md`.
 44. **Re-evaluation does not raise an xhigh run.** Setup: a task sized xhigh whose
     implementation ends up removing an auth check. Command: `/ccl:run #1 #2`. Expected:
     the tier stays xhigh, the report says the floor applied at re-evaluation and the tier
     was unchanged, and Step 5 runs once with `gpt-6-sol`. Rerun after any change to the
     re-evaluation rule.
+45. **Parallel slices at high tier.** Setup: one cross-cutting change in one deliverable
+    whose two parts touch disjoint files, each part about one subagent timeout of work.
+    Command: `/ccl:run #1 --effort high`. Expected: one Workflow with two Sonnet agents,
+    the tier still high, and a run log showing two round counters, one per slice. Rerun
+    after any change to the Step 2 slice rule, Step 4.2, or the Budgets section.
+46. **Ordered slices at medium tier.** Setup: several files in one area, about two
+    subagent timeouts of work in total, where the first slice creates a helper in a file
+    it owns and the second slice, in files only it owns, calls that helper. Command:
+    `/ccl:run #1 #2 --effort medium`. Expected: two Agent calls in order, the second not
+    started before the first ends, both Sonnet, the tier medium, and no file in both
+    slices. Rerun after any change to the Step 2 slice rule or Step 4.2.
+47. **Opus by the contract criterion at xhigh.** Setup: a change where one slice adds a
+    new module that another slice calls. Command: `/ccl:run #1 #2 --effort xhigh`.
+    Expected: `opus` for that slice in the plan and in the report, with the contract
+    criterion named. Rerun after any change to the Implementer choice section of
+    `tiers.md`.
+48. **Opus by the risk criterion at max.** Setup: a change where one slice adds an auth
+    check. Command: `/ccl:run #1 --effort max`. Expected: `opus` for that slice in the
+    plan and in the report, with the risk criterion named. Rerun after any change to the
+    Implementer choice section of `tiers.md` or to the risk floor.
+49. **Opus tool error falls back to Sonnet.** Setup: a test harness that makes an `opus`
+    Agent call return an error, such as an invalid model override. Command:
+    `/ccl:run #1 --effort xhigh`. Expected: the slice runs on `sonnet`, `run.md` has the
+    error, the report names the implementer swap, and a Step 5 fix for that slice also
+    goes to `sonnet`. Rerun after any change to the Opus fallback rule.
+50. **Sonnet chosen for a small max slice.** Setup: a max run whose second slice is one
+    documentation file with no risk trigger and no new section that anything cites.
+    Command: `/ccl:run #1 #2 --effort max`. Expected: `sonnet` for that slice, with the
+    reason "none" in the plan and the report. Rerun after any change to the Implementer
+    choice section of `tiers.md`.
+51. **Denial during an Opus call.** Setup: deny the write of an `opus` implementer.
+    Command: `/ccl:run #1 --effort xhigh`. Expected: no swap to `sonnet`, the denial
+    handled by Approval scope carve-out 3, and the run ends `blocked`. Rerun after any
+    change to Approval scope carve-out 3 or the Opus fallback rule.
+52. **The file threshold.** Setup: at xhigh, one slice that owns exactly eight files and
+    another that owns nine, neither with a risk trigger or a new cited section. Command:
+    `/ccl:run #1 #2 --effort xhigh`. Expected: the eight-file slice on `sonnet`, and the
+    nine-file slice on `opus` with the file criterion named. Rerun after any change to
+    the Implementer choice section of `tiers.md`.
+53. **A timeout is not a fallback.** Setup: an `opus` implementer call that runs past the
+    subagent timeout, for example with `.ccl.json` set to `{"timeouts": {"subagent": 1}}`.
+    Command: `/ccl:run #1 --effort xhigh`. Expected: no swap to `sonnet`, and the run
+    ends `blocked` naming the subagent budget. Rerun after any change to the Budgets
+    section or the Opus fallback rule.
+54. **Effective model after a Workflow.** Setup: an `opus` slice inside a Workflow whose
+    call errors, then a Step 4.3 round that needs a fresh agent. Command:
+    `/ccl:run #1 #2 --effort xhigh`. Expected: the fresh agent runs at `sonnet`, and the
+    report names one swap. Rerun after any change to Step 4.2 or the Opus fallback rule.
 
 ## Record of runs
 

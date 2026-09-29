@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 - 2026-09-28
+
+### Changed
+
+- Slice count is now a plan property at every tier. A plan has one or more slices that
+  share no file: independent slices run in parallel in one Workflow, dependent slices run
+  in order. `xhigh` and `max` are still sized by how many areas the change spans, but that
+  now sets review depth only.
+- At `xhigh` and `max` the implementer for each slice is Sonnet or Opus, chosen by the
+  written criteria in `tiers.md`. If an Opus call returns a tool error, the slice falls
+  back to Sonnet and the swap is recorded. Low, medium, and high still use Sonnet.
+- Budget consequence: each slice keeps its own cap of 3 rounds and the per-call subagent
+  timeout, and the run budget still bounds the whole run. A high plan with three slices
+  therefore has three independent round caps where 0.2.0 had one.
+- Decision Part 5 item 4 is superseded by Part 6 in `docs/decisions.md`.
+
 ## 0.2.0 - 2026-09-28
 
 ### Changed

@@ -2,8 +2,8 @@
 
 `ccl` is a Claude Code plugin that runs a tiered plan, review, implement, review,
 publish loop for one unit of work. Claude orchestrates and reviews. Codex gives a second
-opinion. Sonnet implements. You type one command instead of a hand-written workflow
-prompt.
+opinion. Claude subagents implement: Sonnet below xhigh, Sonnet or Opus per slice at
+xhigh and max. You type one command instead of a hand-written workflow prompt.
 
 The plugin is prompt-only. It is markdown and one JSON manifest. It has no hooks, no
 scripts, and no code that runs outside a Claude Code session.
@@ -16,10 +16,10 @@ Given an issue, a file of notes, or a short description, the loop:
 2. Verifies the claims in the inputs against the code and sizes the effort.
 3. Writes a plan, and at medium effort and above has Codex review it until no blocking
    objection remains.
-4. Creates a branch, runs the repo's checks once as a baseline, and has Sonnet
-   subagents implement the plan, one agent per slice. Low, medium, and high plans
-   have one slice; at xhigh and max, independent slices run in parallel and dependent
-   ones run in order. Claude reviews each slice.
+4. Creates a branch, runs the repo's checks once as a baseline, and has Claude
+   subagents implement the plan, one agent per slice. Independent slices run in parallel
+   and dependent ones in order, at every tier. Below xhigh the implementer is Sonnet; at
+   xhigh and max the plan picks Sonnet or Opus per slice. Claude reviews each slice.
 5. At high effort and above, has Codex review the whole diff.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request, watches CI, and comments on each source
@@ -145,7 +145,7 @@ not depend on it. A subagent's report is model output, not approval.
 | Step | Low | Medium | High | xhigh | Max |
 |---|---|---|---|---|---|
 | Plan review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
-| Implement | one Sonnet agent, Claude reviews | one Sonnet agent, Claude reviews | one Sonnet agent, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews |
+| Implement | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews |
 | Final review | skipped | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
 
 Review of the inputs, checks, and publish run at every tier. The tier is sized from
