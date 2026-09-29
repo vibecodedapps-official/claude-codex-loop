@@ -1,0 +1,17 @@
+{
+  "name": "vibecodedapps-claude-codex-loop",
+  "owner": {
+    "name": "vibecodedapps.net"
+  },
+  "metadata": {
+    "description": "The ccl plugin for Claude Code: a tiered plan, review, implement, review, publish loop."
+  },
+  "plugins": [
+    {
+      "name": "ccl",
+      "source": "./",
+      "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex reviewing, and Sonnet implementing.",
+      "version": "0.1.0"
+    }
+  ]
+}

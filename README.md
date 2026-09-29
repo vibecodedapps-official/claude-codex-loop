@@ -42,7 +42,14 @@ names every swap in the report.
 
 ## Install
 
-A marketplace listing is not yet published. Install from a local clone:
+The repo is its own marketplace. In Claude Code:
+
+```
+/plugin marketplace add vibecodedapps-official/claude-codex-loop
+/plugin install ccl@vibecodedapps-claude-codex-loop
+```
+
+To try a local clone without installing it:
 
 ```
 git clone https://github.com/vibecodedapps-official/claude-codex-loop.git

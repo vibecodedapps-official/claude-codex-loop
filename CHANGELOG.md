@@ -32,12 +32,13 @@ First release.
 - `.ccl.json` with `commit`, `checks`, and `timeouts`.
 - Templates for the final report and the PR body.
 - `docs/decisions.md` (why each rule exists) and `docs/acceptance.md` (hand-run checks).
+- `.claude-plugin/marketplace.json`, so the repo can be added as a marketplace and the
+  plugin installed with `/plugin install ccl@vibecodedapps-claude-codex-loop`.
 
 ### Known limits
 
 - Default permission mode prompts at every Codex call. Unattended runs need auto mode,
   or `--no-codex` plus allow rules for the `git` and `gh` writes.
-- No marketplace listing yet. Install from a local clone with `claude --plugin-dir`.
 - Some mechanics are unverified until the acceptance checks are run by hand: the
   command-to-skill handoff, whether Codex reviews files marked with `git add -N`,
   whether a command can pre-approve another plugin's Bash call, and the Fable model
