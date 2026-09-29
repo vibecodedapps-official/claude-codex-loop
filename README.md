@@ -38,6 +38,15 @@ directory exists prints the report and writes nothing.
   needs a git repository as its working directory and has no network access. An older
   `codex-lite` is treated as unavailable.
 
+  [`codex-lite`](https://github.com/vibecodedapps-official/codex-lite-cc) is a small
+  Claude Code plugin that hands a task to the Codex CLI in a fixed sandbox and prints the
+  result. Install it in Claude Code:
+
+  ```
+  /plugin marketplace add vibecodedapps-official/codex-lite-cc
+  /plugin install codex-lite@vibecodedapps-codex-lite
+  ```
+
 Without Codex, use `--no-codex`. The loop then uses Claude subagents as reviewers and
 names every swap in the report.
 
