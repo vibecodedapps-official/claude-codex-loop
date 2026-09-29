@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 - 2026-09-28
+
+### Changed
+
+- Five effort tiers, `low|medium|high|xhigh|max`, replace the three. Plan review runs at
+  medium and above (`gpt-6-astra` at max, `gpt-6-sol` otherwise). The final review runs at
+  high and above (same models). Low, medium, and high plans have one slice built by one
+  Sonnet agent; xhigh and max plans may have several, one Sonnet agent per slice, in
+  parallel when independent. Compared with 0.1.0, `--effort high` now gets `gpt-6-sol`
+  reviews instead of `gpt-6-astra` and a single implementer, and `--effort medium` no
+  longer gets a final review; the old high is closest to the new `max`.
+- The Codex round review during implementation is removed at every tier. The orchestrator
+  is the only reviewer during implementation.
+- The risk floor now targets high, the middle tier. `--effort low` and `--effort medium`
+  are refused on a floored task; `xhigh` and `max` are above the floor and honored.
+- Medium tier no longer has a final review. It keeps the plan review, and Step 6 still
+  runs the full check set.
+- The estimate rule has five buckets. Low, medium, and high are sized from behavioral
+  risk; xhigh and max from how many areas that share no file the change spans.
+- After implementation only the risk floor is applied to the diff again. The estimate
+  rule is not, so a run never rises above high after Step 4.
+
 ## 0.1.0 - 2026-09-28
 
 First release.

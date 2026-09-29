@@ -47,7 +47,7 @@ inputs:
 - file <path>
 - text "<ad-hoc description>"
 flags:
-  effort: auto | low | medium | high
+  effort: auto | low | medium | high | xhigh | max
   plan-only: true | false
   no-codex: true | false
   branch: <name> | default
@@ -238,8 +238,8 @@ codex-lite accepts 1 to 3600, so a `codex` value above 60 is reported and capped
 5. Codex has no network access. Every input it needs is in `.ccl/`: `inputs.md`, the plan,
    `diff.patch`. Name each file by its repo-relative path in the request.
 6. Each call prints a result that ends with a status line and `thread <id>`. Record the id
-   and stage in `run.md`. Steps 3, 4.4 (one thread per review), and 5 are separate threads,
-   so always resume by explicit id.
+   and stage in `run.md`. Steps 3 and 5 are separate threads, so always resume by explicit
+   id.
 7. The status line decides what happens:
 
 | Status | Action |
@@ -378,8 +378,9 @@ changes the tree.
 5. Read `tiers.md`. Estimate effort with its estimate rule, apply the risk floor, and record
    the tier and the reason in `inputs.md`. With `--effort` set, skip the estimate and force
    that tier, but still apply the risk floor: `--effort` cannot lower a task below it, so a
-   floored task runs at high tier and the reason says so. Bundling issues does not by itself
-   raise the tier; estimate the bundle as one change.
+   floored task runs at high tier or above and the reason says so. `--effort xhigh` or `max`
+   is above the floor and is honored. Bundling issues does not by itself raise the tier;
+   estimate the bundle as one change.
 
 ## Step 2: plan
 
@@ -389,14 +390,15 @@ inputs: shared changes, migrations or RPCs, tests, checks to run, order of work,
 work splits into slices that do not share files. For each slice give the files it owns, the
 change, the acceptance criteria it serves, the tests to add or change, and the checks it
 must pass. State in the order of work which slices are independent and which must run in
-order. A low tier plan has one slice. With `--branch` and plan-only, record the name in the
-plan and create nothing.
+order. A low, medium, or high tier plan has exactly one slice. An xhigh or max tier plan has
+one or more slices. With `--branch` and plan-only, record the name in the plan and create
+nothing.
 
 Low tier: continue to Step 3.6.
 
 ## Step 3: plan review and converge
 
-Medium and high tier only. The reviewer for the stage comes from `tiers.md`.
+Medium tier and above only. The reviewer for the stage comes from `tiers.md`.
 
 1. Send the plan file path and the `inputs.md` path to the reviewer, using `codex-lite:ask`
    with the request shape in the Reviewer contract. Say in the request what blocking means
@@ -423,7 +425,7 @@ the plan. It is already written. Nothing else runs: no branch, no checks, no com
 1. If the planning snapshot was not the base commit, repeat Step 1.2's verification against the
    base commit and revise the plan where it differs. Read without changing the tree, for
    example `git show <base-commit>:<path>` and `git diff <planning-snapshot> <base-commit>`.
-   At medium or high tier a revision gets one more Step 3 round, inside the cap of 3.
+   At medium tier and above a revision gets one more Step 3 round, inside the cap of 3.
 2. Create the branch from the base commit. The name is, in order: the `--branch` value; else
    `fix/<id>-<slug>` when any source issue has a `bug` label or a title starting with "fix"
    (any case); else `feat/<id>-<slug>`. `<id>` is the issue numbers joined with `-` and
@@ -440,37 +442,33 @@ the plan. It is already written. Nothing else runs: no branch, no checks, no com
 1. Give each Sonnet agent the implementer prompt from Mechanics. No two agents edit the same
    file at the same time.
 2. Run one Sonnet agent per slice:
-   1. One slice (every low tier plan): one Agent call.
-   2. Several slices that the plan's order of work shows are independent: one Workflow whose
-      script runs one Sonnet agent per slice in parallel. This skill's use of the Workflow tool
-      is the user's opt-in. If a Workflow authoring skill is listed, load it before writing the
-      script.
-   3. Slices with an ordering dependency: one Agent call each, in that order.
-   The tier sets review depth, not concurrency.
+   1. One slice, at any tier: one Agent call.
+   2. xhigh and max tier, several slices that the plan's order of work shows are independent:
+      one Workflow whose script runs one Sonnet agent per slice in parallel. This skill's use
+      of the Workflow tool is the user's opt-in. If a Workflow authoring skill is listed, load
+      it before writing the script.
+   3. xhigh and max tier, slices with an ordering dependency: one Agent call each, in that
+      order.
 3. Review each slice's diff against the plan and its acceptance criteria (`git diff
    <base-commit> -- <slice files>`, new files marked with `git add -N`). Send findings back to
    the same agent with SendMessage when it can be continued. Agents run inside a Workflow do not
    persist, and an agent that cannot be continued is replaced: give a fresh agent the findings
    and the slice's current diff. Either way it counts as a round.
-4. High tier: after each integrated round, Codex reviews with `codex-lite:review` as the
-   Reviewer contract describes, at the round reviewer's model from `tiers.md`. The review cannot
-   be told the plan, so you are the only reviewer that checks the diff against the plan. Verify
-   both sets of findings, merge duplicates, then send them back.
-5. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
+4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
    non-blocking finding in the same round only when the fix stays inside the slice's files and
    the plan's scope. Otherwise list it in the report as deferred, with a short description and
    the reason. After the cap, fix any blocking finding that remains yourself, once. A blocking
    finding still open after that ends the run in `blocked`.
-6. Tier re-evaluation: when Step 4 ends, apply the risk floor from `tiers.md` to the actual
-   diff and log the result in `run.md`. If the floor now applies and the run is not at high
-   tier, the run rises to high tier and completes the high tier reviews before Step 6: the
-   round review in item 4 on the integrated diff (cap 3 rounds) and Step 5 with the high tier
-   reviewer. The plan review of Step 3 is not repeated after implementation. The report says
-   so. If the floor does not apply to an edit in a sensitive area, the report says why not.
+5. Tier re-evaluation: when Step 4 ends, apply the risk floor from `tiers.md` to the actual
+   diff and log the result in `run.md`. If the floor now applies and the run is below high
+   tier, the run rises to high tier and completes the high tier review before Step 6: Step 5
+   with the high tier reviewer. The plan review of Step 3 is not repeated after
+   implementation. The report says so. If the floor does not apply to an edit in a sensitive
+   area, the report says why not.
 
 ## Step 5: final review
 
-Low tier skips Step 5 entirely, including 5.1. Step 6 runs the full set.
+Low and medium tier skip Step 5 entirely, including 5.1. Step 6 runs the full set.
 
 1. Integrate all slices and run the full check suite. This is the first full run since the
    baseline, because Step 4 runs only the checks each slice names. A check that passed at
@@ -513,10 +511,10 @@ Low tier skips Step 5 entirely, including 5.1. Step 6 runs the full set.
    report as deferred.
 4. A behavior change gets a test if the repo has a suite.
 5. Fix a failing check that is not a baseline match. The fix goes through the tier's review:
-   your review at low tier, a Step 5 round at medium and high tier, within Step 5's cap of 3
-   (if that cap is already used up, end in `blocked`, naming the round cap). Then run the full
-   set again. Step 6 runs at most 3 times. A failure still open after the third ends the run
-   in `blocked`.
+   your review at low and medium tier, a Step 5 round at high tier and above, within Step
+   5's cap of 3 (if that cap is already used up, end in `blocked`, naming the round cap).
+   Then run the full set again. Step 6 runs at most 3 times. A failure still open after the
+   third ends the run in `blocked`.
 
 ## Step 7: publish
 
@@ -607,13 +605,13 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
       checks or workflows, no workflow applies, no deferred check is expected, and no result
       has appeared on either commit within 2 minutes of the push; the report says so. A result
       that appears on either commit keeps the watch open until it finishes.
-   5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier) and
-      Step 6 for the new diff, with the round allowance the Budgets section gives each cycle,
-      before the fix is pushed. At medium and high tier, refresh `diff.patch` and use the
-      Step 5 thread when one exists, else `codex-lite:review --base <base-commit>`, which
-      covers committed work. At low tier the repair gets your own review only. Up to 3 CI
-      repair cycles. If CI is still red after the third, end in `blocked` with the PR linked
-      and nothing further pushed.
+   5. A CI failure that needs a code change re-enters Step 5 (your own review at low and
+      medium tier) and Step 6 for the new diff, with the round allowance the Budgets section
+      gives each cycle, before the fix is pushed. At high tier and above, refresh `diff.patch`
+      and use the Step 5 thread when one exists, else `codex-lite:review --base
+      <base-commit>`, which covers committed work. At low and medium tier the repair gets your
+      own review only. Up to 3 CI repair cycles. If CI is still red after the third, end in
+      `blocked` with the PR linked and nothing further pushed.
 4. Comment on each source issue with status and evidence, including partial completion, in
    the issue status comment shape from `pr-body.md`. No issue comment is made before the plan
    is final, and none on a `blocked` run.

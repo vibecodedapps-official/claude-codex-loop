@@ -1,6 +1,6 @@
 ---
-description: Run the tiered plan, review, implement, review, publish loop for one unit of work, from issues, a handoff file, or a description. Use when the user asks to run the ccl loop, or types /ccl:run. Inputs are issue URLs or #n numbers of this repo, file paths, and a quoted description. Flags are --effort low|medium|high, --plan-only, --no-codex, and --branch <name>. Pull request references are rejected. To only plan, use /ccl:plan.
-argument-hint: '<#n | issue URL | file path | "description">... [--effort low|medium|high] [--plan-only] [--no-codex] [--branch <name>]'
+description: Run the tiered plan, review, implement, review, publish loop for one unit of work, from issues, a handoff file, or a description. Use when the user asks to run the ccl loop, or types /ccl:run. Inputs are issue URLs or #n numbers of this repo, file paths, and a quoted description. Flags are --effort low|medium|high|xhigh|max, --plan-only, --no-codex, and --branch <name>. Pull request references are rejected. To only plan, use /ccl:plan.
+argument-hint: '<#n | issue URL | file path | "description">... [--effort low|medium|high|xhigh|max] [--plan-only] [--no-codex] [--branch <name>]'
 allowed-tools: Bash(git status:*), Bash(git rev-parse:*), Bash(git remote:*), Bash(gh repo view:*), Bash(gh issue view:*), Bash(gh pr view:*), Read, Skill
 ---
 
@@ -12,7 +12,7 @@ You are a thin forwarder for the ccl orchestrator. Do the steps below in order.
 "$ARGUMENTS"
 </user-text>
 
-   - A flag is a token that starts with `--`. Accepted flags: `--effort`, `--plan-only`, `--no-codex`, `--branch`. `--effort` takes exactly one value, one of `low`, `medium`, `high`; without it, effort is `auto`. `--branch` takes exactly one value, a branch name; without it, branch is `default`. Reject any other flag, a missing flag value, and any `--effort` value other than `low`, `medium`, `high`. `--plan-only` and `--no-codex` take no value.
+   - A flag is a token that starts with `--`. Accepted flags: `--effort`, `--plan-only`, `--no-codex`, `--branch`. `--effort` takes exactly one value, one of `low`, `medium`, `high`, `xhigh`, `max`; without it, effort is `auto`. `--branch` takes exactly one value, a branch name; without it, branch is `default`. Reject any other flag, a missing flag value, and any `--effort` value other than `low`, `medium`, `high`, `xhigh`, `max`. `--plan-only` and `--no-codex` take no value.
    - An input token that is an issue URL (`https://github.com/<owner>/<repo>/issues/<n>`) or `#<n>` is an issue. Several issues are allowed.
    - A pull request URL (`.../pull/<n>`) is a pull request. A `#<n>` is a pull request if `gh issue view <n> --json url` returns a URL containing `/pull/`. Check each `#<n>` this way, and check any issue URL's repo the same way.
    - A token that names an existing file is a file input. Check with the Read tool. Any number of file inputs is allowed.
@@ -36,7 +36,7 @@ inputs:
 - file <path>
 - text "<ad-hoc description>"
 flags:
-  effort: auto | low | medium | high
+  effort: auto | low | medium | high | xhigh | max
   plan-only: true | false
   no-codex: true | false
   branch: <name> | default

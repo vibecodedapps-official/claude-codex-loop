@@ -17,7 +17,7 @@ a ChatGPT account, which is why full ids are required.
 1. **Artifacts default to a git-ignored path.** Committing needs a repo opt-in
    (`"commit": true`), because a `specs/` folder alone does not say what convention the
    repo follows. No incident is recorded.
-2. **Auth, schema, RLS, data access, and public API changes are always high tier, and the
+2. **Auth, schema, RLS, data access, and public API changes are at least high tier, and the
    tier is re-checked against the diff.** A single extra review at low tier would
    conflict with the classification. No incident is recorded.
 3. **The round cap is 3 at every tier.** Time budgets and the `blocked` outcome do the
@@ -41,17 +41,19 @@ These followed a second review of the design, with a second opinion from Codex.
    `--plan-only` never changes the tree, so a plan-only run leaves nothing that would
    fail the next run's clean tree check.
 4. **One implementer per slice at every tier, parallel only for independent slices.**
-   The tier sets review depth, not concurrency. Slices share one working tree, so the
-   rule that no two slices share a file is what keeps parallel work safe.
+   Low, medium, and high plans have one slice, so parallel work exists only at xhigh and
+   max. Slices share one working tree, so the rule that no two slices share a file is
+   what keeps parallel work safe.
 5. **No issue comment before the plan, and no new publication on `blocked`.** A run that
    has not finished its work should not speak on the issue, and a blocked run must not
    add more public state.
 6. **Expected CI checks come from branch protection, rulesets, and Step 6's deferred
    checks.** Not from every workflow file, because path and branch filters make
    workflow-derived expectations false blockers.
-7. **Effort is estimated from behavioral risk.** Bundling issues does not raise the tier.
-   The tier is re-evaluated against the diff after Step 4, since the plan can
-   underestimate what the implementation touches.
+7. **Effort below xhigh is estimated from behavioral risk; xhigh and max are sized from
+   how many areas that share no file the change spans.** Bundling issues does not raise
+   the tier. After Step 4 the risk floor is applied to the actual diff, since the plan can
+   underestimate what the implementation touches; the estimate rule is not applied again.
 8. **The Reviewer contract records how the loop uses codex-lite.** The rules that
    earlier drafts held as exceptions became one section, so every stage follows the same
    rules.
@@ -95,12 +97,12 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
 8. **Continuing or replacing an implementer.** Findings go back to the same agent when
    it can be continued. Agents run inside a Workflow do not persist, so a fresh agent
    gets the findings and the slice's current diff.
-9. **Low tier skips all of Step 5, including 5.1.** Step 6 then runs the full set, so
-   the full check run still happens once.
+9. **Low and medium tier skip all of Step 5, including 5.1.** Step 6 then runs the full
+   set, so the full check run still happens once.
 10. **The Step 6 fix loop.** A failing check that is not a baseline match is fixed, and
     the fix goes through the tier's review. Step 6 runs at most 3 times.
-11. **Low tier CI repair.** A CI failure at low tier goes to the orchestrator's review
-    rather than a Step 5 round, since low tier has no Step 5.
+11. **Low and medium tier CI repair.** A CI failure at low or medium tier goes to the
+    orchestrator's review rather than a Step 5 round, since those tiers have no Step 5.
 12. **The required checks are read with read access, and a failed read blocks.** They
     come from the branch endpoint and the branch rules endpoint, which need only read
     access. The protection endpoint needs admin rights and returns 404 otherwise. If a
@@ -227,7 +229,7 @@ and the acceptance item is named.
    invoked as `ccl:ccl` with the invocation block as its args, is the default
    assumption because it loads the skill's own frontmatter. Acceptance item 1 confirms
    it.
-9. **The high tier fallback tries the Fable model override on the Agent tool first and
+9. **The max tier fallback tries the Fable model override on the Agent tool first and
    uses Opus on an error.** There is no session model detection. This is unverified at
    0.1.0. Acceptance item 38 checks it.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
@@ -237,14 +239,50 @@ and the acceptance item is named.
     reruns the full check set.** A tree hash would work but the orchestrator already
     knows what it edited, and the log is also part of the report.
 
+## Part 5: Five tiers, 2026-09-28
+
+The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
+
+1. **Five tiers, with `xhigh` over `extra`.** `xhigh` matches Claude Code's own effort
+   vocabulary, so the names mean the same thing in both places.
+2. **The Codex round review during implementation is dropped.** The orchestrator is the
+   only reviewer that knows the plan, and the final review already covers the diff.
+3. **The risk floor targets high, the middle tier.** A floored task that is not
+   xhigh-shaped gets `gpt-6-sol` reviews of the plan and the diff without forcing the
+   cost of the top tiers. A floored task that is xhigh-shaped is max by the estimate
+   rule. A requested xhigh or max stands, because it is above the floor.
+4. **One slice below xhigh.** Concurrency is now a tier property, so the tier sets both
+   review depth and slice count. The cost is accepted: work that 0.1.0 could split into
+   two parallel agents now runs as one agent under one subagent budget (20 minutes by
+   default) and one round cap. A change that needs more than that at high tier is a sign
+   it spans several areas and belongs at xhigh, or needs `--effort xhigh`.
+5. **Medium reviews the plan and not the diff.** The plan review catches scope errors,
+   and Step 6's full check run still covers the diff.
+6. **The estimate rule has five buckets, and decision 7 of Part 2 is qualified.** Low is
+   one file or one function, a clear fix, and no risk floor trigger. Medium is several
+   files in one area, one issue with tests, or any doc restructure. High is a
+   cross-cutting change inside one deliverable, or any risk floor trigger. Xhigh is one
+   change whose scope spans several areas that share no file, so the plan splits it into
+   two or more slices with disjoint files, in parallel or in order. Max is an
+   xhigh-shaped change that also has a risk floor trigger. A change to shared build, CI,
+   auth, or data code is not max on its own: the floor already covers the risky layers,
+   and a one-file CI edit is low. Bundling issues does not by itself raise the tier: a
+   bundle is xhigh only when the change it describes, taken as one change, spans several
+   areas with no shared file. File separation between areas is what makes several slices
+   safe, whether they run in parallel or in order, so it is what earns the top tiers.
+7. **Re-evaluation after Step 4 is floor-only.** The estimate rule is not applied again
+   to the diff. With the max criterion, a re-estimate would have sent an xhigh run whose
+   diff added an auth check to max and `gpt-6-astra`, while the rise rule said only runs
+   below high rise, and only to high. One rule, the floor, removes the conflict.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.
 
 - **Codex model ids are always the full id.** Bare `sol` fails on a ChatGPT account.
 - **Every Codex call carries `--timeout`, and follow-ups pass `--resume <id>`, never
-  bare.** Step 3, Step 4.4, and Step 5 are separate threads. A bare `--resume` after a
-  round review would continue the wrong one.
+  bare.** Step 3 and Step 5 are separate threads. A bare `--resume` after a plan review
+  would continue the wrong one.
 - **Only the orchestrator calls Codex, one call at a time.** codex-lite supports one
   call at a time per Claude session.
 - **A fallback swaps one reviewer and never removes a stage.** The tier is set by the
