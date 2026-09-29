@@ -46,9 +46,9 @@ These followed a second review of the design, with a second opinion from Codex.
 5. **No issue comment before the plan, and no new publication on `blocked`.** A run that
    has not finished its work should not speak on the issue, and a blocked run must not
    add more public state.
-6. **Expected CI checks come from branch protection and Step 6's deferred checks.** Not
-   from every workflow file, because path and branch filters make workflow-derived
-   expectations false blockers.
+6. **Expected CI checks come from branch protection, rulesets, and Step 6's deferred
+   checks.** Not from every workflow file, because path and branch filters make
+   workflow-derived expectations false blockers.
 7. **Effort is estimated from behavioral risk.** Bundling issues does not raise the tier.
    The tier is re-evaluated against the diff after Step 4, since the plan can
    underestimate what the implementation touches.
@@ -101,9 +101,11 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     the fix goes through the tier's review. Step 6 runs at most 3 times.
 11. **Low tier CI repair.** A CI failure at low tier goes to the orchestrator's review
     rather than a Step 5 round, since low tier has no Step 5.
-12. **The unknown expected CI set.** When branch protection cannot be read, the loop
-    waits within the CI budget until every check observed on the head commit has
-    finished, judges on those, and says so.
+12. **The required checks are read with read access, and a failed read blocks.** They
+    come from the branch endpoint and the branch rules endpoint, which need only read
+    access. The protection endpoint needs admin rights and returns 404 otherwise. If a
+    read fails, the run ends in `blocked`, because judging without the required set could
+    report done while GitHub blocks the merge.
 13. **The run id without `pr-<n>`.** With no repair mode, the id is the date plus the
     issue numbers, else the slug of the description or file name.
 14. **How per-call budgets are enforced.** A budget is passed to the tool where the tool
@@ -145,13 +147,43 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     `stale`, or a commit status of `failure` or `error`. GitHub counts success, skipped,
     and neutral as successful, so a neutral check would otherwise never read as passed.
 25. **CI is not applicable only when nothing is required, applicable, expected, or
-    observed.** Branch protection was read and requires nothing, no workflow applies, no
+    observed.** The required checks were read and require nothing, no workflow applies, no
     deferred check is expected, and no check has been observed on the head commit or the
     test merge commit within 2 minutes of the push. A status on the test merge commit
     gates the PR, so the decision must see it too, else a pending or failing merge commit
     status could end in done. A status or check run observed there keeps the watch open
-    until it finishes, and when the required checks are unknown, the test merge commit's
-    statuses and check runs are still judged.
+    until it finishes.
+26. **The gated commit is the test merge commit when it has any status or check run,
+    else the head commit.** GitHub judges required checks on the test merge commit when it
+    has a status, so a required check that passed only on the head commit could let the run
+    report done while GitHub blocks the PR. Required checks come from the branch endpoint
+    and the branch rules endpoint. A required check missing from the gated commit is
+    pending until the CI budget expires, then blocked. Acceptance item 22 checks it.
+
+27. **Only the latest result per status context and per check run in its own check suite
+    counts.** A rerun supersedes an earlier failure, as GitHub's combined status does.
+    Earlier attempts stay in the report as history, so a passed rerun is not blocked by
+    the failure it replaced. Two workflows can share a job name, so collapsing by name
+    could hide a pending or failed run.
+28. **A required check can name its app, and a name that exists as both a check run and
+    a status needs both to pass.** The app keeps another app's same-named check from
+    satisfying it. Two results under one name are two gates, so one passing cannot hide
+    the other failing. A commit status exposes no
+    app, so accepting a status for a check that names an app could report done while
+    GitHub rejects the source. When only a status carries that name, the run ends blocked
+    at once, naming the check, which is safer than waiting out the CI budget.
+    Acceptance item 26 checks it.
+29. **Ruleset required workflows are required too.** A `workflows` rule blocks the merge
+    like a required check. It is met when the workflow's latest run for the head commit
+    passes, and a run that cannot be identified is named and treated as unmet. Rulesets
+    name the workflow by file path, not by name, so runs are matched by their `path`
+    and by the rule's repository, since two workflow definitions can share a path.
+30. **A merge conflict blocks at once.** `pull_request` workflows do not run on a
+    conflicted PR, so waiting would only run out the CI budget. The report names the
+    conflict.
+31. **The all-green rule is deliberately stricter than GitHub's merge gate.** The loop
+    publishes only fully green work, so an optional check that fails or has not finished
+    blocks `done`, and the report says so when it does.
 
 ## Part 4: Design decisions to confirm
 
@@ -174,7 +206,7 @@ and the acceptance item is named.
 3. **codex-lite 0.7.0 or later is required.** It provides `--timeout`, the status line,
    and base reviews that include uncommitted work. Whether Codex reviews a file marked
    with `git add -N`, and not only the pre-check, is unverified at 0.1.0. Acceptance
-   item 27 checks it.
+   item 32 checks it.
 4. **Default permission mode prompts at every Codex call.** codex-lite writes a request
    file under `~/.claude`, and that prompt persists. Unattended runs need auto mode or
    `--no-codex`. The README says so, and Step 0.1 says so at run time.
@@ -190,14 +222,14 @@ and the acceptance item is named.
    because the run budget records the start time before the permissions statement, and a
    prompt there would come before the run says it will prompt. Whether it can also
    cover codex-lite's Bash call is unverified at 0.1.0, and the default assumption is
-   that it cannot. Acceptance item 35 checks it.
+   that it cannot. Acceptance item 40 checks it.
 8. **How a command hands off to the skill is settled by a hand check.** The Skill tool,
    invoked as `ccl:ccl` with the invocation block as its args, is the default
    assumption because it loads the skill's own frontmatter. Acceptance item 1 confirms
    it.
 9. **The high tier fallback tries the Fable model override on the Agent tool first and
    uses Opus on an error.** There is no session model detection. This is unverified at
-   0.1.0. Acceptance item 33 checks it.
+   0.1.0. Acceptance item 38 checks it.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
     wrong guess would either run something unrelated or report false confidence. The job
     is named in the report and left to the CI gate.

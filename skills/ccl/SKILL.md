@@ -543,7 +543,31 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
    otherwise.
 3. Watch CI:
-   1. A workflow applies to the PR when it triggers on pull requests, its `branches`,
+   1. Read these with `gh`, all readable with read access. If any read fails, CI cannot be
+      verified: end in `blocked`, naming the failed read. Never treat a failed read as "nothing
+      is required".
+      - Required checks: `gh api repos/{owner}/{repo}/branches/<base> --jq .protection` gives
+        `required_status_checks` (`contexts`, and `checks` with `app_id`). Do not read the
+        `/protection` endpoint, which returns 404 without admin rights.
+        `gh api repos/{owner}/{repo}/rules/branches/<base>` gives the active rules, including
+        organization rulesets: its `required_status_checks` rules add required checks and its
+        `workflows` rules name required workflows by file path and repository. A required check
+        is a name and, when set, the app that must report it.
+      - The PR: `gh pr view <n> --json headRefOid,mergeable` for the head SHA and merge state,
+        and `gh api repos/{owner}/{repo}/pulls/<n> --jq .merge_commit_sha` for the test merge
+        commit. A missing `merge_commit_sha` is read again on the next poll.
+      - Results, for the head commit and the test merge commit:
+        `gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?filter=latest&per_page=100"`
+        (page on when `total_count` exceeds 100) and
+        `gh api repos/{owner}/{repo}/commits/<sha>/status`, which gives the latest status per
+        context. Only the latest result counts: the latest status per context, and the latest
+        attempt of each check run within its own check suite, so same-named checks from
+        different workflows are judged separately. Earlier attempts are report history only.
+      - Required workflows: `gh api "repos/{owner}/{repo}/actions/runs?head_sha=<head sha>"`,
+        comparing each run's `path` and repository with the rule's workflow file path and
+        `repository_id`.
+      Read both commits again after every push.
+   2. A workflow applies to the PR when it triggers on pull requests, its `branches`,
       `branches-ignore`, `paths`, and `paths-ignore` filters match the PR's base branch and
       changed files, and its `types` filter, when present, includes the event the watched head
       commit produced: `opened` for the first watch after the PR is created, `synchronize`
@@ -552,42 +576,37 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
       `pull_request_target`) does not apply when the PR head commit's message carries a skip
       instruction: `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, or
       a `skip-checks:true` or `skip-checks: true` trailer. The report names each workflow a
-      skip instruction made not applicable. A check that branch protection requires stays
-      expected either way: GitHub leaves it pending, so the pending rule in item 3 applies.
-      Expected checks are the required status checks from branch protection, read with `gh`
-      (the branch protection API and the repo's rulesets for the default branch), plus every
-      check Step 6 deferred to CI whose workflow applies, matched by job name. A deferred check
-      whose workflow does not apply is named in the report as not triggered, with the filter
-      that excluded it, unless branch protection requires it. A "branch not protected" answer
-      means protection was read and requires nothing. Any other read failure means it could not
-      be read: say so and treat the required checks as unknown. The other rules stay the same.
-   2. Poll the checks of the PR head commit, identified by its SHA, with `gh pr checks`,
-      `gh pr view --json headRefOid`, and `gh run list`. Poll at about 30 second intervals,
-      checking the run budget each time. A check that reported on an earlier commit does not
-      count. Recheck the SHA after every push. Also read the PR's test merge commit, the
-      `merge_commit_sha` from `gh api repos/{owner}/{repo}/pulls/<n> --jq .merge_commit_sha`,
-      and that commit's statuses and check runs, because GitHub gates the PR on the test
-      merge commit when it has a status. A missing `merge_commit_sha` is read again on the
-      next poll. Every push produces a new test merge commit, so read it again after each
-      push.
-   3. CI is not judged until 2 minutes after the push. A check passes when its result is
-      `success`, `neutral`, or `skipped`. Any other finished result is a failure: `failure`,
-      `cancelled`, `timed_out`, `action_required`, `stale`, or a commit status of `failure` or
-      `error`. CI is green when every expected check has passed on the head commit, every
-      applicable workflow has reported at least one check on that commit, and every check
-      observed on that commit has finished and passed, with none pending or failed. When the
-      test merge commit has any statuses or check runs, each must also have finished and
-      passed, and a failure there is a CI failure. An expected check or an
-      applicable workflow that has not reported is pending until the CI budget expires, then
-      `blocked`. When the required checks are unknown, judge on the expected deferred checks,
-      the applicable workflows, the checks observed on the head commit, and the statuses and
-      check runs of the test merge commit, and the report says the required checks could not
-      be read.
-   4. CI is not applicable only when branch protection was read and requires nothing, no
-      workflow applies, no deferred check is expected, and no check has been observed on the
-      head commit or the test merge commit within 2 minutes of the push. The report says
-      so. A status or check run observed on the test merge commit keeps the watch open
-      until it finishes.
+      skip instruction made not applicable. A required check stays required either way.
+      Expected deferred checks are a separate set: every check Step 6 deferred to CI whose
+      workflow applies, matched by job name. A deferred check whose workflow does not apply is
+      named in the report as not triggered, with the filter that excluded it, unless it is
+      also a required check.
+   3. A result passes when it is `success`, `neutral`, or `skipped`. Any other finished
+      result is a failure: `failure`, `cancelled`, `timed_out`, `action_required`, `stale`, or
+      a commit status of `failure` or `error`. The gated commit is the test merge commit when
+      it has any status or check run, else the head commit, because GitHub judges required
+      checks on the test merge commit when it has a status. A required check is met when its
+      latest result on the gated commit passes, from the required app when one is set, and,
+      when the name exists both as a check run and as a status, both pass. A required app is
+      verified from a check run's app. A commit status carries no app, so when a required check
+      names an app and only a status carries that name, its source cannot be verified: end in
+      `blocked` at once, naming the check, rather than risk `done` while GitHub rejects the
+      source. A required workflow is met when its latest run for the head commit, matched by
+      the rule's workflow file path and repository, passes. A match that cannot be confirmed
+      counts as unmet and is named in the report.
+   4. Poll at about 30 second intervals, checking the run budget each time. CI is not judged
+      until 2 minutes after the push. If `mergeable` is `CONFLICTING`, `pull_request`
+      workflows do not run: end in `blocked` at once, naming the conflict. CI is green when
+      every required check and required workflow is met, every expected deferred check has
+      passed on the head commit, every applicable workflow has reported at least one check on
+      the head commit, and every latest result on either commit has finished and passed. That
+      is stricter than GitHub's merge gate, on purpose: the loop publishes only fully green
+      work, and the report says so when an optional check blocked it. Anything unmet or not
+      yet reported is pending until the CI budget expires, then `blocked`. A failure in a
+      latest result is a CI failure. CI is not applicable only when there are no required
+      checks or workflows, no workflow applies, no deferred check is expected, and no result
+      has appeared on either commit within 2 minutes of the push; the report says so. A result
+      that appears on either commit keeps the watch open until it finishes.
    5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier) and
       Step 6 for the new diff, with the round allowance the Budgets section gives each cycle,
       before the fix is pushed. At medium and high tier, refresh `diff.patch` and use the
