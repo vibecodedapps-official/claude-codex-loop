@@ -383,7 +383,7 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
    Step 0.6 and the failures recorded since. Use the roles table in `tiers.md` for the default
    and the fallback of each stage.
 3. A fallback reviewer is a Claude subagent started with the Agent tool at the model `tiers.md`
-   names for the Codex model it replaces (`opus` for `gpt-6-sol`; `fable`, then `opus` on an
+   names for the Codex model it replaces (`opus` for `gpt-6.1-sol`; `fable`, then `opus` on an
    Agent error, for `gpt-6-astra`, at any tier), given the same request text, the same files,
    and the same required reply shape, and told to read and report only, never edit. For a
    diff stage it reads `git diff <base-commit>` itself, after new files are marked with
@@ -698,9 +698,9 @@ plan-only, record the name in the plan and create nothing.
 
 ## Step 3: plan review and converge
 
-Every tier. The reviewer for the stage comes from the tier table in `tiers.md`: `gpt-6-sol`
-at low and medium, `gpt-6-astra` at xhigh and max, and at high `gpt-6-astra` when the Step
-1.5 floor check found a trigger, else `gpt-6-sol`.
+Every tier. The reviewer for the stage comes from the tier table in `tiers.md`:
+`gpt-6.1-sol` at low and medium, `gpt-6-astra` at xhigh and max, and at high `gpt-6-astra`
+when the Step 1.5 floor check found a trigger, else `gpt-6.1-sol`.
 
 1. Send the plan file path and the `inputs.md` path to the reviewer, using `codex-lite:ask`
    with the request shape in the Reviewer contract. Say in the request what blocking means
@@ -786,8 +786,8 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    resolve the Step 5 reviewers from the tier table in `tiers.md` and log them. Only the
    xhigh cell depends on this check: an xhigh run gets
    Codex `gpt-6-astra` when a trigger was present at the estimate or is present in the
-   diff, else `gpt-6-sol`, beside Claude `code-review high`, and stays xhigh. Every other
-   tier's cell stands; a run that rose to high gets Codex `gpt-6-sol` and Claude
+   diff, else `gpt-6.1-sol`, beside Claude `code-review high`, and stays xhigh. Every other
+   tier's cell stands; a run that rose to high gets Codex `gpt-6.1-sol` and Claude
    `code-review medium`. In a worktree run a rise to high ends the run in `blocked` naming
    the skip-worktree state and the tier. Step 5 then runs with those reviewers before Step 6. The
    plan review of Step 3 is not repeated after implementation. The report says so. If the
@@ -796,9 +796,9 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
 ## Step 5: final review
 
 Low tier skips Step 5 entirely, including 5.1. Step 6 then runs the full set. Medium tier
-has one reviewer, Codex `gpt-6-sol`. High tier and above have two, the Codex reviewer Step
-4.5 resolved and the Claude `code-review` skill at the tier's level; confirm the skill is
-listed as the Claude review contract says before 5.1 runs.
+has one reviewer, Codex `gpt-6.1-sol`. High tier and above have two, the Codex reviewer
+Step 4.5 resolved and the Claude `code-review` skill at the tier's level; confirm the skill
+is listed as the Claude review contract says before 5.1 runs.
 
 1. Integrate all slices and run the full check suite. This is the first full run since the
    baseline, because Step 4 runs only the checks each slice names. A check that passed at
