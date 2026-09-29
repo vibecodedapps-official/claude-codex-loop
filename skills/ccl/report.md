@@ -41,7 +41,7 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 
 - Mode: <attended | unattended>
 - Prompts that occurred: <each prompt, what it was for, how it was answered; or "none">
-- Prompts expected at Step 0.7 and not seen, or seen and not expected: <list, or "none">
+- Prompts expected at Step 0.1 and not seen, or seen and not expected: <list, or "none">
 
 ## Effort tier
 

@@ -62,7 +62,7 @@ These followed a second review of the design, with a second opinion from Codex.
     not a round. A Step 3.7.1 revision is a Step 3 round. Each CI repair cycle gets one
     Step 5 round and one full Step 6 run of its own, because the cycles are already
     capped at 3. The run budget is 4 hours from Step 0 to the terminal state.
-11. **Step 0.7 states before Step 1 whether the run will prompt.** The report records the
+11. **Step 0.1 states whether the run will prompt before any other Step 0 action.** The
     prompts that occurred. An unattended run that stalls on a prompt is the cost this
     avoids, and the recorded failure of dropped up-front approval grants is the reason
     the approval scope is listed in the skill text.
@@ -86,7 +86,7 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
    `origin`. A checkout can have several remotes, and the loop needs one answer.
 5. **The run log starts at Step 0.5.** Steps 0.2 to 0.4 run before the run directory
    exists, so their records are written once it does.
-6. **How Step 0.7 determines prompts.** The mode comes from what the session states and
+6. **How Step 0.1 determines prompts.** The mode comes from what the session states and
    from the settings files' default mode and allow rules. An action whose outcome cannot
    be determined counts as one that will prompt, so the statement errs toward
    attended.
@@ -117,10 +117,19 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     the base commit, reading without changing the tree, then 3.7.2 creates the branch. A
     stopped run then never has a branch, so a rerun does not collide with one.
 17. **The approval scope names the PR report comment.** The rules already send later
-    report updates to a comment on the run's own PR, so the scope lists it and Step 0.7
+    report updates to a comment on the run's own PR, so the scope lists it and Step 0.1
     reports whether it will prompt.
 18. **Codex review needs `codex-lite` 0.7.0 or later.** `--timeout`, the status line,
     and base reviews that include uncommitted work need 0.7.0.
+19. **The permissions statement comes at the end of Step 0.1, before any other action.**
+    An attended run could prompt or stop before the statement, as in a Step 0.5 write
+    refusal, so the statement must come before the first action that can prompt. It
+    covers Step 0's own actions, and Step 0.7 records every prompt that occurred.
+20. **CI is not judged until 2 minutes after the push, and needs a report from each
+    applicable workflow.** Otherwise a first poll with no checks yet would read as green.
+21. **A deferred check whose workflow filters exclude the PR is not expected.** Otherwise
+    it never reports and blocks until the CI budget expires. A workflow's `types` filter
+    counts too: a workflow limited to types such as closed never runs while the PR is open.
 
 ## Part 4: Design decisions to confirm
 
@@ -143,10 +152,10 @@ and the acceptance item is named.
 3. **codex-lite 0.7.0 or later is required.** It provides `--timeout`, the status line,
    and base reviews that include uncommitted work. Whether Codex reviews a file marked
    with `git add -N`, and not only the pre-check, is unverified at 0.1.0. Acceptance
-   item 22 checks it.
+   item 23 checks it.
 4. **Default permission mode prompts at every Codex call.** codex-lite writes a request
    file under `~/.claude`, and that prompt persists. Unattended runs need auto mode or
-   `--no-codex`. The README says so, and Step 0.7 says so at run time.
+   `--no-codex`. The README says so, and Step 0.1 says so at run time.
 5. **Parallel slices share one working tree, with no per-agent worktrees.** Merging
    per-agent worktrees adds a step the rules do not have, and the no-shared-file rule
    already prevents the conflicts that would justify it.
@@ -154,17 +163,19 @@ and the acceptance item is named.
    committed `.gitignore` edit would leave a dirty tree on `plan-only` and `stopped`
    runs, which make no commit, and fail the next run's clean tree check. The cost is
    that the ignore is per clone. A repo that wants the line in `.gitignore` adds it.
-7. **`allowed-tools` pre-approves read-only `git` and `gh` only.** Writes, pushes, PR
-   creation, and comments stay under the session's normal rules. Whether it can also
+7. **`allowed-tools` pre-approves read-only `git` and `gh`, and `date`.** Writes, pushes,
+   PR creation, and comments stay under the session's normal rules. `date` is included
+   because the run budget records the start time before the permissions statement, and a
+   prompt there would come before the run says it will prompt. Whether it can also
    cover codex-lite's Bash call is unverified at 0.1.0, and the default assumption is
-   that it cannot. Acceptance item 30 checks it.
+   that it cannot. Acceptance item 31 checks it.
 8. **How a command hands off to the skill is settled by a hand check.** The Skill tool,
    invoked as `ccl:ccl` with the invocation block as its args, is the default
    assumption because it loads the skill's own frontmatter. Acceptance item 1 confirms
    it.
 9. **The high tier fallback tries the Fable model override on the Agent tool first and
    uses Opus on an error.** There is no session model detection. This is unverified at
-   0.1.0. Acceptance item 28 checks it.
+   0.1.0. Acceptance item 29 checks it.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
     wrong guess would either run something unrelated or report false confidence. The job
     is named in the report and left to the CI gate.

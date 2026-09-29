@@ -13,6 +13,8 @@ allowed-tools:
   - Bash(git check-ignore *)
   - Bash(git remote -v)
   - Bash(git config --get *)
+  - Bash(date)
+  - Bash(date *)
   - Bash(gh repo view *)
   - Bash(gh issue view *)
   - Bash(gh issue list *)
@@ -31,8 +33,8 @@ You review and decide. Codex gives a second opinion. Sonnet implements. Follow t
 in order. Each step keeps the number of its source rule, so any rule can be checked against
 its step.
 
-The `allowed-tools` list above pre-approves only read-only `git` and `gh` commands. Every
-write, push, PR, comment, and Codex call stays subject to the session's permission mode.
+The `allowed-tools` list above pre-approves only read-only `git` and `gh` commands and `date`.
+Every write, push, PR, comment, and Codex call stays subject to the session's permission mode.
 
 ## Invocation block
 
@@ -94,7 +96,7 @@ Carve-outs:
 5. A run of this skill counts as the user's opt-in to multi-agent orchestration with the
    Workflow tool.
 
-State these effective permissions at the start of every run (Step 0.7).
+State these effective permissions at the end of Step 0.1, before any other Step 0 item runs.
 
 ## Budgets
 
@@ -324,7 +326,23 @@ A stop at any item before 0.5 prints the report and writes nothing. The printed 
 which preflight item failed and what would fix it. Step 0 creates nothing except artifacts.
 
 1. Read the user's and the repo's instruction files, and `.ccl.json`. Record every
-   ask-first rule. A malformed `.ccl.json` stops the run in `blocked`.
+   ask-first rule. A malformed `.ccl.json` stops the run in `blocked`. Then, before any other
+   Step 0 item runs, state the effective permissions for this run:
+   1. Print the Approval scope actions above as approved by this invocation for this run only,
+      with the carve-outs: the always-ask list and the instruction files' ask-first rules.
+   2. For each action the run takes, say whether the session's permission mode or an
+      instruction file's ask-first rule will prompt for it: fetching the default branch,
+      writing `.git/info/exclude` and the artifacts under `.ccl/`, the Codex availability
+      commands of item 6 (`codex --version`, `claude plugin list --json`), running the repo's
+      checks, branch creation, commit, push, opening the PR, issue comments, the PR report
+      comment, each Codex call if Codex is used, subagents, and any other command this skill
+      does not pre-approve. Take the mode from what the session states and from the settings
+      files' default mode and allow rules (user, project, and local settings). An action whose
+      outcome cannot be determined counts as one that will prompt. In default mode, each Codex
+      call prompts for codex-lite's request-file write unless the user has allowed it.
+   3. If any will prompt, print "this run will prompt at:" with the list and continue. The run
+      is attended, and the report says so. If none will, print "this run is unattended" and
+      continue.
 2. Resolve the default branch from the remote that `gh repo view` resolves (the remote whose
    URL matches the repo it names), else `origin`, and fetch it. Record the base commit.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
@@ -340,20 +358,9 @@ which preflight item failed and what would fix it. Step 0 creates nothing except
    run start time.
 6. Check Codex availability as described in Mechanics, including the codex-lite version of
    0.7.0 or later. Record the result and any reason. Apply `--no-codex`.
-7. State the effective permissions for this run:
-   1. Print the Approval scope actions above as approved by this invocation for this run only,
-      with the carve-outs: the always-ask list and the instruction files' ask-first rules.
-   2. For each action the run takes without asking (branch creation, commit, push, opening
-      the PR, issue comments, the PR report comment, each Codex call, subagents), say whether
-      the session's permission mode or an instruction file's ask-first rule will prompt for
-      it. Take the mode
-      from what the session states and from the settings files' default mode and allow rules
-      (user, project, and local settings). An action whose outcome cannot be determined counts
-      as one that will prompt. In default mode, each Codex call prompts for codex-lite's
-      request-file write unless the user has allowed it.
-   3. If any will prompt, print "this run will prompt at:" with the list and continue. The run
-      is attended, and the report says so. If none will, print "this run is unattended" and
-      continue.
+7. Record in `run.md` every prompt that occurred in items 1 to 6 and its outcome. If item 6
+   found Codex unavailable, say that the Codex prompts no longer apply. A prompt that was not
+   predicted in 0.1 makes the run attended, and the report says so.
 
 Branch creation and the baseline check happen in Step 3.7.2 and 3.7.3, so planning never
 changes the tree.
@@ -535,24 +542,34 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
    otherwise.
 3. Watch CI:
-   1. Expected checks are the required status checks from branch protection, read with `gh`
+   1. A workflow applies to the PR when it triggers on pull requests, its `branches`,
+      `branches-ignore`, `paths`, and `paths-ignore` filters match the PR's base branch and
+      changed files, and its `types` filter, when present, includes the event the watched head
+      commit produced: `opened` for the first watch after the PR is created, `synchronize`
+      after a CI repair push to the open PR. A filter that cannot be evaluated with
+      confidence counts as a match.
+      Expected checks are the required status checks from branch protection, read with `gh`
       (the branch protection API and the repo's rulesets for the default branch), plus every
-      check Step 6 deferred to CI, matched by job name. A "branch not protected" answer means
-      protection was read and requires nothing. Any other read failure means it could not be
-      read: say so, treat the expected set as unknown, wait within the CI budget until every
-      check observed on the head commit has finished, judge green on those, and report what was
-      observed.
+      check Step 6 deferred to CI whose workflow applies, matched by job name. A deferred check
+      whose workflow does not apply is named in the report as not triggered, with the filter
+      that excluded it, unless branch protection requires it. A "branch not protected" answer
+      means protection was read and requires nothing. Any other read failure means it could not
+      be read: say so and treat the required checks as unknown. The other rules stay the same.
    2. Poll the checks of the PR head commit, identified by its SHA, with `gh pr checks`,
       `gh pr view --json headRefOid`, and `gh run list`. Poll at about 30 second intervals,
       checking the run budget each time. A check that reported on an earlier commit does not
       count. Recheck the SHA after every push.
-   3. CI is green when every expected check has succeeded or been skipped on the head commit,
-      every other check observed on that commit has succeeded or been skipped, and none is
-      pending or failed. An expected check that has not reported is pending until the CI
-      budget expires, then `blocked`.
-   4. CI is not applicable only when branch protection was read and requires nothing, Step 6
-      deferred nothing, no workflow file in the repo triggers on pull requests, and no check has
-      been observed on the head commit within 2 minutes of the push. The report says so.
+   3. CI is not judged until 2 minutes after the push. CI is green when every expected check
+      has succeeded or been skipped on the head commit, every applicable workflow has reported
+      at least one check on that commit, and every check observed on that commit has finished
+      and succeeded or been skipped, with none pending or failed. An expected check or an
+      applicable workflow that has not reported is pending until the CI budget expires, then
+      `blocked`. When the required checks are unknown, judge on the expected deferred checks,
+      the applicable workflows, and the checks observed on the head commit, and the report says
+      the required checks could not be read.
+   4. CI is not applicable only when branch protection was read and requires nothing, no
+      workflow applies, no deferred check is expected, and no check has been observed on the
+      head commit within 2 minutes of the push. The report says so.
    5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier) and
       Step 6 for the new diff, with the round allowance the Budgets section gives each cycle,
       before the fix is pushed. At medium and high tier, refresh `diff.patch` and use the

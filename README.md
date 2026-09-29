@@ -181,8 +181,10 @@ A failure before the run directory exists prints the report and writes nothing.
 
 Default permission mode prompts at every Codex call, because codex-lite writes a request
 file that Claude Code asks about. The branch, commit, push, PR, and comment actions
-also prompt unless you have allowed them. At the start of each run the loop prints
-either "this run will prompt at:" with the list, or "this run is unattended".
+also prompt unless you have allowed them. Before any other preflight action, the loop
+prints either "this run will prompt at:" with the list, or "this run is unattended". The
+statement covers the default-branch fetch, the writes under `.ccl/` and to
+`.git/info/exclude`, and the repo's checks.
 
 For an unattended run, use auto mode, or use `--no-codex` and add allow rules for the
 `git` and `gh` writes the loop performs.
