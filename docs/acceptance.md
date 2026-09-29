@@ -35,7 +35,7 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
 4. **Happy path.** Command: `/ccl:run #1 --no-codex`. Expected: terminal state `done`, a
    PR whose body has `Closes #1`, a comment on issue 1, and
    `.ccl/<run-id>/report.md` naming the tier as low with a reason, one Step 3 round by an
-   Opus subagent named as the `gpt-6-sol` swap, and no Step 5 review. Rerun after any
+   Opus subagent named as the `gpt-6.1-sol` swap, and no Step 5 review. Rerun after any
    change to Steps 0 to 7 or the templates.
 5. **Dirty tree.** Setup: an uncommitted change in the working tree. Command:
    `/ccl:run #1 --no-codex`. Expected: `blocked` in Step 0, the report printed, the dirty
@@ -149,7 +149,7 @@ says otherwise.
 
 27. **Bundled issues at medium tier.** Command: `/ccl:run #1 #2`. Expected: `done`, at
     least one Step 3 round with the thread id recorded in `run.md`, one Step 5 review with
-    a separate `gpt-6-sol` thread and no `code-review` call in the tool trace, rejected
+    a separate `gpt-6.1-sol` thread and no `code-review` call in the tool trace, rejected
     findings listed with reasons, a PR body with a closing reference for each issue, and
     the tier medium, not high, because bundling alone does not raise it. Rerun after any
     change to Steps 3 to 5 or the tier rules.
@@ -194,7 +194,7 @@ unless the item says otherwise. Item 38 uses the M4 setup.
     says why the floor did not apply. Rerun after any change to the risk floor.
 36. **Re-evaluation after Step 4.** Setup: a task estimated medium whose implementation
     ends up removing an auth check. Command: `/ccl:run #1`. Expected: the tier rises to
-    high after Step 4, and the report shows a Step 5 with a `gpt-6-sol` thread and a
+    high after Step 4, and the report shows a Step 5 with a `gpt-6.1-sol` thread and a
     `code-review medium` pass, and no repeat of Step 3. Rerun after any change to the
     re-evaluation rule.
 37. **Re-evaluation does not add a round review.** Setup: as item 36. Expected: Step 4
@@ -210,7 +210,7 @@ unless the item says otherwise. Item 38 uses the M4 setup.
 ## Environment checks
 
 39. **Codex model ids.** Setup: a ChatGPT account with Codex. Command: run a
-    `/codex-lite:ask --model gpt-6-sol --timeout 60` call, then the same with
+    `/codex-lite:ask --model gpt-6.1-sol --timeout 60` call, then the same with
     `gpt-6-astra`. Expected: both return status `ok`. Rerun before each release and
     whenever a Codex call fails with a model error.
 40. **Pre-approval of Codex calls.** Setup: default permission mode, and a command with
@@ -319,16 +319,16 @@ it from the session's tool trace, not from the plan or the report.
 Setup for items 55 to 61: the M3 setup, with the built-in `code-review` skill listed in
 the session unless the item says otherwise.
 
-55. **High tier without a trigger uses `gpt-6-sol` and `code-review medium`.** Setup: a
+55. **High tier without a trigger uses `gpt-6.1-sol` and `code-review medium`.** Setup: a
     cross-cutting change inside one deliverable that touches no risk floor area. Command:
-    `/ccl:run #1 --effort high`. Expected: `gpt-6-sol` threads for Step 3 and Step 5, one
+    `/ccl:run #1 --effort high`. Expected: `gpt-6.1-sol` threads for Step 3 and Step 5, one
     `code-review medium` call per Step 5 round in the tool trace with the level passed
     explicitly and neither `--comment` nor `--fix`, the report's Claude review passes line
     filled per round, and the run log showing both passes returned before any Step 5 fix.
     Rerun after any change to Step 5, the Claude review contract, or the trigger rule.
 56. **Floored high tier uses `gpt-6-astra` for the plan review only.** Command:
     `/ccl:run "add a column" --effort high`. Expected: a `gpt-6-astra` thread for Step 3,
-    a `gpt-6-sol` thread for Step 5, and a `code-review medium` pass. Rerun after any
+    a `gpt-6.1-sol` thread for Step 5, and a `code-review medium` pass. Rerun after any
     change to the trigger rule.
 57. **A missing `code-review` skill blocks only where it is needed.** Setup: a session in
     which the `code-review` skill is not listed. Each run gets its own branch name, since

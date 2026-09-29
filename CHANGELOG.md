@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 - 2026-09-29
+
+### Changed
+
+- The `gpt-6-sol` reviewer slot now uses `gpt-6.1-sol`, released 2026-09-29. Every cell
+  that named `gpt-6-sol` keeps its place in the tier table; only the model id changes.
+  `gpt-6-astra` cells and the Opus fallback are unchanged.
+
 ## 0.5.0 - 2026-09-29
 
 ### Changed

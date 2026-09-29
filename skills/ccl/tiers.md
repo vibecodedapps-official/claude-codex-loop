@@ -12,7 +12,7 @@ each stage uses at each tier.
 | Role | Default | Fallback when the default is unavailable |
 |---|---|---|
 | Orchestrator and primary reviewer | The session's current Claude model (Opus or Fable) | none, the run stops |
-| Codex reviewer, `gpt-6-sol` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6-sol` | Agent tool, model `opus` |
+| Codex reviewer, `gpt-6.1-sol` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6.1-sol` | Agent tool, model `opus` |
 | Codex reviewer, `gpt-6-astra` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6-astra` | Agent tool, model `fable`; on an error from that call, model `opus` |
 | Claude reviewer (Step 5, high tier and above) | Skill tool, `code-review`, at the tier's level; in Multi-repo mode, an Opus subagent for each additional repository, as the Multi-repo mode section of `SKILL.md` describes | none; if the skill is not listed when the stage starts, the run ends in `blocked` |
 | Implementer, low, medium, and high tier | Agent tool model `sonnet` | none, the run stops |
@@ -20,8 +20,8 @@ each stage uses at each tier.
 
 Rules for roles:
 
-- Codex model ids are always the full id, `gpt-6-sol` or `gpt-6-astra`. A bare id such as
-  `sol` or `astra` fails on a ChatGPT account. Pass the full id, and `--timeout` from the
+- Codex model ids are always the full id, `gpt-6.1-sol` or `gpt-6-astra`. A bare id such
+  as `sol` or `astra` fails on a ChatGPT account. Pass the full id, and `--timeout` from the
   Codex budget, on every Codex call, including `--resume` follow-ups.
 - Codex is reached only through the Skill tool, with `codex-lite:ask` for plans and
   questions and `codex-lite:review` for diffs. Never run the `codex` CLI directly.
@@ -63,9 +63,9 @@ Rules for roles:
 |---|---|---|---|---|---|
 | 1 Review and verify | yes | yes | yes | yes | yes |
 | 2 Plan | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices | orchestrator drafts, one or more slices |
-| 3 Plan review and converge | Codex `gpt-6-sol`, converge | Codex `gpt-6-sol`, converge | Codex `gpt-6-astra` with a trigger, else `gpt-6-sol`, converge | Codex `gpt-6-astra`, converge | Codex `gpt-6-astra`, converge |
+| 3 Plan review and converge | Codex `gpt-6.1-sol`, converge | Codex `gpt-6.1-sol`, converge | Codex `gpt-6-astra` with a trigger, else `gpt-6.1-sol`, converge | Codex `gpt-6-astra`, converge | Codex `gpt-6-astra`, converge |
 | 4 Implement | Sonnet, one per slice, orchestrator reviews | Sonnet, one per slice, orchestrator reviews | Sonnet, one per slice, orchestrator reviews | Sonnet or Opus per slice, orchestrator reviews | Sonnet or Opus per slice, orchestrator reviews |
-| 5 Final review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` and Claude `code-review medium` | Codex `gpt-6-astra` with a trigger, else `gpt-6-sol`, and Claude `code-review high` | Codex `gpt-6-astra` and Claude `code-review xhigh` |
+| 5 Final review | skipped | Codex `gpt-6.1-sol` | Codex `gpt-6.1-sol` and Claude `code-review medium` | Codex `gpt-6-astra` with a trigger, else `gpt-6.1-sol`, and Claude `code-review high` | Codex `gpt-6-astra` and Claude `code-review xhigh` |
 | 6 Checks | yes | yes | yes | yes | yes |
 | 7 Publish | yes | yes | yes | yes | yes |
 
@@ -73,11 +73,11 @@ Rules for roles:
 removes an item in the risk floor list, directly or through shared code. It does not mean
 the floor raised the tier. Only two cells depend on it. For the high tier plan review, the
 trigger is judged from the Step 1.5 floor check: a floored high run gets `gpt-6-astra`, a
-high run that is only cross-cutting gets `gpt-6-sol`. For the xhigh final review, a
+high run that is only cross-cutting gets `gpt-6.1-sol`. For the xhigh final review, a
 trigger counts when it was present at the estimate or is present in the diff after Step
 4: an xhigh run forced with `--effort xhigh` on a floored task, or whose diff gained a
 trigger, gets `gpt-6-astra` at Step 5 while staying xhigh. Every other cell is fixed by
-the tier alone; the high tier final review is `gpt-6-sol` whether or not a trigger exists.
+the tier alone; the high tier final review is `gpt-6.1-sol` whether or not a trigger exists.
 
 Low tier skips all of Step 5, including 5.1; Step 6 then runs the full check set. Every
 tier reviews the plan in Step 3. At high tier and above a Step 5 round is both reviewers,
@@ -166,13 +166,13 @@ the tier rises, and which Step 5 reviewers the run gets.
   whatever the diff contains.
 - Resolve the Step 5 reviewers from the tier table after this check. Only the xhigh cell
   depends on the diff: an xhigh run gets Codex `gpt-6-astra` when a trigger was present at
-  the estimate or is present in the diff, else `gpt-6-sol`, beside Claude `code-review
+  the estimate or is present in the diff, else `gpt-6.1-sol`, beside Claude `code-review
   high`, and stays xhigh. Every other tier's cell stands as the table gives it. A medium
-  run that rose to high gets the high cell: Codex `gpt-6-sol` and Claude `code-review
+  run that rose to high gets the high cell: Codex `gpt-6.1-sol` and Claude `code-review
   medium`.
 - Complete Step 5 with those reviewers before Step 6. It stays inside the round caps in the
   budgets. Plan review at Step 3 is not repeated after Step 4, so a run that rose keeps
-  the `gpt-6-sol` plan review it already had.
+  the `gpt-6.1-sol` plan review it already had.
 - The tier never falls after Step 4 because the diff turned out smaller than planned, and
   the Step 5 reviewers never weaken: at xhigh, a trigger present at the estimate counts
   even if the diff no longer shows it.
