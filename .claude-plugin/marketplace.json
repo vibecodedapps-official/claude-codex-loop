@@ -10,8 +10,8 @@
     {
       "name": "ccl",
       "source": "./",
-      "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex reviewing, and Claude subagents implementing.",
-      "version": "0.3.0"
+      "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex and Claude reviewing, and Claude subagents implementing.",
+      "version": "0.4.0"
     }
   ]
 }
