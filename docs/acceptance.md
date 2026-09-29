@@ -455,9 +455,10 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     `HEAD`, creates a detached worktree beside the checkout, at
     `<checkout-parent>/<checkout-name>-ccl-<run-id>`, with `git worktree add --detach`,
     records it in `run.md`, works in it, skips Step 5 at low tier, and the
-    report names the worktree path and `git worktree remove <path>`. If any `cd
-    <checkout> && ...` command prompted, the report says the run was attended. Rerun
-    after any change to Step 0.3.
+    report names the worktree path and `git worktree remove <path>`. The Step 0.1
+    statement, printed before any worktree exists, already lists the `git worktree add`
+    and `cd <checkout> && ...` prompts, and the report says the run was attended. Rerun
+    after any change to Step 0.1 or Step 0.3.
 73. **Skip-worktree files at medium tier.** Setup: as item 72, plus a `test` script that
     fails on the original tree's skip-worktree state and passes at the base commit, and
     codex-lite installed, and a lockfile and an install step the instruction files name

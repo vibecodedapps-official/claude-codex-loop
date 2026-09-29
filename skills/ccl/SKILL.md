@@ -401,7 +401,9 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
 7. A Skill tool call for `codex-lite:ask` or `codex-lite:review` that errors because the
    skill is not listed in the session counts as a `failed` call under the Reviewer contract:
    retry once with the same arguments, then swap the stage to the Claude fallback and record
-   the swap with the reason "skill not listed in session".
+   the swap with the reason "skill not listed in session". Also record Codex as unavailable
+   for the rest of the run, so later stages swap at once instead of repeating the two
+   failed calls.
 
 ### Blocking
 
@@ -515,7 +517,9 @@ names, for each repository, and leaves the rest of that step as written.
   first PR opened. Then edit each body once with `gh pr edit <n> --body-file` to fill the
   sibling links. Watch CI per PR, and comment on each issue with every PR link. `done`
   needs every PR green. A `blocked` in any repository blocks the run, and no further
-  publication happens in any repository.
+  publication happens in any repository, with one exception: the sibling-link edit of a PR
+  this run already opened still runs, so no PR is left saying "pending". Editing the body
+  of this run's own PR is inside the approval scope and publishes nothing new.
 - Step 7.3.5: a CI repair review for an additional repository uses the Step 5.2 patch rule
   (Codex through `codex-lite:ask --resume`, and the repository's Claude subagent), never
   `codex-lite:review`.
@@ -576,9 +580,12 @@ it. Step 0 creates nothing except artifacts.
       local settings). An action whose outcome cannot be determined counts as one that will
       prompt. In default mode, each Codex call prompts for codex-lite's request-file write
       unless the user has allowed it.
-   3. If any will prompt, print "this run will prompt at:" with the list and continue. The run
-      is attended, and the report says so. If none will, print "this run is unattended" and
-      continue.
+   3. Before printing, run the flagged-file check of Step 0.3 (`git ls-files -v` and `git
+      cat-file --filters`, both pre-approved) so the statement can predict a worktree run:
+      when one is coming, list its prompts (`git worktree add` and every command wrapped in
+      `cd <checkout> && ...`). If any will prompt, print "this run will prompt at:" with the
+      list and continue. The run is attended, and the report says so. If none will, print
+      "this run is unattended" and continue.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
@@ -598,9 +605,9 @@ it. Step 0 creates nothing except artifacts.
    any other reason,
    the run ends in `blocked` as above. The exception is not available in Multi-repo mode. In
    this path:
-   - Commands wrapped in `cd <checkout> && ...` are not pre-approved, so a run announced as
-     unattended at Step 0.1 may prompt from here on, and `git worktree add` itself may prompt
-     as well. Record each prompt in `run.md`; the report says the run was attended.
+   - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
+     itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
+     before its statement. Record each prompt in `run.md`.
    - A detached worktree from the base commit has no installed dependencies, build output, or
      local env files. Before the baseline in Step 3.7.3, run the install step the repository's
      instruction files or lockfile name (for example `npm ci`) inside the worktree. When none

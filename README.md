@@ -148,7 +148,8 @@ directly. In this mode:
 - Step 7 opens one PR per repository that has a diff, each with a "Related pull
   requests" section that links the siblings. `Closes #n` comes only from the PR in the
   issue's own repository. Every other PR of the run cites it as `Refs <owner>/<repo>#n`.
-  `done` needs every PR green. A `blocked` in any repository stops publication in all.
+  `done` needs every PR green. A `blocked` in any repository stops publication in all,
+  except that a PR already opened still gets its sibling links filled in.
 - The primary's `.ccl.json` governs `commit` and `timeouts`. Each repository's own
   `checks` list is read for that repository.
 - With `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in the first
@@ -291,9 +292,9 @@ prints either "this run will prompt at:" with the list, or "this run is unattend
 statement covers the default-branch fetch, the writes under `.ccl/` and to
 `.git/info/exclude`, and the repo's checks.
 
-A worktree run (a clean tree whose skip-worktree files differ from `HEAD`) may also
-prompt, because its `cd <checkout> && ...` commands are not pre-approved. The report
-says the run was attended if any such prompt occurred. The run installs the
+A worktree run (a clean tree whose skip-worktree files differ from `HEAD`) also
+prompts, because its `cd <checkout> && ...` commands are not pre-approved. The statement
+predicts this: the flagged-file check runs before it, so those prompts are in the list. The run installs the
 repository's dependencies in the worktree before the baseline when the instruction
 files or a lockfile name an install step. Otherwise a check that needs them is recorded
 as not run in the worktree, with the reason.

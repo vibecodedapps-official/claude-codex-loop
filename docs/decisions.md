@@ -430,7 +430,8 @@ run that taught it.
 4. **Codex availability does not depend on the session's skill list.** It is decided from
    `codex --version` and the installed codex-lite version, 0.7.0 or later. A Skill call
    that errors because the skill is not listed counts as a `failed` call: retry once,
-   then swap, recording "skill not listed in session". The host, not the plugin,
+   then swap, recording "skill not listed in session", and Codex is recorded unavailable
+   for the rest of the run so later stages do not repeat the failed calls. The host, not the plugin,
    controls which skills a session lists, and with the CLI ban a listing gap left no route
    to Codex. Observed on a live run of 2026-09-29 (#7).
 5. **Implementers match the repository's line endings, and Step 4.3 checks them.** A new
