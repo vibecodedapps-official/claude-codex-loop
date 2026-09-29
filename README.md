@@ -14,12 +14,13 @@ Given an issue, a file of notes, or a short description, the loop:
 
 1. Checks the working tree and the settings that apply, and states what will prompt.
 2. Verifies the claims in the inputs against the code and sizes the effort.
-3. Writes a plan, and at medium and high effort has Codex review it until no blocking
+3. Writes a plan, and at medium effort and above has Codex review it until no blocking
    objection remains.
 4. Creates a branch, runs the repo's checks once as a baseline, and has Sonnet
-   subagents implement the plan, one agent per slice. Independent slices run in
-   parallel and dependent ones run in order. Claude reviews each slice.
-5. At medium and high effort, has Codex review the whole diff.
+   subagents implement the plan, one agent per slice. Low, medium, and high plans
+   have one slice; at xhigh and max, independent slices run in parallel and dependent
+   ones run in order. Claude reviews each slice.
+5. At high effort and above, has Codex review the whole diff.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request, watches CI, and comments on each source
    issue.
@@ -59,9 +60,9 @@ claude --plugin-dir <path-to-clone>
 ## Commands
 
 ```
-/ccl:run <inputs...> [--effort low|medium|high] [--plan-only] [--no-codex]
+/ccl:run <inputs...> [--effort low|medium|high|xhigh|max] [--plan-only] [--no-codex]
          [--branch <name>]
-/ccl:plan <inputs...> [--effort low|medium|high] [--no-codex] [--branch <name>]
+/ccl:plan <inputs...> [--effort low|medium|high|xhigh|max] [--no-codex] [--branch <name>]
 ```
 
 `/ccl:plan` is `/ccl:run --plan-only`. Both run build mode and share one skill. The
@@ -83,8 +84,8 @@ remaining text, joined, is one ad-hoc description.
 
 ### Flags
 
-- `--effort low|medium|high`: skip the estimate and force a tier. It cannot lower a task
-  below the risk floor.
+- `--effort low|medium|high|xhigh|max`: skip the estimate and force a tier. It cannot
+  lower a task below the risk floor.
 - `--plan-only`: stop after the plan is final, at every tier, and print it. Nothing
   after the plan runs and the working tree is not changed.
 - `--no-codex`: use the Claude fallbacks even if Codex is installed.
@@ -141,19 +142,20 @@ not depend on it. A subagent's report is model output, not approval.
 
 ## Effort tiers
 
-| Step | Low | Medium | High |
-|---|---|---|---|
-| Plan review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
-| Implement | one Sonnet agent, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude and Codex `gpt-6-sol` review |
-| Final review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
+| Step | Low | Medium | High | xhigh | Max |
+|---|---|---|---|---|---|
+| Plan review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
+| Implement | one Sonnet agent, Claude reviews | one Sonnet agent, Claude reviews | one Sonnet agent, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews |
+| Final review | skipped | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
 
 Review of the inputs, checks, and publish run at every tier. The tier is sized from
-behavioral risk. Bundling issues does not raise it. A change that adds, alters, or
-removes an auth check, a permission rule, a schema or migration, a row-level security
-policy, a data access path, or a public API's signature or behavior is always high tier,
-and `--effort` cannot lower that. The tier is re-evaluated against the diff after
-implementation. When Codex is unavailable, a Claude subagent replaces the reviewer and
-the stage still runs.
+behavioral risk, and xhigh and max from how many independent areas the change spans.
+Bundling issues does not raise it. A change that adds, alters, or removes an auth check,
+a permission rule, a schema or migration, a row-level security policy, a data access
+path, or a public API's signature or behavior is at least high tier, and `--effort`
+cannot lower that. xhigh and max are above the floor. The tier is re-evaluated against
+the diff after implementation. When Codex is unavailable, a Claude subagent replaces the
+reviewer and the stage still runs.
 
 Every step that repeats is capped at 3 rounds. Time is bounded per call and per run.
 
