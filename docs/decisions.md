@@ -252,7 +252,10 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    cost of the top tiers. A floored task that is xhigh-shaped is max by the estimate
    rule. A requested xhigh or max stands, because it is above the floor.
 4. **One slice below xhigh.** Concurrency is now a tier property, so the tier sets both
-   review depth and slice count.
+   review depth and slice count. The cost is accepted: work that 0.1.0 could split into
+   two parallel agents now runs as one agent under one subagent budget (20 minutes by
+   default) and one round cap. A change that needs more than that at high tier is a sign
+   it spans several areas and belongs at xhigh, or needs `--effort xhigh`.
 5. **Medium reviews the plan and not the diff.** The plan review catches scope errors,
    and Step 6's full check run still covers the diff.
 6. **The estimate rule has five buckets, and decision 7 of Part 2 is qualified.** Low is

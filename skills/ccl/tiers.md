@@ -51,7 +51,8 @@ Rules for roles:
 | 7 Publish | yes | yes | yes | yes | yes |
 
 Low tier skips Step 3. Low and medium tier skip all of Step 5, including 5.1; Step 6 then
-runs the full check set. Low, medium, and high plans have one slice. `--plan-only` stops at
+runs the full check set. Low, medium, and high plans have one slice, so their whole
+implementation runs under one subagent budget and one round cap. `--plan-only` stops at
 Step 3.6 at every tier.
 
 ## Estimate rule
