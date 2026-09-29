@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 54 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 61 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -33,7 +33,8 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
 
 4. **Happy path.** Command: `/ccl:run #1 --no-codex`. Expected: terminal state `done`, a
    PR whose body has `Closes #1`, a comment on issue 1, and
-   `.ccl/<run-id>/report.md` naming the tier as low with a reason. Rerun after any
+   `.ccl/<run-id>/report.md` naming the tier as low with a reason, one Step 3 round by an
+   Opus subagent named as the `gpt-6-sol` swap, and no Step 5 review. Rerun after any
    change to Steps 0 to 7 or the templates.
 5. **Dirty tree.** Setup: an uncommitted change in the working tree. Command:
    `/ccl:run #1 --no-codex`. Expected: `blocked` in Step 0, the report printed, the dirty
@@ -146,10 +147,11 @@ codex-lite 0.7.0 or later installed and enabled, and `codex` on PATH, unless the
 says otherwise.
 
 27. **Bundled issues at medium tier.** Command: `/ccl:run #1 #2`. Expected: `done`, at
-    least one Step 3 round with the thread id recorded in `run.md`, rejected findings
-    listed with reasons, a PR body with a closing reference for each issue, and the tier
-    medium, not high, because bundling alone does not raise it. Rerun after any change
-    to Steps 3 to 5 or the tier rules.
+    least one Step 3 round with the thread id recorded in `run.md`, one Step 5 review with
+    a separate `gpt-6-sol` thread and no `code-review` call in the tool trace, rejected
+    findings listed with reasons, a PR body with a closing reference for each issue, and
+    the tier medium, not high, because bundling alone does not raise it. Rerun after any
+    change to Steps 3 to 5 or the tier rules.
 28. **Parallel and ordered slices.** Setup: two areas of code that share no file, one
     plan with two independent slices, and one whose order of work makes the second
     depend on the first. Command: `/ccl:run #1 #2` for each. Expected: both runs are
@@ -158,8 +160,9 @@ says otherwise.
     each, at the plan's chosen implementer models, named per slice. Rerun after any change
     to Step 4.2 or the estimate rule.
 29. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
-    an Opus subagent for Step 3, the report names that one swap, and no Step 5 review
-    runs. Rerun after any change to the fallback table.
+    an Opus subagent for Step 3 and another for Step 5, the report names both swaps, and
+    no `code-review` call appears in the tool trace, since medium has no Claude slot.
+    Rerun after any change to the fallback table.
 30. **Codex missing from PATH.** Setup: codex-lite installed, `codex` removed from PATH.
     Command: `/ccl:run #1 #2`. Expected: the report names the swap and the reason. Rerun
     after any change to Step 0.6.
@@ -189,16 +192,18 @@ unless the item says otherwise. Item 38 uses the M4 setup.
     says why the floor did not apply. Rerun after any change to the risk floor.
 36. **Re-evaluation after Step 4.** Setup: a task estimated medium whose implementation
     ends up removing an auth check. Command: `/ccl:run #1`. Expected: the tier rises to
-    high after Step 4, and the report shows the `gpt-6-sol` final review. Rerun after
-    any change to the re-evaluation rule.
+    high after Step 4, and the report shows a Step 5 with a `gpt-6-sol` thread and a
+    `code-review medium` pass, and no repeat of Step 3. Rerun after any change to the
+    re-evaluation rule.
 37. **Re-evaluation does not add a round review.** Setup: as item 36. Expected: Step 4
     has orchestrator findings only, and no Codex thread is recorded for Step 4. Rerun
     after any change to Step 4 or the re-evaluation rule.
-38. **Fable fallback.** Command: `/ccl:run #1 --effort max --no-codex`. Expected: the Step 5
-    reviewer is a Fable subagent, or Opus with the Fable error recorded. This confirms
-    the Agent tool accepts the Fable model override in this session and that an error
-    falls through to Opus. Rerun after any change to the fallback table or the session's
-    model set.
+38. **Fable fallback.** Command: `/ccl:run #1 --effort max --no-codex`. Expected: the Step 3
+    and Step 5 Codex slots are each a Fable subagent, or Opus with the Fable error
+    recorded, and Step 5 still makes a `code-review xhigh` call in the tool trace. This
+    confirms the Agent tool accepts the Fable model override in this session, that an
+    error falls through to Opus, and that `--no-codex` does not remove the Claude pass.
+    Rerun after any change to the fallback table or the session's model set.
 
 ## Environment checks
 
@@ -223,11 +228,13 @@ it from the session's tool trace, not from the plan or the report.
 
 41. **Max tier reviews use `gpt-6-astra`.** Command: `/ccl:run #1 --effort max`.
     Expected: the report records a `gpt-6-astra` thread for Step 3 and another for Step
-    5, and no Codex thread for Step 4. Rerun after any change to the roles table.
+    5, a `code-review xhigh` pass per Step 5 round, and no Codex thread for Step 4. Rerun
+    after any change to the roles table.
 42. **A requested xhigh tier stands above the floor.** Command:
-    `/ccl:run "add a column" --effort xhigh`. Expected: the run is xhigh, and the report
-    says the floor was applied and that the requested tier was above it. Rerun after any
-    change to the risk floor.
+    `/ccl:run "add a column" --effort xhigh`. Expected: the run is xhigh, the report
+    says the floor was applied and that the requested tier was above it, and both Step 3
+    and Step 5 use `gpt-6-astra` because the trigger exists, with a `code-review high`
+    pass at Step 5. Rerun after any change to the risk floor or the trigger rule.
 43. **Xhigh with a single-slice plan.** Command: `/ccl:run #1 --effort xhigh` for a
     one-line bug. Expected: the plan has one slice, Step 4 makes one Agent call, and the
     implementer is Sonnet, with the reason that no Opus criterion applies. Rerun after
@@ -235,8 +242,9 @@ it from the session's tool trace, not from the plan or the report.
 44. **Re-evaluation does not raise an xhigh run.** Setup: a task sized xhigh whose
     implementation ends up removing an auth check. Command: `/ccl:run #1 #2`. Expected:
     the tier stays xhigh, the report says the floor applied at re-evaluation and the tier
-    was unchanged, and Step 5 runs once with `gpt-6-sol`. Rerun after any change to the
-    re-evaluation rule.
+    was unchanged, Step 3 used `gpt-6-astra` (xhigh always does), and Step 5 runs with
+    `gpt-6-astra` because the diff has a trigger, beside a `code-review high` pass. Rerun
+    after any change to the re-evaluation rule or the trigger rule.
 45. **Parallel slices at high tier.** Setup: one cross-cutting change in one deliverable
     whose two parts touch disjoint files, each part about one subagent timeout of work.
     Command: `/ccl:run #1 --effort high`. Expected: one Workflow with two Sonnet agents,
@@ -299,6 +307,64 @@ it from the session's tool trace, not from the plan or the report.
     with both slices, its `opus` call erroring, the rerun at `sonnet`, and the fresh agent
     at `sonnet`, and the report names one swap. Rerun after any change to Step 4.2 or the
     Opus fallback rule.
+
+## M5: the second final reviewer
+
+Setup for items 55 to 61: the M3 setup, with the built-in `code-review` skill listed in
+the session unless the item says otherwise.
+
+55. **High tier without a trigger uses `gpt-6-sol` and `code-review medium`.** Setup: a
+    cross-cutting change inside one deliverable that touches no risk floor area. Command:
+    `/ccl:run #1 --effort high`. Expected: `gpt-6-sol` threads for Step 3 and Step 5, one
+    `code-review medium` call per Step 5 round in the tool trace with the level passed
+    explicitly and neither `--comment` nor `--fix`, the report's Claude review passes line
+    filled per round, and the run log showing both passes returned before any Step 5 fix.
+    Rerun after any change to Step 5, the Claude review contract, or the trigger rule.
+56. **Floored high tier uses `gpt-6-astra` for the plan review only.** Command:
+    `/ccl:run "add a column" --effort high`. Expected: a `gpt-6-astra` thread for Step 3,
+    a `gpt-6-sol` thread for Step 5, and a `code-review medium` pass. Rerun after any
+    change to the trigger rule.
+57. **A missing `code-review` skill blocks only where it is needed.** Setup: a session in
+    which the `code-review` skill is not listed. Each run gets its own branch name, since
+    the first run's default branch would otherwise exist and block the last run at Step
+    3.7.2 before it reaches Step 5. Command: `/ccl:run #1 --effort medium --branch t57-a`,
+    then `/ccl:plan #1 --effort high`, then `/ccl:run #1 --effort high --branch t57-b`.
+    Expected: the first ends `done` with no mention of the skill, the second ends
+    `plan-only` with no mention of the skill, and the third ends `blocked` at the start of
+    Step 5, after implementation, naming the missing skill. Rerun after any change to the
+    Claude review contract.
+58. **The Claude pass reviews the base-to-working-tree diff and nothing else.** Setup: a
+    clone whose local `main` is two commits behind the remote default branch, so the
+    skill's own range would include commits the task did not make; the item 14 shape, but
+    a CI failure the loop can fix in one edit, at high tier. Command:
+    `/ccl:run #1 --effort high`. Expected: every `code-review medium` call in the tool
+    trace carries the base commit as its target; no finding, before the push or in the
+    repair cycle, names a file only the two stale commits touched; and the repair cycle's
+    call has findings or a clean result that reference the committed task files and the
+    uncommitted repair. If the target is ignored or rejected, record it, stop, and revisit
+    the Claude review contract item 3. Rerun after any Claude Code upgrade and after any
+    change to Step 5.2 or Step 7.3.5.
+59. **A blocker found by Claude alone gates publication.** Setup: a slice that plants one
+    defect a diff review should catch, such as a dropped error return, at high tier.
+    Command: `/ccl:run #1 --effort high`. Expected: the run log's merged findings list
+    names the source of each finding; the defect is fixed by the slice's implementer before
+    any push; and the next round shows both a Codex follow-up in the Step 5 thread and a
+    fresh `code-review medium` call over the fixed diff, with neither pass started before
+    the fix batch ended. The item proves its point only when the log records the defect
+    with Claude as its only source; if Codex reported it too, the item is inconclusive and
+    is rerun with a different planted defect. Rerun after any change to Step 5.3 or 5.4.
+60. **A Step 5 fix is not published unreviewed.** Setup: as item 59. Expected: for every
+    edit `run.md` records during Step 5, a later round lists both passes over a diff that
+    includes it, or the run did not reach Step 7. Rerun after any change to Step 5.4 or the
+    Budgets section.
+61. **The third round fixes nothing.** Setup: a run that reaches a third Step 5 round;
+    record how, for example a slice whose fix in round two draws a new confirmed finding.
+    Expected: if the third round has a confirmed blocking finding, the run ends `blocked`
+    with the finding in the report, no edit after the third round in `run.md`, no
+    orchestrator fix, and nothing pushed; if it has only non-blocking findings, they are
+    listed as deferred with the reason that no round remained, `run.md` shows no edit after
+    the third round, and the run continues to Step 6. Rerun after any change to Step 5.3,
+    5.4, or the Budgets section.
 
 ## Record of runs
 
