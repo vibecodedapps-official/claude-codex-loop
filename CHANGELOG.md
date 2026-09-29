@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Every tier reviews the plan with Codex. Low tier no longer skips Step 3.
+- Only low tier skips the final review. Medium now gets a `gpt-6-sol` diff review.
+- At high tier and above the built-in `code-review` skill reviews the diff beside Codex,
+  at `medium` for high, `high` for xhigh, and `xhigh` for max. It is a fixed slot: never
+  swapped, untouched by `--no-codex`, and a run that needs it and cannot find it ends in
+  `blocked`. Low, medium, and plan-only runs do not need it.
+- Two cells follow the risk trigger: the high tier plan review is `gpt-6-astra` when the
+  change has a risk floor trigger at the estimate, else `gpt-6-sol`; the xhigh final
+  review is `gpt-6-astra` when a trigger was present at the estimate or is in the diff
+  after Step 4, else `gpt-6-sol`. Xhigh plan review is now always `gpt-6-astra`. The high
+  tier final review stays `gpt-6-sol`.
+- A Step 5 round at high tier and above is both passes over the same diff, under one
+  shared cap of 3. Findings from both are merged and fixed in one batch. Step 5 no longer
+  has a post-cap orchestrator fix, and the third round fixes nothing: a blocking finding
+  there ends in `blocked` and a non-blocking one is deferred.
+- Every Claude review pass is given the base commit as its target, so it reviews the same
+  base-to-working-tree diff Codex does. Without a target the skill picks its own range and
+  can include unrelated commits when local `main` is behind the fetched base.
+- CI repair and Step 6 repair at medium tier and above go through a Step 5 round with every
+  reviewer the stage has. Low tier keeps the orchestrator's own review.
+- The reviewer fallback follows the Codex model: `gpt-6-sol` to Opus, `gpt-6-astra` to
+  Fable then Opus, at any tier.
+- Decisions Part 7 records the reasons. Part 3 items 9 and 11 and Part 5 item 5 are
+  superseded; Part 2 item 10, Part 4 item 9, and Part 5 items 3 and 7 are qualified.
+- Acceptance items 4, 27, 29, 36, 38, 41, 42, and 44 change, and items 55 to 61 are new.
+
 ## 0.3.0 - 2026-09-28
 
 ### Changed

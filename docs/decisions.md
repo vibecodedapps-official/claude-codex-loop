@@ -60,8 +60,9 @@ These followed a second review of the design, with a second opinion from Codex.
 9. **Repair mode, `--merge`, and `--worktree` are deferred to 0.2.** Build mode is the
    smallest path that works end to end. The deferred text is preserved for 0.2.
 10. **Rounds are defined, and a run-wide budget bounds the run.** A round is one
-    reviewer pass and the fixes it leads to. The orchestrator's single fix after a cap is
-    not a round. A Step 3.7.1 revision is a Step 3 round. Each CI repair cycle gets one
+    reviewer pass and the fixes it leads to. Since Part 7 a round is one pass by each
+    reviewer the stage has, over the same diff. The orchestrator's single fix after the
+    Step 4 cap is not a round; Step 5 has no post-cap fix since Part 7. A Step 3.7.1 revision is a Step 3 round. Each CI repair cycle gets one
     Step 5 round and one full Step 6 run of its own, because the cycles are already
     capped at 3. The run budget is 4 hours from Step 0 to the terminal state.
 11. **Step 0.1 states whether the run will prompt before any other Step 0 action.** The
@@ -98,11 +99,13 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
    it can be continued. Agents run inside a Workflow do not persist, so a fresh agent
    gets the findings and the slice's current diff.
 9. **Low and medium tier skip all of Step 5, including 5.1.** Step 6 then runs the full
-   set, so the full check run still happens once.
+   set, so the full check run still happens once. Superseded by Part 7 item 2: only low
+   tier skips Step 5.
 10. **The Step 6 fix loop.** A failing check that is not a baseline match is fixed, and
     the fix goes through the tier's review. Step 6 runs at most 3 times.
 11. **Low and medium tier CI repair.** A CI failure at low or medium tier goes to the
     orchestrator's review rather than a Step 5 round, since those tiers have no Step 5.
+    Superseded by Part 7 item 2: only low tier has no Step 5.
 12. **The required checks are read with read access, and a failed read blocks.** They
     come from the branch endpoint and the branch rules endpoint, which need only read
     access. The protection endpoint needs admin rights and returns 404 otherwise. If a
@@ -231,7 +234,8 @@ and the acceptance item is named.
    it.
 9. **The max tier fallback tries the Fable model override on the Agent tool first and
    uses Opus on an error.** There is no session model detection. This is unverified at
-   0.1.0. Acceptance item 38 checks it.
+   0.1.0. Acceptance item 38 checks it. Since Part 7 the fallback follows the Codex model,
+   not the tier: every `gpt-6-astra` stage falls back to Fable then Opus, at any tier.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
     wrong guess would either run something unrelated or report false confidence. The job
     is named in the report and left to the CI gate.
@@ -250,7 +254,9 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
 3. **The risk floor targets high, the middle tier.** A floored task that is not
    xhigh-shaped gets `gpt-6-sol` reviews of the plan and the diff without forcing the
    cost of the top tiers. A floored task that is xhigh-shaped is max by the estimate
-   rule. A requested xhigh or max stands, because it is above the floor.
+   rule. A requested xhigh or max stands, because it is above the floor. Qualified by
+   Part 7 item 3: a floored high run now gets a `gpt-6-astra` plan review; its diff review
+   stays `gpt-6-sol`.
 4. **One slice below xhigh.** Concurrency is now a tier property, so the tier sets both
    review depth and slice count. The cost is accepted: work that 0.1.0 could split into
    two parallel agents now runs as one agent under one subagent budget (20 minutes by
@@ -258,7 +264,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    it spans several areas and belongs at xhigh, or needs `--effort xhigh`. Superseded by
    Part 6 item 1.
 5. **Medium reviews the plan and not the diff.** The plan review catches scope errors,
-   and Step 6's full check run still covers the diff.
+   and Step 6's full check run still covers the diff. Superseded by Part 7 item 2: medium
+   now gets a `gpt-6-sol` diff review.
 6. **The estimate rule has five buckets, and decision 7 of Part 2 is qualified.** Low is
    one file or one function, a clear fix, and no risk floor trigger. Medium is several
    files in one area, one issue with tests, or any doc restructure. High is a
@@ -276,6 +283,9 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    to the diff. With the max criterion, a re-estimate would have sent an xhigh run whose
    diff added an auth check to max and `gpt-6-astra`, while the rise rule said only runs
    below high rise, and only to high. One rule, the floor, removes the conflict.
+   Qualified by Part 7 item 3: the tier still never rises above high, but the Step 5
+   reviewers are resolved from the diff at every tier, so that xhigh run now gets
+   `gpt-6-astra` at Step 5 while staying xhigh.
 
 ## Part 6: Slices at every tier and Opus implementers, 2026-09-28
 
@@ -304,6 +314,65 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
 6. **The fallback covers only an implementer tool error.** A permission denial and a
    budget expiry keep their own rules, and a reviewer call keeps its own fallback.
    Routing around a denial or a timeout would turn a control into a suggestion.
+
+## Part 7: Review at every tier and a second final reviewer, 2026-09-29
+
+1. **Every tier reviews the plan.** Low tier used to skip Step 3. A `gpt-6-sol` plan
+   review is cheap next to a wrong one-line fix, and skipping it made low the only tier
+   with no second opinion at all. The cost is one Codex call, or one Opus subagent under
+   `--no-codex`, on every run.
+2. **Only low tier skips Step 5.** Medium now gets a `gpt-6-sol` diff review. This
+   supersedes Part 3 items 9 and 11 and Part 5 item 5. Step 6's checks cover behavior the
+   tests know about; a diff review covers what they do not.
+3. **Two cells follow the risk trigger, not only the tier.** The high tier plan review
+   uses `gpt-6-astra` when the change has a risk floor trigger, judged at the Step 1.5
+   floor check, and `gpt-6-sol` otherwise. The xhigh final review uses `gpt-6-astra` when a
+   trigger was present at the estimate or is present in the diff after Step 4, and
+   `gpt-6-sol` otherwise. Every other cell, including the high tier final review, is fixed
+   by the tier. This qualifies Part 5 items 3 and 7: the tier still never rises above high
+   after Step 4, but the xhigh Step 5 model is resolved from the diff. The rule is written
+   down because an "or" cell in the table with no rule would let two runs of the same task
+   pick differently, and the run log could not say why.
+4. **At high tier and above, the built-in `code-review` skill reviews the diff beside
+   Codex.** Its level is medium at high, high at xhigh, and xhigh at max. It is a fixed
+   slot: not a fallback, never swapped, and untouched by `--no-codex`. A required pass
+   that cannot run ends the run in `blocked` rather than counting as clean. The level is
+   always passed explicitly, because the skill reuses the last typed level otherwise.
+   `--comment` is never passed, because no PR exists at Step 5 and comments are
+   ask-first, and `--fix` is never passed, because fixes go through the implementer.
+   Its availability is checked only when a stage needs it, so low, medium, and plan-only
+   runs gain no prerequisite.
+5. **A Step 5 round at high tier and above is both passes over the same diff, under one
+   shared cap of 3.** This qualifies Part 2 item 10. The Codex thread keeps `--resume`;
+   the Claude pass is fresh each round, since the skill keeps no thread, and a finding it
+   repeats keeps its recorded disposition unless it cites new evidence. Findings from both
+   are merged into one list, with the source kept, and fixed in one batch, so a round
+   costs one implementer pass, not two. Both passes must return before the round ends;
+   otherwise "cap of 3" could mean three rounds per reviewer.
+6. **Step 5 has no post-cap orchestrator fix.** Step 5.3 used to allow one, while Step 5.4
+   required every Step 5 fix to be seen by a later round. The two rules conflicted. The
+   post-cap fix stays in Step 4 only; a Step 5 blocking finding open after the cap ends the
+   run in `blocked`. The same reasoning bounds the last round: a fix made in the third
+   round would have no round to review it, so the third round fixes nothing. A blocking
+   finding there ends the run in `blocked`, and a non-blocking one is deferred. Two rounds
+   fix, the third confirms.
+7. **CI repair and Step 6 repair use the paired round at medium tier and above.** Medium
+   enters the Codex slot; high and above also rerun the Claude pass fresh. Each CI cycle
+   keeps its one extra Step 5 round, which now holds both passes. Low tier keeps the
+   orchestrator's own review.
+8. **The fallback follows the Codex model.** `gpt-6-sol` falls back to Opus, and
+   `gpt-6-astra` to Fable then Opus, at any tier. This qualifies Part 4 item 9, which
+   named the max tier because only max used `gpt-6-astra` then.
+9. **Every Claude pass targets the base commit.** Read from the installed Claude Code
+   2.1.284 prompt: with no target the skill diffs `@{upstream}...HEAD`, else
+   `main...HEAD`, else `HEAD~1`, and adds `git diff HEAD` for uncommitted work. The work
+   branch has no upstream before the push, and the loop fetches the remote default branch
+   without moving local `main`, so a stale local `main` would put unrelated commits under
+   Claude's review while Codex reviews only the task. That breaks the shared-diff rule and
+   can produce blocking findings the task did not cause. Passing the base commit as the
+   target on every pass, not only in CI repair, pins both reviewers to the same range.
+   Whether the skill honors a commit as its target is unverified; acceptance item 58
+   checks it with local `main` deliberately behind the base.
 
 ## Rules stated elsewhere in the loop, with reasons
 

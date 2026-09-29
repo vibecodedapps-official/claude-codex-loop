@@ -14,13 +14,14 @@ Given an issue, a file of notes, or a short description, the loop:
 
 1. Checks the working tree and the settings that apply, and states what will prompt.
 2. Verifies the claims in the inputs against the code and sizes the effort.
-3. Writes a plan, and at medium effort and above has Codex review it until no blocking
-   objection remains.
+3. Writes a plan and has Codex review it until no blocking objection remains, at every
+   tier.
 4. Creates a branch, runs the repo's checks once as a baseline, and has Claude
    subagents implement the plan, one agent per slice. Independent slices run in parallel
    and dependent ones in order, at every tier. Below xhigh the implementer is Sonnet; at
    xhigh and max the plan picks Sonnet or Opus per slice. Claude reviews each slice.
-5. At high effort and above, has Codex review the whole diff.
+5. At medium effort and above, has Codex review the whole diff. At high and above, the
+   built-in `/code-review` skill reviews it too, at a level that rises with the tier.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request, watches CI, and comments on each source
    issue.
@@ -47,8 +48,13 @@ directory exists prints the report and writes nothing.
   /plugin install codex-lite@vibecodedapps-codex-lite
   ```
 
-Without Codex, use `--no-codex`. The loop then uses Claude subagents as reviewers and
-names every swap in the report.
+- The built-in `/code-review` skill, for runs at high effort and above. It is the second
+  final reviewer beside Codex at those tiers. A run that needs it and cannot find it ends
+  in `blocked`. Low and medium runs and plan-only runs do not need it.
+
+Without Codex, use `--no-codex`. The loop then uses Claude subagents in place of the Codex
+reviewers and names every swap in the report. `--no-codex` does not remove the
+`/code-review` pass.
 
 ## Install
 
@@ -153,19 +159,26 @@ not depend on it. A subagent's report is model output, not approval.
 
 | Step | Low | Medium | High | xhigh | Max |
 |---|---|---|---|---|---|
-| Plan review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
+| Plan review | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-sol`, or `gpt-6-astra` with a risk trigger | Codex `gpt-6-astra` | Codex `gpt-6-astra` |
 | Implement | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews |
-| Final review | skipped | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` | Codex `gpt-6-astra` |
+| Final review | skipped | Codex `gpt-6-sol` | Codex `gpt-6-sol` and Claude `/code-review medium` | Codex `gpt-6-sol`, or `gpt-6-astra` with a risk trigger, and Claude `/code-review high` | Codex `gpt-6-astra` and Claude `/code-review xhigh` |
 
 Review of the inputs, checks, and publish run at every tier. The tier is sized from
 behavioral risk, and xhigh and max from how many areas that share no file the change
 spans. Bundling issues does not raise it. A change that adds, alters, or removes an auth
 check, a permission rule, a schema or migration, a row-level security policy, a data
 access path, or a public API's signature or behavior is at least high tier, and
-`--effort` cannot lower that. xhigh and max are above the floor. After implementation
-the floor is applied to the diff again; the estimate is not repeated, so a run never
-rises above high after implementation. When Codex is unavailable, a Claude subagent
-replaces the reviewer and the stage still runs.
+`--effort` cannot lower that. xhigh and max are above the floor. "With a risk trigger"
+means the change has one of those triggers, whether or not the floor raised the tier. It
+decides two cells: the high plan review, judged at the estimate, so a floored high run
+gets `gpt-6-astra` and a high run that is only cross-cutting gets `gpt-6-sol`; and the
+xhigh final review, judged from the estimate or the diff after implementation, so an
+xhigh run forced on a floored task, or whose diff gained a trigger, gets `gpt-6-astra`
+while staying xhigh. After implementation the floor is applied to the diff again; the
+estimate is not repeated, so a run never rises above high. At high tier and above a final review round is both
+reviewers over the same diff, with one shared cap of 3 rounds. When Codex is unavailable,
+a Claude subagent replaces the Codex reviewer and the stage still runs; the `/code-review`
+pass is never swapped.
 
 Every step that repeats is capped at 3 rounds. Time is bounded per call and per run.
 

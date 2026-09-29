@@ -51,8 +51,9 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
   trigger)>
 - `--effort` request: <none | value, and whether it was below the floor (refused, run
   continued at high), at the floor (honored), or above the floor (honored)>
-- Re-evaluation after Step 4: <tier unchanged | rose to high, with the diff evidence and
-  the Step 5 review that ran>
+- Re-evaluation after Step 4: <tier unchanged | rose to high, with the diff evidence>
+- Step 5 reviewers resolved: <skipped at low | Codex model, and at high tier and above the
+  Claude `code-review` level, with whether a trigger existed in the diff>
 
 ## What changed
 
@@ -69,6 +70,8 @@ Per input, one entry:
 - <decision, reason, who or what decided>
 - Reviewer swaps: <stage, default reviewer, fallback used, reason, or "none">
 - Codex threads used: <stage and thread id, or "none">
+- Claude review passes: <stage, round, level, diff covered, result: clean or findings
+  count; or "none" below high tier>
 
 ## Findings rejected and why
 
