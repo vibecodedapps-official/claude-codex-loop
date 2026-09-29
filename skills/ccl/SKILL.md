@@ -335,11 +335,12 @@ which preflight item failed and what would fix it. Step 0 creates nothing except
       writing `.git/info/exclude` and the artifacts under `.ccl/`, the Codex availability
       commands of item 6 (`codex --version`, `claude plugin list --json`), running the repo's
       checks, branch creation, commit, push, opening the PR, issue comments, the PR report
-      comment, each Codex call if Codex is used, subagents, and any other command this skill
-      does not pre-approve. Take the mode from what the session states and from the settings
-      files' default mode and allow rules (user, project, and local settings). An action whose
-      outcome cannot be determined counts as one that will prompt. In default mode, each Codex
-      call prompts for codex-lite's request-file write unless the user has allowed it.
+      comment, the CI watch's `gh` calls, each Codex call if Codex is used, subagents, and any
+      other command this skill does not pre-approve. Take the mode from what the session
+      states and from the settings files' default mode and allow rules (user, project, and
+      local settings). An action whose outcome cannot be determined counts as one that will
+      prompt. In default mode, each Codex call prompts for codex-lite's request-file write
+      unless the user has allowed it.
    3. If any will prompt, print "this run will prompt at:" with the list and continue. The run
       is attended, and the report says so. If none will, print "this run is unattended" and
       continue.
@@ -547,7 +548,12 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
       changed files, and its `types` filter, when present, includes the event the watched head
       commit produced: `opened` for the first watch after the PR is created, `synchronize`
       after a CI repair push to the open PR. A filter that cannot be evaluated with
-      confidence counts as a match.
+      confidence counts as a match. A workflow triggered by `pull_request` (not
+      `pull_request_target`) does not apply when the PR head commit's message carries a skip
+      instruction: `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, or
+      a `skip-checks:true` or `skip-checks: true` trailer. The report names each workflow a
+      skip instruction made not applicable. A check that branch protection requires stays
+      expected either way: GitHub leaves it pending, so the pending rule in item 3 applies.
       Expected checks are the required status checks from branch protection, read with `gh`
       (the branch protection API and the repo's rulesets for the default branch), plus every
       check Step 6 deferred to CI whose workflow applies, matched by job name. A deferred check
@@ -558,11 +564,18 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
    2. Poll the checks of the PR head commit, identified by its SHA, with `gh pr checks`,
       `gh pr view --json headRefOid`, and `gh run list`. Poll at about 30 second intervals,
       checking the run budget each time. A check that reported on an earlier commit does not
-      count. Recheck the SHA after every push.
+      count. Recheck the SHA after every push. Also read the PR's test merge commit, the
+      `merge_commit_sha` from `gh api repos/{owner}/{repo}/pulls/<n> --jq .merge_commit_sha`,
+      and that commit's statuses and check runs, because GitHub gates the PR on the test
+      merge commit when it has a status. A missing `merge_commit_sha` is read again on the
+      next poll. Every push produces a new test merge commit, so read it again after each
+      push.
    3. CI is not judged until 2 minutes after the push. CI is green when every expected check
       has succeeded or been skipped on the head commit, every applicable workflow has reported
       at least one check on that commit, and every check observed on that commit has finished
-      and succeeded or been skipped, with none pending or failed. An expected check or an
+      and succeeded or been skipped, with none pending or failed. When the test merge commit
+      has any statuses or check runs, each must also have finished and succeeded or been
+      skipped, and a failure there is a CI failure. An expected check or an
       applicable workflow that has not reported is pending until the CI budget expires, then
       `blocked`. When the required checks are unknown, judge on the expected deferred checks,
       the applicable workflows, and the checks observed on the head commit, and the report says
