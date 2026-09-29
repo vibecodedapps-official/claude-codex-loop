@@ -294,7 +294,8 @@ statement covers the default-branch fetch, the writes under `.ccl/` and to
 
 A worktree run (a clean tree whose skip-worktree files differ from `HEAD`) also
 prompts, because its `cd <checkout> && ...` commands are not pre-approved. The statement
-predicts this: the flagged-file check runs before it, so those prompts are in the list. The run installs the
+predicts this: the flagged-file check runs before it, so those prompts are in the list.
+The run installs the
 repository's dependencies in the worktree before the baseline when the instruction
 files or a lockfile name an install step. Otherwise a check that needs them is recorded
 as not run in the worktree, with the reason.
