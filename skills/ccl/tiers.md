@@ -104,11 +104,13 @@ run. `--effort xhigh` or `--effort max` is above the floor and is honored.
 
 ## Re-evaluation after Step 4
 
-After Step 4, evaluate the tier again against the actual diff, using the same estimate rule
-and risk floor.
+After Step 4, apply the risk floor to the actual diff. This is a floor check only: the
+estimate rule is not applied again, so a diff that turned out larger or more independent
+than planned does not move the run to xhigh or max.
 
 - If the floor now applies and the run is below high tier, the run rises to high tier. Log
-  the rise and the reason.
+  the rise and the reason. A run already at high, xhigh, or max tier is unchanged by the
+  floor, whatever the diff contains.
 - Complete the reviews high tier requires before Step 6: the Step 5 final review with the
   high tier reviewer and its fallbacks. It stays inside the round caps in the budgets. Plan
   review at Step 3 is not repeated for a rise that happens after Step 4.
