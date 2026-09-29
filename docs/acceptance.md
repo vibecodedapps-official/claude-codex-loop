@@ -416,9 +416,10 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     contract.
 67. **Line endings.** Setup: a repo whose tracked files use CRLF, and an issue that asks
     for one new file. Command: `/ccl:run #1 --no-codex`. Expected: the new file has the
-    ending the implementer rule defines, `.gitattributes` first, else the majority in its
-    directory, else the majority in the repository, here CRLF, read from the `w/` column
-    of `git ls-files --eol` (`w/crlf`), no edited file changed its endings, and a new
+    ending the implementer rule defines, the `eol=` attribute first, else no comparison
+    under `text` or `text=auto`, else the majority in its directory, else the majority in
+    the repository, here CRLF, read from the `w/` column of `git ls-files --eol`
+    (`w/crlf`), no edited file changed its endings, and a new
     binary file (`w/-text`) or a new file with no line ending (`w/none`) draws no finding.
     Then plant an LF new file in a slice and rerun: Step 4.3 raises a
     finding that names the file, and the implementer fixes it before review. Rerun
@@ -451,8 +452,9 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     <file>` and an edit to that file, `git status --porcelain` prints nothing and `git
     ls-files -v` shows `S` for it. Command: `/ccl:run #1 --no-codex --effort low`.
     Expected: the run sees the clean status and the flagged file that differs from
-    `HEAD`, creates a detached worktree at `.ccl/<run-id>/worktree` with `git worktree
-    add --detach`, records it in `run.md`, works in it, skips Step 5 at low tier, and the
+    `HEAD`, creates a detached worktree beside the checkout, at
+    `<checkout-parent>/<checkout-name>-ccl-<run-id>`, with `git worktree add --detach`,
+    records it in `run.md`, works in it, skips Step 5 at low tier, and the
     report names the worktree path and `git worktree remove <path>`. If any `cd
     <checkout> && ...` command prompted, the report says the run was attended. Rerun
     after any change to Step 0.3.

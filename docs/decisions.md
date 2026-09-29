@@ -434,8 +434,9 @@ run that taught it.
    controls which skills a session lists, and with the CLI ban a listing gap left no route
    to Codex. Observed on a live run of 2026-09-29 (#7).
 5. **Implementers match the repository's line endings, and Step 4.3 checks them.** A new
-   file takes the endings from `.gitattributes`, else the majority of files in its
-   directory, else the majority of tracked files, and an edited file keeps its own. In a
+   file takes the `eol=` attribute when one applies; under `text` or `text=auto` with no
+   `eol=`, git normalizes on commit and no ending is enforced; else the majority of files
+   in its directory, else the majority of tracked files. An edited file keeps its own. In a
    CRLF repository, LF files made git warn on every diff. Observed on a live run of
    2026-09-29 (#8).
 6. **Independent slices run as one Workflow or as parallel Agent calls.** The orchestrator
@@ -448,12 +449,15 @@ run that taught it.
    get 120 minutes, high 240, xhigh and max 360. The precedence is `--run-budget`, else
    `.ccl.json` `timeouts.run`, else the tier default. An explicit value is never replaced
    by a tier default, and 240 applies only until Step 1.5 sets the tier when nothing is
-   explicit. An explicit instruction in the session replaces the budget from that point.
+   explicit; a Step 4.5 rise to high moves an implicit budget to the high default. An
+   explicit instruction in the session replaces the budget from that point.
    A flat 240 would have ended a large max run in `blocked` against the user's
    instruction to finish. Observed on a live run of 2026-09-29 (#10).
 8. **A dropped call is not a denial, and a clean tree with skip-worktree edits runs in a
    detached worktree.** A dropped call returns no result and no explicit
-   denial. A dropped read-only call is retried once, serially. A dropped write is checked
+   denial; a result that names a hook, a permission rule, or the permission mode as the
+   reason is a denial. A dropped read-only call is retried once, serially. A dropped write
+   is checked
    first, and retried once only if it did not take effect. Carve-out 3 applies only to an
    explicit denial, so a drop no longer ends a run in `blocked`. Git hides skip-worktree
    and assume-unchanged edits from `git status --porcelain`, so the tree reads clean.
@@ -477,8 +481,10 @@ Composition rules, each with its reason:
   and `code-review` read the session's checkout, so a primary in a worktree would be
   reviewed wrongly. A primary that would qualify ends in `blocked`, naming the
   skip-worktree files that differ from `HEAD`.
-- **Every repository is on the same host as the primary.** One run has one publish path.
-  A different host is a preflight failure, and on `other` all repositories end in
+- **Every repository is on the same host as the primary, by hostname.** One run has one
+  publish path, and `-R <owner>/<repo>` without a host resolves on github.com, so a GitHub
+  Enterprise checkout beside a github.com primary is a different host. It is a preflight
+  failure, and on `other` all repositories end in
   `prepared` together.
 - **An additional repository's Claude slot is an Opus subagent.** The `code-review` skill
   cannot target a checkout other than the session's. The subagent is a defined

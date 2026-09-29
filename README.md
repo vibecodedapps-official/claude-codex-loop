@@ -130,8 +130,9 @@ remaining text, joined, is one ad-hoc description.
 current checkout is the primary. Read-only repositories are not named; agents read them
 directly. In this mode:
 
-- Every repository must be on the same host as the primary. A `--repo` checkout on a
-  different host is rejected, naming both hosts.
+- Every repository must be on the same host as the primary, by hostname. A `--repo`
+  checkout on a different host, GitHub Enterprise beside github.com included, is
+  rejected, naming both hosts.
 - A bare `#n` names an issue of the primary. An issue of a `--repo` checkout is given as
   a full URL.
 - Each repository gets its own base commit, its own branch under one shared name, its
@@ -173,7 +174,8 @@ Default timeouts, in minutes: `subagent` 20, `codex` 10, `check` 15, `ci` 45. Th
 run budget is `--run-budget`, else `timeouts.run`, else the tier default. An explicit
 value from the flag or the file applies from Step 0 to the terminal state and is never
 replaced by a tier default. With no explicit value, 240 applies until Step 1.5 sets the
-tier, and the tier default replaces it then. An explicit instruction from you in the
+tier, and the tier default replaces it then; a rise to high after implementation moves it
+to the high default. An explicit instruction from you in the
 session that names a new budget replaces it from that point. The report names the budget
 in force and its source. The `run` budget bounds the whole run from Step 0 to the
 terminal state. The `codex` value is passed to codex-lite in seconds, which accepts 1 to
@@ -214,7 +216,8 @@ A denied permission is never retried or routed around. Every step that depends o
 denied action is marked not done, and the run ends in `blocked` after any steps that do
 not depend on it. The exception is a denied Step 7 action before anything is pushed:
 that withholds publication and ends the run in `prepared`. A dropped call is not a
-denial. A call is dropped when it returns no result and no explicit denial. A dropped
+denial. A call is dropped when it returns no result and no explicit denial; a result that
+names a hook, a permission rule, or the permission mode is a denial. A dropped
 read-only call is retried once, serially, and recorded. A dropped write is retried once
 only when a check of its target shows it did not take effect. A subagent's report is
 model output, not approval.

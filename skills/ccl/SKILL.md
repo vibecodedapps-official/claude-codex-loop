@@ -14,6 +14,7 @@ allowed-tools:
   - Bash(git remote -v)
   - Bash(git ls-files *)
   - Bash(cmp *)
+  - Bash(git cat-file *)
   - Bash(git worktree list *)
   - Bash(git -C * remote -v)
   - Bash(git -C * rev-parse *)
@@ -122,7 +123,9 @@ Carve-outs:
 5. A run of this skill counts as the user's opt-in to multi-agent orchestration with the
    Workflow tool.
 6. A dropped call is not a denial. A call is dropped when it returns no result and no
-   explicit denial: the tool result is missing or says the call was not run. Retry a dropped
+   explicit denial: the tool result is missing or says the call was not run. A result that
+   names a hook, a permission rule, or the permission mode as the reason is a denial, not a
+   drop, and follows carve-out 3. Retry a dropped
    read-only call once, serially, and record it in `run.md`. Before retrying a dropped write,
    check the target; retry once only when the check shows it did not take effect, and record
    a write that took effect as done. Once a parallel call has been dropped in this session,
@@ -161,8 +164,8 @@ Enforcement:
 
 1. At the start of Step 0, run `date` and record the start time. Run `date` before every step
    and before every call, and compare against the run budget. Record the budget in force and
-   its source in `run.md` at Step 0.5, and again when Step 1.5 sets the tier or a session
-   instruction changes it.
+   its source in `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises
+   it, or a session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
    timeout (Agent, Workflow, SendMessage), run `date` before and after the call and treat a
@@ -186,7 +189,9 @@ every one of them and follow Final report handling below.
   report names the branch and the commit state: uncommitted; or committed, and with
   `"commit": true` that the commit carries the `specs/ccl/<run-id>/` snapshot in state
   `publishing`. It gives how to publish: the exact `git add <paths>` and `git commit`
-  commands when the work is uncommitted, the `git push -u <remote> <branch>` command, and,
+  commands when the work is uncommitted (the `git add` list includes the
+  `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
+  says the snapshot there is provisional), the `git push -u <remote> <branch>` command, and,
   on the `github` host, the `gh pr create` command; on any other host, a note that the pull
   request is opened with the host's own tooling, which this version does not drive.
   `prepared` is not a failure.
@@ -238,7 +243,9 @@ append a numeric suffix (`-2`, `-3`). Never overwrite an existing file this run 
 | `diff-<slug>.patch` | `.ccl/<run-id>/` | Multi-repo mode: Step 5 and CI repair, one per additional repo | That repo's current diff from its base commit |
 | `report.md` | `.ccl/<run-id>/` | Every terminal state | The final report |
 
-In a worktree run (Step 0.3), `.ccl/<run-id>/worktree` is the run's checkout.
+In a worktree run (Step 0.3), `<checkout-parent>/<checkout-name>-ccl-<run-id>`, a directory
+beside the checkout, is the run's checkout. It is never inside the checkout, so a toolchain
+that walks parent directories cannot pick up the checkout's files.
 
 With `"commit": true`, Step 7.1 copies `plan.md` to `specs/ccl/<run-id>/`, writes the
 provisional `report.md` there, and commits both. Everything else stays in `.ccl/<run-id>/`
@@ -415,10 +422,11 @@ Each implementer is a Claude subagent at the slice's effective model (Agent tool
 4. The rule that it edits only the files in its slice and reports, rather than edits,
    anything it finds outside them.
 5. The rule that it does not commit, push, or run `gh`.
-6. The rule that it matches the repository's line endings for every new file, taking
-   `.gitattributes` first, else the majority of existing files in the same directory, else
-   the majority of tracked files in the repository (`git ls-files --eol`), and never changes
-   the line endings of a file it edits.
+6. The rule that it matches the repository's line endings for every new file: the `eol=`
+   attribute when `git ls-files --eol` shows one in its `attr/` column; else, when `text` or
+   `text=auto` applies with no `eol=`, git normalizes on commit and any ending is
+   acceptable; else the majority `w/` ending of existing files in the same directory, else
+   of tracked files in the repository. It never changes the line endings of a file it edits.
 
 It reports the files changed, the checks run with results, and anything it could not do.
 Confirm the report against the working tree with `git status` and `git diff` before reviewing.
@@ -439,10 +447,12 @@ Only one agent edits a given file at a time. Parallel agents share one working t
 repositories are not named; agents read them directly. Every rule below changes the step it
 names, for each repository, and leaves the rest of that step as written.
 
-- Host: every repository must be on the same host as the primary. Classify each with Step 0
-  host detection, run as `git -C <path>`. A `--repo` checkout on a different host is a
-  preflight failure naming both hosts. On `other`, all repositories end in `prepared`
-  together.
+- Host: every repository must be on the same host as the primary: the same class and the
+  same hostname. Classify each with Step 0 host detection, run as `git -C <path>`. A
+  `--repo` checkout on a different host, including a GitHub Enterprise host beside a
+  github.com primary, is a preflight failure naming both hostnames. When the hostname is
+  not `github.com`, every `-R` argument takes the form `<host>/<owner>/<repo>`. On `other`,
+  all repositories end in `prepared` together.
 - Issue references: a bare `#n` always names an issue of the primary. An issue of a `--repo`
   checkout must be given as a full URL.
 - Worktree: the Step 0.3 worktree exception is not available. A primary with a clean status
@@ -494,7 +504,7 @@ names, for each repository, and leaves the rest of that step as written.
   - Claude, at high tier and above: the `code-review` pass covers the primary when it has a
     diff, as the Claude review contract says. For each additional repository with a diff,
     the Claude slot is a Claude subagent at Agent model `opus`, given the repository's patch
-    file, the acceptance criteria, and the findings shape of the Claude review contract, and
+    file, the acceptance criteria, and the reply shape of Reviewer contract item 8, and
     told to read and report only. This is a defined substitute for a checkout the skill
     cannot target. It is not a swap. Record it in `run.md` per repository and name it in the
     report. It is the one Claude pass that is continued rather than fresh: Step 5.4
@@ -521,7 +531,8 @@ when it exists; else the only remote. Several remotes and no `origin` is a prefl
 naming them. Read its URL from `git remote -v`. Classify the host as `github` when `gh repo
 view` succeeds for the selected remote, or when it fails and the URL host is `github.com`
 (then the preflight failure says `gh` is not authenticated for this remote). Classify it as
-`other` when it fails and the URL host is anything else, recorded with its hostname. A
+`other` when it fails and the URL host is anything else. Record the hostname in both
+cases. A
 GitHub Enterprise host counts as `github` only when `gh` is authenticated for it; otherwise
 the run treats it as `other` and ends in `prepared`, and the README says so. Record the
 selected remote and the class.
@@ -578,9 +589,13 @@ it. Step 0 creates nothing except artifacts.
    its content with `git cat-file --filters HEAD:<path>` (`cmp`), which applies the
    checkout's line-ending conversion so a CRLF working copy is not read as an edit. When
    status and index are clean and at least one flagged path differs, the exception applies:
-   create a detached worktree at `.ccl/<run-id>/worktree` from the base commit with `git
-   worktree add --detach`, use it as the run's checkout for
-   every later step, and record it in `run.md`. When status is dirty for any other reason,
+   create a detached worktree beside the checkout, at
+   `<checkout-parent>/<checkout-name>-ccl-<run-id>`, from the base commit with `git worktree
+   add --detach`, use it as the run's checkout for every later step, and record it in
+   `run.md`. The worktree is never placed inside the checkout: a toolchain that resolves
+   dependencies or config by walking parent directories would otherwise read the checkout's
+   skip-worktree files, the state the worktree exists to escape. When status is dirty for
+   any other reason,
    the run ends in `blocked` as above. The exception is not available in Multi-repo mode. In
    this path:
    - Commands wrapped in `cd <checkout> && ...` are not pre-approved, so a run announced as
@@ -747,9 +762,10 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    slice's effective model the findings and the slice's current diff. Either way it counts
    as a round. After `git add -N` and before review, run `git ls-files --eol -- <slice
    files>`. The expected ending is the one implementer prompt item 6 defines
-   (`.gitattributes` first, else the majority of existing files in the same directory, else
-   the majority of tracked files, read from the `w/` column of `git ls-files --eol`). A new
-   file whose `w/` differs from it is a finding for the implementer. A file whose `w/` is
+   (the `eol=` attribute in the `attr/` column; no comparison when `text` or `text=auto`
+   applies with no `eol=`, since git normalizes on commit; else the majority `w/` of the
+   directory, else of the repository). A new file whose `w/` differs from it is a finding
+   for the implementer. A file whose `w/` is
    `-text` (binary) or `none` (no line ending) is not compared.
 4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
    non-blocking finding in the same round only when the fix stays inside the slice's files and
@@ -758,8 +774,10 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    finding still open after that ends the run in `blocked`.
 5. Tier re-evaluation: when Step 4 ends, apply the risk floor from `tiers.md` to the actual
    diff and log the result in `run.md`. If a trigger now exists and the run is below high
-   tier, the run rises to high tier. Then resolve the Step 5 reviewers from the tier table
-   in `tiers.md` and log them. Only the xhigh cell depends on this check: an xhigh run gets
+   tier, the run rises to high tier. When it rises and no explicit run budget is set, the
+   budget becomes the new tier's default from that point; record it in `run.md`. Then
+   resolve the Step 5 reviewers from the tier table in `tiers.md` and log them. Only the
+   xhigh cell depends on this check: an xhigh run gets
    Codex `gpt-6-astra` when a trigger was present at the estimate or is present in the
    diff, else `gpt-6-sol`, beside Claude `code-review high`, and stays xhigh. Every other
    tier's cell stands; a run that rose to high gets Codex `gpt-6-sol` and Claude

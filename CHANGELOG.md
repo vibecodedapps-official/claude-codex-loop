@@ -20,7 +20,7 @@
 - A dropped call, one that returns no result and no explicit denial, is not a denial. A
   dropped read-only call is retried once, serially. A dropped write is checked before any
   retry. A clean tree with skip-worktree or assume-unchanged files that differ from
-  `HEAD` runs in a detached worktree at `.ccl/<run-id>/worktree`, below high tier and
+  `HEAD` runs in a detached worktree beside the checkout, below high tier and
   not in Multi-repo mode. This is a narrow use of the deferred `--worktree` feature, not
   the feature. (#11)
 
