@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Codex availability no longer depends on the session's skill list. It is decided from
+  `codex --version` and the installed codex-lite version, 0.7.0 or later. A Skill call for
+  `codex-lite:ask` or `codex-lite:review` that errors because the skill is not listed
+  counts as a `failed` call: retry once, then swap, with the reason recorded. (#7)
+- Implementers match the repository's line endings for every new file, and Step 4.3
+  checks new files with `git ls-files --eol` before review. (#8)
+- Independent slices run in parallel either as one Workflow or as parallel Agent calls
+  in one message. The orchestrator picks and logs the choice in `run.md`. Agent calls
+  are the default when review rounds are expected, because they can be continued. (#9)
+- The run budget default is by tier: 120 minutes at low and medium, 240 at high, 360 at
+  xhigh and max. `--run-budget <minutes>`, else `.ccl.json` `timeouts.run`, overrides it,
+  and an explicit instruction in the session can replace it. The report names the budget
+  in force and its source. (#10)
+- A dropped call, one that returns no result and no explicit denial, is not a denial. A
+  dropped read-only call is retried once, serially. A dropped write is checked before any
+  retry. A clean tree with skip-worktree or assume-unchanged files that differ from
+  `HEAD` runs in a detached worktree beside the checkout, below high tier and
+  not in Multi-repo mode. This is a narrow use of the deferred `--worktree` feature, not
+  the feature. (#11)
+
+### Added
+
+- Host detection in Step 0. On a host other than GitHub the run accepts only file and
+  text inputs, runs Steps 0 to 6, and ends in `prepared` with a handoff to the host's own
+  tooling. A full Azure DevOps path is out of scope. (#4)
+- Multi-repo mode: a repeatable `--repo <path>` flag names additional writable
+  checkouts. Each repository gets its own base commit, branch, baseline, checks, and PR,
+  with sibling links in each PR body. Every repository must be on the same host. (#5)
+- The `prepared` terminal state, and the `--no-publish` flag on `/ccl:run`. A run whose
+  Step 7 is withheld before any push, by the flag, by a non-GitHub host, or by a denied
+  Step 7 action, ends in `prepared` with the commands to publish. (#6)
+
 ## 0.4.0 - 2026-09-29
 
 ### Changed

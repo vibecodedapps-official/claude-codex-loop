@@ -59,12 +59,15 @@ These followed a second review of the design, with a second opinion from Codex.
    rules.
 9. **Repair mode, `--merge`, and `--worktree` are deferred to 0.2.** Build mode is the
    smallest path that works end to end. The deferred text is preserved for 0.2.
+   Qualified by Part 8 item 8: the narrow worktree use in Step 0.3 is not `--worktree`.
 10. **Rounds are defined, and a run-wide budget bounds the run.** A round is one
     reviewer pass and the fixes it leads to. Since Part 7 a round is one pass by each
     reviewer the stage has, over the same diff. The orchestrator's single fix after the
     Step 4 cap is not a round; Step 5 has no post-cap fix since Part 7. A Step 3.7.1 revision is a Step 3 round. Each CI repair cycle gets one
     Step 5 round and one full Step 6 run of its own, because the cycles are already
     capped at 3. The run budget is 4 hours from Step 0 to the terminal state.
+    Qualified by Part 8 item 7: the default is by tier, and a flag or the session can
+    override it.
 11. **Step 0.1 states whether the run will prompt before any other Step 0 action.** The
     prompts that occurred. An unattended run that stalls on a prompt is the cost this
     avoids, and the recorded failure of dropped up-front approval grants is the reason
@@ -87,6 +90,9 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
    run in `blocked`.
 4. **The remote used at Step 0.2.** The remote that `gh repo view` resolves, else
    `origin`. A checkout can have several remotes, and the loop needs one answer.
+   Qualified by Part 8 item 1: the remote is the one `gh repo view` resolves, else
+   `origin`, else the only remote, and its host is classified first. A non-GitHub host
+   resolves the default branch from the remote's `HEAD` symref.
 5. **The run log starts at Step 0.5.** Steps 0.2 to 0.4 run before the run directory
    exists, so their records are written once it does.
 6. **How Step 0.1 determines prompts.** The mode comes from what the session states and
@@ -97,7 +103,8 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
    comes from the first issue's title, so a bundle has one predictable name.
 8. **Continuing or replacing an implementer.** Findings go back to the same agent when
    it can be continued. Agents run inside a Workflow do not persist, so a fresh agent
-   gets the findings and the slice's current diff.
+   gets the findings and the slice's current diff. Qualified by Part 8 item 6: parallel
+   Agent calls are allowed too, and they can be continued.
 9. **Low and medium tier skip all of Step 5, including 5.1.** Step 6 then runs the full
    set, so the full check run still happens once. Superseded by Part 7 item 2: only low
    tier skips Step 5.
@@ -217,7 +224,8 @@ and the acceptance item is named.
    `--no-codex`. The README says so, and Step 0.1 says so at run time.
 5. **Parallel slices share one working tree, with no per-agent worktrees.** Merging
    per-agent worktrees adds a step the rules do not have, and the no-shared-file rule
-   already prevents the conflicts that would justify it.
+   already prevents the conflicts that would justify it. Qualified by Part 8 item 8: the
+   Step 0.3 worktree is one checkout for the whole run, not a per-agent worktree.
 6. **`.ccl/` is ignored through `.git/info/exclude`, written after Step 0.3.** A
    committed `.gitignore` edit would leave a dirty tree on `plan-only` and `stopped`
    runs, which make no commit, and fail the next run's clean tree check. The cost is
@@ -341,11 +349,14 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    `--comment` is never passed, because no PR exists at Step 5 and comments are
    ask-first, and `--fix` is never passed, because fixes go through the implementer.
    Its availability is checked only when a stage needs it, so low, medium, and plan-only
-   runs gain no prerequisite.
+   runs gain no prerequisite. Qualified by Part 8 item 2: in Multi-repo mode the skill
+   covers the primary only, and an Opus subagent fills the Claude slot for each
+   additional repository.
 5. **A Step 5 round at high tier and above is both passes over the same diff, under one
    shared cap of 3.** This qualifies Part 2 item 10. The Codex thread keeps `--resume`;
    the Claude pass is fresh each round, since the skill keeps no thread, and a finding it
-   repeats keeps its recorded disposition unless it cites new evidence. Findings from both
+   repeats keeps its recorded disposition unless it cites new evidence. The Opus subagent
+   of Part 8 item 2 is the one Claude pass that is continued. Findings from both
    are merged into one list, with the source kept, and fixed in one batch, so a round
    costs one implementer pass, not two. Both passes must return before the round ends;
    otherwise "cap of 3" could mean three rounds per reviewer.
@@ -374,6 +385,120 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    Whether the skill honors a commit as its target is unverified; acceptance item 58
    checks it with local `main` deliberately behind the base.
 
+## Part 8: Live-run amendments, 2026-09-29
+
+Eight issues came from live runs of 2026-09-29. Each rule below has the reason and the
+run that taught it.
+
+1. **Step 0 detects the remote host, and a non-GitHub host ends in `prepared`.** The run
+   selects the remote (the one `gh repo view` resolves when it succeeds, else `origin`,
+   else the only remote), reads its URL from `git remote -v`, and classifies the host as
+   `github` when `gh repo view` succeeds (GitHub Enterprise included). When it fails and
+   the URL host is `github.com`, the command rejects the request because `gh` is not
+   authenticated. When it fails and the host is anything else, the host is `other`. An
+   unauthenticated `gh` fails the same way on an Azure remote as on a GitHub Enterprise
+   remote, so the command cannot tell them apart, and a GitHub Enterprise checkout needs
+   a `gh` login for that host. On `other` it accepts only file and text inputs, runs
+   Steps 0 to 6, never runs Step 7, and hands publication to the repo's own
+   tooling. Step 0 and Step 7 are written around `gh` and GitHub Actions, so on
+   another host they cannot run as written. A full Azure DevOps path would duplicate
+   Step 7.3's CI rules for a second API with no way to verify them here, so it is out of
+   scope. Observed on a live run of 2026-09-29 (#4).
+2. **Multi-repo mode: `--repo <path>` names additional writable checkouts.** Each
+   repository gets its own base commit, branch, baseline, checks, and PR, and artifacts
+   live in the primary's `.ccl/<run-id>/`. No slice spans repositories, which extends the
+   no-shared-file rule. A bare `#n` is always the primary's issue, so it stays
+   unambiguous. An issue closes only through the PR in its own repository, and the other
+   PRs cite it with `Refs <owner>/<repo>#n`. Codex `review` reads only the session's
+   checkout, so an additional repository is reviewed through `ask` with a patch file,
+   and the `code-review` skill covers the primary only. Every `gh` call for an additional
+   repository is run from that checkout or targeted with `-R <owner>/<repo>` where the
+   subcommand accepts it (`gh api` does not, so its endpoint is spelled out), and every
+   `git` call uses `git -C <path>`, so no call lands on the wrong repository. The
+   primary's `.ccl.json` governs `commit` and `timeouts`, and each repository's own
+   `checks` list is read for that repository. The
+   operator generalized all of this by hand across three writable repositories, with no
+   rules to follow. Observed on a live run of 2026-09-29 (#5).
+3. **`prepared` is a terminal state, and `--no-publish` withholds Step 7.** Every step
+   through Step 6 is done, no blocking defect is open, and Step 7 was withheld before any
+   push, by the flag, by a non-GitHub host, or by a denied or unconfirmed Step 7 action.
+   This qualifies carve-out 3: a denial before any push ends in `prepared`, and a denial
+   after a push, or in Steps 0 to 6, still ends in `blocked`. `blocked` reads as a
+   failure and `stopped` assumes no branch and a fresh rerun, so neither fits finished,
+   unpublished work. The report gives the branch, the commit state, and the commands to
+   publish. Observed on a live run of 2026-09-29 (#6).
+4. **Codex availability does not depend on the session's skill list.** It is decided from
+   `codex --version` and the installed codex-lite version, 0.7.0 or later. A Skill call
+   that errors because the skill is not listed counts as a `failed` call: retry once,
+   then swap, recording "skill not listed in session", and Codex is recorded unavailable
+   for the rest of the run so later stages do not repeat the failed calls. The host, not the plugin,
+   controls which skills a session lists, and with the CLI ban a listing gap left no route
+   to Codex. Observed on a live run of 2026-09-29 (#7).
+5. **Implementers match the repository's line endings, and Step 4.3 checks them.** A new
+   file takes the `eol=` attribute when one applies; under `text` or `text=auto` with no
+   `eol=`, git normalizes on commit and no ending is enforced; else the majority of files
+   in its directory, else the majority of tracked files. An edited file keeps its own. In a
+   CRLF repository, LF files made git warn on every diff. Observed on a live run of
+   2026-09-29 (#8).
+6. **Independent slices run as one Workflow or as parallel Agent calls.** The orchestrator
+   chooses, defaults to Agent calls when review rounds are expected, and logs the choice
+   in `run.md`. Workflow agents cannot be continued for review rounds, and continuation
+   was the more useful property. The issue cited `docs/decisions.md` items 97 to 99,
+   which do not exist; the rule it means is Part 3 item 8. Observed on a live run of
+   2026-09-29 (#9).
+7. **The run budget default is by tier, and it can be extended per run.** Low and medium
+   get 120 minutes, high 240, xhigh and max 360. The precedence is `--run-budget`, else
+   `.ccl.json` `timeouts.run`, else the tier default. An explicit value is never replaced
+   by a tier default, and 240 applies only until Step 1.5 sets the tier when nothing is
+   explicit; a Step 4.5 rise to high moves an implicit budget to the high default. An
+   explicit instruction in the session replaces the budget from that point.
+   A flat 240 would have ended a large max run in `blocked` against the user's
+   instruction to finish. Observed on a live run of 2026-09-29 (#10).
+8. **A dropped call is not a denial, and a clean tree with skip-worktree edits runs in a
+   detached worktree.** A dropped call returns no result and no explicit
+   denial; a result that names a hook, a permission rule, or the permission mode as the
+   reason is a denial. A dropped read-only call is retried once, serially. A dropped write
+   is checked
+   first, and retried once only if it did not take effect. Carve-out 3 applies only to an
+   explicit denial, so a drop no longer ends a run in `blocked`. Git hides skip-worktree
+   and assume-unchanged edits from `git status --porcelain`, so the tree reads clean.
+   When status and index are clean and at least one path marked `S`, `h`, or `s` in
+   `git ls-files -v` differs from `HEAD` (compared through `git cat-file --filters`, so
+   line-ending conversion is not read as an edit), Step 0.3 creates a detached worktree
+   from the base commit as the run's checkout. The plugin does not stash, and a reset was denied as
+   destructive on the live run. This is a narrow use of the deferred `--worktree`
+   feature, not the feature. The run installs the repository's dependencies in the
+   worktree before the baseline when the instruction files or a lockfile name an install
+   step, else a check that needs them is recorded as not run, with the reason. Observed
+   on a live run of 2026-09-29 (#11).
+
+Composition rules, each with its reason:
+
+- **A worktree run is not allowed at high tier or above.** The `code-review` skill reviews
+  only the session's checkout, so it cannot review the worktree. A run that reaches high
+  at Step 1.5, or is raised to high at Step 4.5, ends in `blocked` naming the skip-worktree
+  files that differ from `HEAD` and the tier.
+- **A worktree run and Multi-repo mode do not combine.** The primary's `codex-lite:review`
+  and `code-review` read the session's checkout, so a primary in a worktree would be
+  reviewed wrongly. A primary that would qualify ends in `blocked`, naming the
+  skip-worktree files that differ from `HEAD`.
+- **Every repository is on the same host as the primary, by hostname.** One run has one
+  publish path, and `-R <owner>/<repo>` without a host resolves on github.com, so a GitHub
+  Enterprise checkout beside a github.com primary is a different host. It is a preflight
+  failure, and on `other` all repositories end in
+  `prepared` together.
+- **An additional repository's Claude slot is an Opus subagent.** The `code-review` skill
+  cannot target a checkout other than the session's. The subagent is a defined
+  substitute, recorded in `run.md` and named in the report. It is not a swap, and it is
+  continued, not fresh, so that its follow-up rounds keep their context.
+- **Multi-repo mode with `"commit": true` commits the snapshot in one repository.** It
+  goes to the first repository, the primary first and then the `--repo` order, that has a
+  diff. A repository with no diff never receives it and gets no PR.
+- **`--no-publish` with `"commit": true` commits nothing.** Step 7 never runs, so no
+  commit is made and the report gives the commit commands. A denied push with
+  `"commit": true` leaves a commit that carries the `publishing` snapshot, and the report
+  says so.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.
@@ -390,4 +515,5 @@ These are not numbered decisions, but the same reasoning applies.
   requoting.**
 - **A subagent report is model output, not user approval.** It cannot grant anything.
 - **A denied permission is never retried or routed around.** Routing around a denial
-  would turn a control into a suggestion.
+  would turn a control into a suggestion. A dropped call is not a denial (Part 8 item 8),
+  and a denied Step 7 action before any push ends in `prepared` (Part 8 item 3).
