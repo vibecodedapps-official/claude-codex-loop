@@ -11,7 +11,7 @@
       "name": "ccl",
       "source": "./",
       "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex and Claude reviewing, and Claude subagents implementing.",
-      "version": "0.5.1"
+      "version": "0.6.0"
     }
   ]
 }

@@ -8,12 +8,14 @@ one; never drop a section. Compile the report from the run log, not from memory.
 Every run ends in exactly one terminal state, writes the report, and prints it.
 
 - Terminal states: `done` (PR open, CI green or not applicable), `plan-only` (plan final
-  and written, nothing else run), `prepared` (every step through Step 6 is complete with no
+  and written, nothing else run, or a `--confirm-plan` run the user did not approve),
+  `prepared` (every step through Step 6 is complete with no
   blocking defect open, and Step 7 was withheld before anything was pushed: by
   `--no-publish`, by a non-GitHub host, or by the user answering a Step 7 ask-first prompt
   with anything other than a clear yes; not a failure), `blocked` (a blocking defect, a
   denied permission, a budget exceeded, or a preflight failure), `stopped` (the run stopped
-  to ask the user a question it cannot decide).
+  to ask the user a question it cannot decide, or a change requested under
+  `--confirm-plan` found no plan review round left).
 - A failure before Step 0.5, when the run directory does not exist yet, prints the report
   and writes nothing. The tree may be dirty and the artifacts directory may not be ignored
   yet. The printed report names the preflight item that failed and the fix. Run id and
@@ -38,6 +40,9 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Run budget: <minutes> (<flag | .ccl.json | tier default | session instruction at hh:mm>)
 - Base commit: <sha, or "not resolved">
 - Branch: <name, or "none created">
+- Continued: <no | the existing branch continued, and the PR this run commented on, or
+  "no PR"; in a plan-only or `--no-publish` run, also each condition recorded instead of
+  failed>
 - Worktree: <path | none>
 - Repositories: <primary path, then each --repo path with its base commit and PR link; or
   "primary only">
@@ -50,6 +55,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Mode: <attended | unattended>
 - Prompts that occurred: <each prompt, what it was for, how it was answered; or "none">
 - Prompts expected at Step 0.1 and not seen, or seen and not expected: <list, or "none">
+- Plan approval (`--confirm-plan`): <each question asked, the reply to it, and the wait
+  from question to reply; or "not used">
 
 ## Effort tier
 
@@ -104,14 +111,15 @@ non-blocking and anything out of scope. No issues were opened.
 ## Blocked, stopped, or prepared
 
 - What is blocked or what question is open: <state the blocking defect, denied permission,
-  budget, preflight item, or the question with both positions>
+  budget, preflight item, the question with both positions, or the change requested under
+  `--confirm-plan` and that no plan review round was left>
 - Steps marked not done: <list, or "none">
 - Where the work is: <local branch name, PR link, or "nothing created">
 - What would unblock it: <specific action>
 - If a budget expired: <which budget, its value, the step or call>
 - If work was already pushed: <PR link; nothing further was published>
-- Prepared: <branch, commit state, the commit commands when uncommitted, the push command,
-  and the `gh pr create` command on the `github` host or the host handoff note otherwise;
+- Prepared: <branch, commit state, and the publish commands Terminal states gives for
+  `prepared`;
   with `"commit": true` and a commit made, that the commit carries the `publishing`
   snapshot; or "not prepared">
 
@@ -119,7 +127,7 @@ non-blocking and anything out of scope. No issues were opened.
 
 - Implementer per slice: <slice, model, criterion or none; any swap with the error>
 - Rounds used: <Step 3, Step 4 per slice, Step 5, Step 6 runs, CI repair cycles>
-- Elapsed time against the run budget: <duration>
+- Elapsed time against the run budget: <duration, without the plan approval wait>
 ```
 
 ## Rules for filling it in
@@ -134,6 +142,8 @@ non-blocking and anything out of scope. No issues were opened.
   the baseline run as evidence. It is not the run's to fix.
 - For `plan-only`, the sections for changes, checks, and blocked state say "not run".
   Include the plan location and the branch name if `--branch` was given (recorded only).
+  For a `--confirm-plan` run the user did not approve, the state is `plan-only` and the
+  plan approval line quotes the reply.
 - For `prepared`, no publication happened; give the publish commands.
 - For `blocked` and `stopped`, no publication happens after the state is reached. Report
   what was already pushed and link it.

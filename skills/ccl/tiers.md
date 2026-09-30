@@ -14,7 +14,7 @@ each stage uses at each tier.
 | Orchestrator and primary reviewer | The session's current Claude model (Opus or Fable) | none, the run stops |
 | Codex reviewer, `gpt-6.1-sol` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6.1-sol` | Agent tool, model `opus` |
 | Codex reviewer, `gpt-6-astra` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6-astra` | Agent tool, model `fable`; on an error from that call, model `opus` |
-| Claude reviewer (Step 5, high tier and above) | Skill tool, `code-review`, at the tier's level; in Multi-repo mode, an Opus subagent for each additional repository, as the Multi-repo mode section of `SKILL.md` describes | none; if the skill is not listed when the stage starts, the run ends in `blocked` |
+| Claude reviewer (Step 5, high tier and above) | Skill tool, `code-review`, at the tier's level; in Multi-repo mode, an Opus subagent for each additional repository, as `multi-repo.md` describes | none; if the skill is not listed when the stage starts, the run ends in `blocked` |
 | Implementer, low, medium, and high tier | Agent tool model `sonnet` | none, the run stops |
 | Implementer, xhigh and max tier | Agent tool model `sonnet`, or `opus` when the Opus criteria apply to the slice | on a tool error from an `opus` call, `sonnet`, and the error is recorded |
 
@@ -29,14 +29,15 @@ Rules for roles:
   tool first. If that call returns an error, use `opus` and record the error. Do not detect
   the session's model.
 - The Claude reviewer is the built-in `code-review` skill, called through the Skill tool
-  with the level the tier table names as its only argument before any target, never
-  `--comment` and never `--fix`. It is a fixed slot beside the Codex slot at high tier and
-  above: it is not a fallback for the Codex reviewer, and nothing falls back to it or
-  replaces it. `--no-codex` does not touch it. Its availability is checked only when a stage
-  that needs it starts, so low tier, medium tier, and plan-only runs do not need it. The
-  Reviewer contract in `SKILL.md` gives the call shape and the budget. In Multi-repo mode,
-  each additional repository's Claude slot is an Opus subagent, a defined substitute for a
-  checkout the skill cannot target, and not a swap.
+  with the level the tier table names as the first argument, then the range
+  `<base-commit>...HEAD` as the target, as the Claude review contract in `SKILL.md` says,
+  never `--comment` and never `--fix`. It is a fixed slot beside the Codex slot at high
+  tier and above: it is not a fallback for the Codex reviewer, and nothing falls back to
+  it or replaces it. `--no-codex` does not touch it. Its availability is checked only when
+  a stage that needs it starts, so low tier, medium tier, and plan-only runs do not need
+  it. The Reviewer contract in `SKILL.md` gives the call shape and the budget. In
+  Multi-repo mode, each additional repository's Claude slot is an Opus subagent, a defined
+  substitute for a checkout the skill cannot target, and not a swap.
 - An implementer call at model `opus`, through the Agent tool or inside a Workflow, whose
   tool call itself returns an error is rerun with the same prompt at `sonnet`. The slice's
   effective model becomes `sonnet`. Log the error and the swap, and name it in the report

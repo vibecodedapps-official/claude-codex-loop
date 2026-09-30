@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.6.0 - 2026-09-30
+
+### Added
+
+- `--continue <branch>` on `/ccl:run` and `/ccl:plan`. The run takes the remote branch
+  head as the base, switches to the branch instead of creating one, pushes to it without
+  force, and comments on its open PR instead of opening a second one, or opens a PR when
+  none exists. PR references stay rejected as inputs. The value is rejected when it starts
+  with `-`, has a character other than letters, digits, `.`, `_`, `/`, and `-`, or fails
+  `git check-ref-format --branch`. A branch checked out in another worktree fails
+  preflight. `HEAD` of the session's checkout must be at the base commit, on the branch or
+  detached at it, or preflight fails with the command to run, which is `git merge
+  --ff-only <remote>/<branch>`, `git switch <branch>`, or `git switch --detach
+  <remote>/<branch>`, by where the session is. The default branch is rejected as the
+  value. A plan-only run records a differing local branch, a branch checked out in another
+  worktree, and the pull request cases instead of failing, but it still needs `HEAD` at
+  the remote head, for example detached with `git switch --detach <remote>/<branch>`, and
+  then records the differing local branch. A `--no-publish` run also records the closed,
+  merged, and several-open pull request cases instead of failing. A repository whose
+  remote lacks the branch creates it under the same name in Multi-repo mode. A PR opened
+  for a continued branch says how many earlier commits the run did not review. The pull
+  request list reads open PRs first, up to 100, and the rest only when none from this
+  repository is open; a list that may be cut off by forks with the same branch name is a
+  pull request failure. After a `--confirm-plan` yes and before the first push the PRs
+  are read again, and a PR retargeted to another base branch ends in `blocked`. A
+  `prepared` run with an open PR gives `gh pr comment <n> --body-file <absolute path>` in
+  place of `gh pr create`. With `--no-publish` and an incomplete list, several open PRs,
+  or only closed or merged ones, it names them and gives neither command. (#16)
+- `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks once.
+  A clear yes continues, a requested change is one more Step 3 round, so an open blocking
+  objection at the cap ends in `blocked`, and anything else ends in plan-only. The wait is
+  left out of the run budget. After a yes, the clean-tree check reruns before Step 3.7.2,
+  with the local-branch, worktree, and `HEAD` checks under `--continue`, and so does the
+  skip-worktree comparison, where a hidden edit not recorded at Step 0.3 is a failure. A
+  failure ends in `blocked`. A requested change with no round left ends in `stopped`, and the
+  report gives the change. (#17)
+- A Step 1 check for writable checkouts named in the task but not passed with `--repo`.
+  The run ends in `blocked` with the rerun command instead of adopting Multi-repo mode
+  from prose. The check covers any writable checkout not listed with `--repo`, and the
+  rerun command adds one `--repo` for each missing checkout. (#18)
+- A rule for an additional repository with skip-worktree files that differ from `HEAD`.
+  The run continues, and the report names the files as the local state its checks ran
+  against. No slice may edit such a path, because the edit would be invisible to review
+  and the commit: a plan that needs one ends in `blocked` at Step 2. (#18)
+
+### Changed
+
+- The worktree run, Multi-repo mode, and CI watch rules moved from `SKILL.md` to
+  `worktree.md`, `multi-repo.md`, and `ci-watch.md`, read only when the run takes that
+  path. The move commit changed no rule, only pointers and cross-references. The later
+  0.6.0 rule changes in those files are the ones listed in this section. The move cut the
+  lines a default single-repository GitHub run reads through Step 6 from 1,309 to 1,115.
+  (#20)
+
+### Fixed
+
+- Every `code-review` pass now targets `<base-commit>...HEAD`. A bare base commit made
+  it review only that commit and skip the uncommitted task. Verified live on 2026-09-30
+  in the Step 5 and CI repair states. (#15)
+- Every remote branch check queries the exact ref `refs/heads/<branch>`. A bare name
+  matches any ref whose path ends in it, which could report a missing branch as present.
+  This includes the new-branch collision check in Step 3.7.2. (#16)
+- In Multi-repo mode each repository's PR body is `.ccl/<run-id>/pr-body-<slug>.md` in
+  the primary, passed by absolute path to every `gh` body call for an additional
+  repository. The relative path that `gh pr create` used before would not resolve from
+  that repository's checkout. (#18)
+- Time logging runs `date` only at step headings and around timed calls, in one UTC
+  format. Every logged time is copied from the `date` output, not recalled or derived.
+  (#19) Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5
+  wait. The worktree install step is a timed call under the check budget.
+- The CI watch reads the PR again at each poll and ends in `blocked` when its base branch
+  differs from the one the run recorded, because the required checks it read belong to
+  the old base branch.
+
 ## 0.5.1 - 2026-09-29
 
 ### Changed

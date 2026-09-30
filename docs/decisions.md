@@ -25,7 +25,8 @@ a ChatGPT account, which is why full ids are required.
    is the recorded failure behind having a fixed cap at all.
 4. **The plugin branches from the fetched default branch after the plan is final.** It
    does not refuse to start on the default branch, and planning never changes the tree.
-   No incident is recorded.
+   No incident is recorded. Qualified by Part 9 item 2: with `--continue <branch>` the
+   base is the remote branch head and the branch is switched to, not created.
 
 ## Part 2: Amendments of 2026-09-28
 
@@ -82,7 +83,8 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
 
 1. **Input token rules and rejection of pull requests by `gh`.** A `#n` is ambiguous
    between an issue and a pull request. `gh` is asked, and a pull request is rejected
-   before setup, because 0.1.0 has no repair mode.
+   before setup, because 0.1.0 has no repair mode. Part 9 item 2 keeps this: an existing
+   PR is reached through `--continue <branch>`, not as an input.
 2. **`--branch` under `--plan-only`.** No branch is created in a plan-only run, so the
    name is only recorded in the plan.
 3. **`.ccl.json` is read at Step 0.1.** The config can change budgets and artifact
@@ -129,7 +131,8 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     early blocked run, and the next run's clean tree check would fail on it.
 16. **Step 3.7 reverifies before it creates the branch.** Step 3.7.1 reverifies against
     the base commit, reading without changing the tree, then 3.7.2 creates the branch. A
-    stopped run then never has a branch, so a rerun does not collide with one.
+    stopped run then never has a branch, so a rerun does not collide with one. With
+   `--continue`, a stopped run creates and switches nothing (Part 9 item 2).
 17. **The approval scope names the PR report comment.** The rules already send later
     report updates to a comment on the run's own PR, so the scope lists it and Step 0.1
     reports whether it will prompt.
@@ -383,7 +386,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    can produce blocking findings the task did not cause. Passing the base commit as the
    target on every pass, not only in CI repair, pins both reviewers to the same range.
    Whether the skill honors a commit as its target is unverified; acceptance item 58
-   checks it with local `main` deliberately behind the base.
+   checks it with local `main` deliberately behind the base. Superseded by Part 9 item 1:
+   a bare commit target reviews only that commit, so the target is the range.
 
 ## Part 8: Live-run amendments, 2026-09-29
 
@@ -481,7 +485,8 @@ Composition rules, each with its reason:
 - **A worktree run and Multi-repo mode do not combine.** The primary's `codex-lite:review`
   and `code-review` read the session's checkout, so a primary in a worktree would be
   reviewed wrongly. A primary that would qualify ends in `blocked`, naming the
-  skip-worktree files that differ from `HEAD`.
+  skip-worktree files that differ from `HEAD`. An additional repository does not block;
+  it continues (Part 9 item 3).
 - **Every repository is on the same host as the primary, by hostname.** One run has one
   publish path, and `-R <owner>/<repo>` without a host resolves on github.com, so a GitHub
   Enterprise checkout beside a github.com primary is a different host. It is a preflight
@@ -498,6 +503,172 @@ Composition rules, each with its reason:
   commit is made and the report gives the commit commands. A denied push with
   `"commit": true` leaves a commit that carries the `publishing` snapshot, and the report
   says so.
+
+## Part 9: 0.6.0, 2026-09-30
+
+Six issues from live runs and reviews of 2026-09-29 and 2026-09-30, one commit each on
+the 0.6.0 branch. Each rule below has the reason, the issue, and the test or run that
+taught it where there is one.
+
+1. **Every Claude `code-review` pass takes the level and then `<base-commit>...HEAD`.**
+   This supersedes Part 7 item 9. The skill's own diff step is prompt text that the model
+   follows, so the call shape was settled by running the skill through the Skill tool,
+   the path the orchestrator uses, on 2026-09-30 (Claude Code 2.1.284) in a throwaway
+   repo whose local `main` was two commits behind the base. A bare commit target made the
+   skill run `git show <base>`, which reviews that commit only and misses all the
+   uncommitted work; this reproduced the bug. No target, with the upstream pinned to a
+   local branch at the base, was followed in one run and ignored in another (it ran
+   `main...HEAD` and put the stale commits under review). The range target was correct in
+   five of five runs, at low, medium, high, and xhigh, in the Step 5 state and the CI
+   repair state: each ran `git diff <base>...HEAD` and `git diff HEAD`, which together are
+   the base to the working tree. The direct test chose the shape because acceptance item
+   58 is a full run, and the loop runs from the installed plugin, so item 58 can only pass
+   after 0.6.0 is installed. Item 58 stays the post-install check. Issue #15 said that
+   tracking `<remote>/<default>` holds only while nothing fetches the default branch. That
+   is wrong for a three-dot range, which diffs from the merge base, and a fetch does not
+   move the merge base. Tracking was rejected anyway. For an existing pushed branch, the
+   first push moves the upstream to `HEAD`, and the committed task work drops out of
+   `@{upstream}...HEAD`. A bare `git push` also refuses when the upstream name differs
+   from the branch name. Issue #15.
+2. **`--continue <branch>` continues an existing remote branch; a pull request is still
+   not an input.** The user chose it on 2026-09-30 over `--base <ref>` and over accepting
+   a PR reference, because it keeps the input guard as it is and finds the PR from the
+   branch. The base is the remote branch head, fetched at Step 0.2, so the diff is only
+   this run's work. The PR body belongs to the PR's author, so the run posts its filled
+   `pr-body.md` as one comment and never edits the body. The comment cannot close an
+   issue, so it carries no closing keyword: it lists each issue with its status and says
+   that the PR's own body decides what merging closes. A local branch of that name that
+   differs from the remote head is a preflight failure, because the run never resets
+   local work. The remote head is checked before the first push and before each CI repair
+   push, against the base commit and the last commit this run pushed, and a move ends the
+   run in `blocked`, since the run never forces a push. In Multi-repo mode the branch must
+   exist on the primary's remote; each additional repository continues it where it exists
+   and creates it where it does not, so one branch name serves all of them. Repair mode
+   stays out, for the reason in Part 2 item 9: the run reads no review comments and no CI
+   state from before the run. Review of the branch added five rules. Every remote branch
+   check queries `refs/heads/<branch>`, because `git ls-remote --heads <remote> <branch>`
+   with a bare name matches any ref whose path ends in it (reproduced on 2026-09-30), and
+   this covers the Step 3.7.2 new-branch collision check that predates `--continue`. The
+   flag value is rejected when it starts with `-`, has a character other than letters,
+   digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch`, so it cannot
+   act as an option or a revision expression. The character list already excludes `@`
+   and `{`, so a separate rule for revision syntax could never fire and was removed.
+   Step 0.2 fails a branch that another worktree has checked out, because `git switch`
+   refuses it. With `--continue`, `HEAD` of the session's checkout must be at the base
+   commit, on the branch or detached at it, or Step 0.2 fails with the command to run:
+   `git merge --ff-only <remote>/<branch>` when the session is on the branch and it is
+   behind, because `git switch <branch>` then does nothing; `git switch <branch>` when
+   the session is elsewhere and the local branch equals the remote or is absent; else
+   `git switch --detach <remote>/<branch>`. The pull request list uses
+   `isCrossRepository`, because an owner field also passes a fork with the same
+   owner. An earlier draft read the base commit with `git show` when `HEAD`
+   differed, but the Codex plan review and the Step 1.2 reproduction read the session's
+   checkout, so they checked the wrong code. The requirement leaves the planning snapshot
+   rule unchanged. A session on the branch blocks a worktree run, and one detached at the
+   base commit does not. A plan-only run records a differing local branch, a branch
+   checked out in another worktree, and the pull request cases instead of failing,
+   because they matter only for building and publishing; the `HEAD` requirement stays,
+   since it makes the plan correct. A `prepared` run with an open PR gives the `gh pr
+   comment` command with the absolute path of a body file, written at that point if Step
+   7.2 did not, one per repository at its own path in Multi-repo mode, so the user can
+   finish the run by hand. Every `--body-file` is an absolute path, because in a worktree
+   run the `gh` call runs inside the checkout. A later review added four rules. The
+   default branch is rejected as the value, because the run would push straight to it.
+   The branch is fetched with the explicit refspec
+   `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because a plain `git fetch
+   <remote> <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it,
+   which a single-branch clone does not. A plan-only run needs `HEAD` at the remote head
+   too, so its relaxation for a differing local branch applies only with `HEAD`
+   detached there. A reverification that needs a revision with no Step 3 round left ends
+   in `blocked`. Every artifact path passed as an argument to a shell command is absolute;
+   request text for Codex keeps naming files relative to the session's checkout. A
+   further review added five rules. A repository whose remote lacks the branch creates it
+   under the `continue` name, with the collision check, because the naming rule would
+   derive a different name. A PR the run opens for a continued branch says how many
+   earlier commits of the branch the run did not review, because its body covers only
+   this run's diff. A `--no-publish` run records the closed, merged, and several-open
+   pull request cases instead of failing, because it never publishes; its local branch
+   and worktree failures stay, because it still switches and commits. The pull request
+   list takes `--limit 100`, because `gh` returns 30 by default. It reads open pull
+   requests first and the rest only when none from this repository is open, because
+   `--head` also matches forks and a popular branch name can fill 100 results with
+   them; a result of 100 that does not settle the case is a failure rather than a
+   guess, and it excludes the other cases. The pull requests are read again after a
+   `--confirm-plan` yes and before the first push, and a changed base branch ends in
+   `blocked`, because CI would otherwise be judged against the old target's required
+   checks; reading them after the yes stops the run before implementation rather than
+   after it. The CI watch reads the PR at every poll and blocks on a retarget for every
+   PR, including one the run opened, since any PR can be retargeted while CI runs. The
+   flag value also rejects shell metacharacters, because it is placed into many shell
+   commands. Issue #16.
+3. **The run never adopts Multi-repo mode from prose, and an additional repository with
+   skip-worktree edits continues.** A task that named other writable repositories in prose
+   ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,
+   and the report gives the rerun command with one `--repo <path>` per repository, because
+   guessing the set of writable checkouts from text could edit the wrong one. An
+   additional repository whose skip-worktree or assume-unchanged files differ from `HEAD`
+   had no rule. It continues, the paths are recorded in `run.md`, and the report names
+   them as local state its baseline and Step 6 checks ran against. Its review is not
+   affected, because its patch comes from `git -C <path> diff <base>`, which leaves those
+   paths out. No slice may edit such a path: an edit to it is invisible to `git diff`,
+   `git add -N`, and staging, so review and the commit would drop it while local checks
+   pass on it, and a plan that needs one ends in `blocked` at Step 2. Step 1 blocks on
+   any writable checkout that is not the primary and not
+   in `repos`, because a run that lists one of two needed checkouts would otherwise edit
+   only the listed one; the rerun command adds one `--repo` for each missing checkout.
+   In Multi-repo mode each repository's PR body is its own file,
+   `.ccl/<run-id>/pr-body-<slug>.md` in the primary, passed by absolute path to every
+   `gh` body call for an additional repository. The call runs inside that repository's
+   checkout, where `.ccl/<run-id>/` does not exist, so the relative path that the
+   `gh pr create` rule had before 0.6.0 was wrong. Issue #18.
+4. **Times in `run.md` come from a narrower `date` rule, not a helper script.** The user
+   chose this on 2026-09-30. The old rule asked for `date` before every step and every
+   call, and on a 3.3 hour live run the logged times drifted and had to be corrected. The
+   run budget is enforced only at step boundaries and around timed calls, so `date` runs
+   there, right after each push returns, at the start of Step 0, and at the terminal
+   state, and nowhere else, so the 2 minute CI wait and the CI budget count from the push.
+   A helper script is a new kind of file in a prompt-only plugin, and it needs an
+   `allowed-tools` entry and testing in both Git Bash and PowerShell. The worktree install
+   step is a timed call under the check budget, so it gets the same `date` and budget
+   comparison as a check. One format, `date -u +%Y-%m-%dT%H:%M:%SZ`, is used for the whole
+   run, and every logged time is copied from the command's output, never recalled or
+   derived from earlier entries. Elapsed time is the Step 0 start to the latest recorded
+   time, less each Step 3.5 wait (item 5), so a wait cannot count against the budget. The
+   skill no longer carries the 2026-09-30 test note for the range target; item 1 is the
+   record. Issue #19.
+5. **`--confirm-plan` pauses once for approval after the plan is final.** A task that
+   said to plan first and then approve had no supported path: `--plan-only` ends the run,
+   and a later run starts over from Step 0. Step 3.5 runs the Step 3.7.1 reverification
+   before it asks, so the user approves the plan that would be built and not one the
+   reverification then revises. The wait does not count against the run budget, because
+   the live run that asked for this did the same by hand and a long wait would otherwise
+   end a run in `blocked` for time the user spent. A requested change is another Step 3
+   round, inside the cap of 3, that follows Step 3 items 2 to 6, so an open blocking
+   objection at the cap ends `blocked` and the question is asked again only after a round
+   with none; when no round is left the run ends `stopped` and the report gives the
+   requested change. After the approval, before Step 3.7.2, the clean-tree check
+   reruns, and with `--continue` so do the check that the local branch equals the base,
+   the worktree check, and the `HEAD` check, because the user can change the tree or the
+   checkout during a long wait; a failure ends in `blocked`. The skip-worktree
+   comparison reruns too, because an edit hidden during the wait would pass the other
+   checks and reach local checks without review; a differing path that Step 0.3 did not
+   record fails rather than starting the worktree exception mid-run.
+   Any reply that is not a clear yes ends in `plan-only`, so an unclear answer never
+   starts an implementation. The flag is rejected with `--plan-only`, and `/ccl:plan`
+   rejects it as not applicable. Issue #17.
+6. **Rarely used paths live in their own files, read only when the run takes the path.**
+   The worktree run is in `worktree.md`, Multi-repo mode in `multi-repo.md`, and the CI
+   watch details (Step 7.3 items 1 to 4) in `ci-watch.md`. SKILL.md keeps a pointer at
+   each place. The non-GitHub host paragraph stayed, because it is about six lines and a
+   pointer costs about as much. The move commit changes no rule: every removed line is in
+   a new file verbatim, and the only new text is the pointers and the cross-references
+   that named the old sections. Later 0.6.0 commits changed rules in these files, and
+   items 2 and 3 list them. On a default single-repository GitHub run, the lines read
+   through Step 6 (SKILL.md and `tiers.md`) were 1,186 at 0.5.1, 1,309 before the move on
+   this branch, and 1,115 after. In total, adding `report.md`, `pr-body.md`, and after
+   the move `ci-watch.md`, they were 1,409 at 0.5.1, 1,553 before the move, and 1,431
+   after. Later edits change these counts; acceptance item 100 pins them to the move
+   commit. Issue #20.
 
 ## Rules stated elsewhere in the loop, with reasons
 

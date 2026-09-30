@@ -24,7 +24,9 @@ Given an issue, a file of notes, or a short description, the loop:
    built-in `/code-review` skill reviews it too, at a level that rises with the tier.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request (one per repository in Multi-repo mode),
-   watches CI, and comments on each source issue. Step 7 runs only on a GitHub remote,
+   watches CI, and comments on each source issue. A PR retargeted to another base branch
+   while CI runs ends the run in `blocked`. With `--continue` and an open PR, the run
+   comments on that PR instead of opening one. Step 7 runs only on a GitHub remote,
    and not with `--no-publish`. Otherwise the run ends in `prepared`.
 
 Every run ends in one terminal state and a written report. A failure before the run
@@ -83,10 +85,11 @@ claude --plugin-dir <path-to-clone>
 ## Commands
 
 ```
-/ccl:run <inputs...> [--effort low|medium|high|xhigh|max] [--plan-only] [--no-codex]
-         [--no-publish] [--run-budget <minutes>] [--repo <path>]... [--branch <name>]
-/ccl:plan <inputs...> [--effort low|medium|high|xhigh|max] [--no-codex]
-          [--run-budget <minutes>] [--repo <path>]... [--branch <name>]
+/ccl:run <inputs...> [--effort low|medium|high|xhigh|max] [--plan-only] [--confirm-plan]
+         [--no-codex] [--no-publish] [--branch <name>] [--continue <branch>]
+         [--run-budget <minutes>] [--repo <path>]...
+/ccl:plan <inputs...> [--effort low|medium|high|xhigh|max] [--no-codex] [--branch <name>]
+          [--continue <branch>] [--run-budget <minutes>] [--repo <path>]...
 ```
 
 `/ccl:plan` is `/ccl:run --plan-only`. Both run build mode and share one skill. The
@@ -106,9 +109,9 @@ Any number of inputs, mixed:
 - A path to a file with handoff notes or pasted review output.
 
 A token that is an issue URL or `#n` is an issue. A `#n` that `gh` reports as a pull
-request, and any pull request URL, is rejected before setup, because pull requests are
-not an input in 0.1.0. A token that names an existing file is a file input. The
-remaining text, joined, is one ad-hoc description.
+request, and any pull request URL, is rejected before setup. To continue a pull request's
+branch, pass `--continue <branch>`. A token that names an existing file is a file input.
+The remaining text, joined, is one ad-hoc description.
 
 ### Flags
 
@@ -116,13 +119,43 @@ remaining text, joined, is one ad-hoc description.
   lower a task below the risk floor.
 - `--plan-only`: stop after the plan is final, at every tier, and print it. Nothing
   after the plan runs and the working tree is not changed.
+- `--confirm-plan` (`/ccl:run` only, rejected with `--plan-only`): pause once the plan is
+  final and reverified, and ask you to approve it. A yes continues. A described change
+  gets another plan review round, and then the question is asked again. Any other reply
+  ends the run in `plan-only`. The wait does not count against the run budget. The run is
+  attended.
 - `--no-codex`: use the Claude fallbacks even if Codex is installed.
-- `--no-publish` (`/ccl:run` only): withhold Step 7. The run ends in `prepared`.
+- `--no-publish` (`/ccl:run` only): withhold Step 7. The run ends in `prepared`. With
+  `--continue`, an incomplete pull request list, or closed, merged, or several open pull
+  requests on the branch are recorded in the report instead of failing preflight.
 - `--run-budget <minutes>`: the run budget for this run, a positive integer.
 - `--repo <path>`: an additional writable checkout. Repeatable. See Multi-repo mode.
 - `--branch <name>`: the branch to work on. The default is a new branch off the
   resolved default branch in the current checkout. With `--plan-only` the name is only
   recorded in the plan.
+- `--continue <branch>`: continue an existing remote branch. The base is that branch's
+  remote head, no new branch is created, and the push is never forced. If the branch has
+  an open PR, the run posts the PR description it would have opened with as one comment
+  on that PR and does not open one. If it has none, the run opens a PR, and the body
+  says how many earlier commits of the branch this run did not review. It is rejected
+  with `--branch`, and it is not repair mode: the run reads no review comments and no CI
+  state from before the run. A value that starts with `-`, has a character other than
+  letters, digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch` is
+  rejected. A branch checked out in a worktree the run will
+  not use fails preflight. `HEAD` of the checkout must be at the branch's remote head, on
+  the branch or detached at it (`git switch --detach <remote>/<branch>`), or preflight
+  fails. The branch must not be the default branch, because the run would push to it.
+  With `/ccl:plan` or `--plan-only`, a differing local branch, a branch checked out
+  elsewhere, and the pull request cases are recorded in the report instead of failing.
+  `HEAD` must still be at the remote head, so a plan-only run on a differing local
+  branch needs `HEAD` detached there (`git switch --detach <remote>/<branch>`), and it
+  then records the differing local branch.
+  Every remote check of a branch name queries the exact ref `refs/heads/<branch>`,
+  because a bare name also matches any ref that ends in it. The branch's pull requests
+  are read open first, up to 100; because forks with the same branch name count toward
+  that cap, a list that may be incomplete fails preflight. They are read again after a
+  `--confirm-plan` yes and before the first push, and a PR closed, opened, or
+  retargeted since Step 0 ends the run in `blocked`.
 
 ### Multi-repo mode
 
@@ -135,6 +168,10 @@ directly. In this mode:
   rejected, naming both hosts.
 - A bare `#n` names an issue of the primary. An issue of a `--repo` checkout is given as
   a full URL.
+- A task that needs edits in a writable checkout that is not the primary and not listed
+  with `--repo` ends in `blocked`, including when `--repo` names other checkouts. The
+  report gives the rerun command with one `--repo <path>` for each missing checkout. The
+  mode is never adopted from prose.
 - Each repository gets its own base commit, its own branch under one shared name, its
   own baseline, and its own checks. Artifacts live only in the primary's
   `.ccl/<run-id>/`. No slice spans repositories. Every `gh` call for an additional
@@ -149,7 +186,9 @@ directly. In this mode:
   requests" section that links the siblings. `Closes #n` comes only from the PR in the
   issue's own repository. Every other PR of the run cites it as `Refs <owner>/<repo>#n`.
   `done` needs every PR green. A `blocked` in any repository stops publication in all,
-  except that a PR already opened still gets its sibling links filled in.
+  except that a PR already opened still gets its sibling links filled in. Each
+  repository's PR body is `.ccl/<run-id>/pr-body-<slug>.md` in the primary, and every
+  `gh` body call for an additional repository gets its absolute path.
 - The primary's `.ccl.json` governs `commit` and `timeouts`. Each repository's own
   `checks` list is read for that repository.
 - With `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in the first
@@ -158,6 +197,13 @@ directly. In this mode:
 - A primary whose status and index are clean but which has skip-worktree or
   assume-unchanged files that differ from `HEAD` ends in `blocked`, naming those files.
   The narrow worktree exception for that case is not available in this mode.
+- An additional repository with skip-worktree or assume-unchanged files that differ from
+  `HEAD` does not block. The run continues, and the report names those files as local
+  state that repository's baseline and checks ran against. No slice may edit them: a
+  plan that needs to ends in `blocked` at Step 2, naming the path.
+- With `--continue`, the branch must exist on the primary. Each additional repository
+  continues it where its remote has it, and creates it under the same name otherwise. All
+  repositories use one branch name.
 
 ## Repo config: `.ccl.json`
 
@@ -179,9 +225,9 @@ tier, and the tier default replaces it then; a rise to high after implementation
 to the high default. An explicit instruction from you in the
 session that names a new budget replaces it from that point. The report names the budget
 in force and its source. The `run` budget bounds the whole run from Step 0 to the
-terminal state. The `codex` value is passed to codex-lite in seconds, which accepts 1 to
-3600, so a value above 60 minutes is capped at 60. An unknown field is reported and
-ignored.
+terminal state, less each Step 3.5 wait. The `codex` value is passed to codex-lite in
+seconds, which accepts 1 to 3600, so a value above 60 minutes is capped at 60. An unknown
+field is reported and ignored.
 
 Example:
 
@@ -207,6 +253,9 @@ when no rule says otherwise:
   Multi-repo mode, edit each of this run's PR bodies once to link the siblings, and
   comment on the source issues. When `commit` is true and the run ends `done`, also
   post the report update comment on the run's own PR.
+- With `--continue`, push to the continued branch and post one comment on its open PR,
+  plus the report update comment when the report rules call for it. The PR's body is
+  never edited.
 
 It always asks before:
 
@@ -255,24 +304,33 @@ Every step that repeats is capped at 3 rounds. Time is bounded per call and per 
 Every run ends in exactly one state.
 
 - `done`: PR open and CI green or not applicable. Report written.
-- `plan-only`: plan final and written, nothing else run.
+- `plan-only`: plan final and written, nothing else run. It also covers a `--confirm-plan`
+  run whose plan you did not approve.
 - `prepared`: every step through Step 6 is complete with no blocking defect open, and
   Step 7 was withheld before anything was pushed: by `--no-publish`, by a non-GitHub
   host, or by your answer to a Step 7 ask-first prompt that was anything other than a
   clear yes. The report names the branch, the commit state, and the commands to
-  publish. It is not a failure.
+  publish. With `--continue` the push command is `git push <remote> <branch>`, and when
+  the branch has one open PR the report gives `gh pr comment <n> --body-file <absolute
+  path>` in place of `gh pr create`; with an incomplete pull request list, several open
+  PRs, or only closed or merged ones, under `--no-publish` it names them and gives
+  neither command. It is not a
+  failure.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.
-- `stopped`: the run stopped to ask you a question it cannot decide. Rerun with the same
-  inputs and your answer as an extra ad-hoc input.
+- `stopped`: the run stopped to ask you a question it cannot decide, or a requested
+  change under `--confirm-plan` found no plan review round left, and the report gives
+  the change. Rerun with the same inputs and your answer, or the change, as an extra
+  ad-hoc input.
 
 ## Artifacts
 
 With `"commit": false`, each run writes to `.ccl/<run-id>/` in the repo root:
 `inputs.md`, `plan.md`, `run.md` (the run log), `report.md`, and `diff.patch` when a
 follow-up review round, a CI repair round, or a worktree run's diff review needed it.
-In Multi-repo mode there is one `diff-<slug>.patch` per additional repository. `.ccl/`
-is added to `.git/info/exclude`, not to a committed `.gitignore`.
+In Multi-repo mode there is one `diff-<slug>.patch` and one `pr-body-<slug>.md` per
+additional repository. `.ccl/` is added to `.git/info/exclude`, not to a committed
+`.gitignore`.
 
 With `"commit": true`, the run still works entirely in `.ccl/<run-id>/`. At publish, the
 plan and a provisional report are copied to `specs/ccl/<run-id>/` and committed on the
