@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.6.0 - 2026-09-30
+
+### Added
+
+- `--continue <branch>` on `/ccl:run` and `/ccl:plan`. The run takes the remote branch
+  head as the base, switches to the branch instead of creating one, pushes to it without
+  force, and comments on its open PR instead of opening a second one, or opens a PR when
+  none exists. PR references stay rejected as inputs. (#16)
+- `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks
+  once. A clear yes continues, a requested change is one more Step 3 round, and anything
+  else ends in plan-only. The wait is left out of the run budget. (#17)
+- A Step 1 check for writable checkouts named in the task but not passed with `--repo`.
+  The run ends in `blocked` with the rerun command instead of adopting Multi-repo mode
+  from prose. (#18)
+- A rule for an additional repository with skip-worktree files that differ from `HEAD`.
+  The run continues, and the report names the files as the local state its checks ran
+  against. (#18)
+
+### Changed
+
+- The worktree run, Multi-repo mode, and CI watch rules moved from `SKILL.md` to
+  `worktree.md`, `multi-repo.md`, and `ci-watch.md`, read only when the run takes that
+  path. The text is unchanged apart from pointers and cross-references. A default
+  single-repository GitHub run reads 1,115 lines through Step 6 instead of 1,309. (#20)
+
+### Fixed
+
+- Every `code-review` pass now targets `<base-commit>...HEAD`. A bare base commit made
+  it review only that commit and skip the uncommitted task. Verified live on 2026-09-30
+  in the Step 5 and CI repair states. (#15)
+- Time logging runs `date` only at step headings and around timed calls, in one UTC
+  format. Every logged time is copied from the `date` output, not recalled or derived.
+  (#19)
+
 ## 0.5.1 - 2026-09-29
 
 ### Changed
