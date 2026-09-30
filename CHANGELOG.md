@@ -7,13 +7,20 @@
 - `--continue <branch>` on `/ccl:run` and `/ccl:plan`. The run takes the remote branch
   head as the base, switches to the branch instead of creating one, pushes to it without
   force, and comments on its open PR instead of opening a second one, or opens a PR when
-  none exists. PR references stay rejected as inputs. (#16)
+  none exists. PR references stay rejected as inputs. The value is rejected when it
+  starts with `-`, contains `@{`, or fails `git check-ref-format --branch`. A branch
+  checked out in another worktree fails preflight. When `HEAD` is not the base commit,
+  the plan reads the base commit with `git show`. A `prepared` run with an open PR gives
+  `gh pr comment <n> --body-file <absolute path>` in place of `gh pr create`. (#16)
 - `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks
   once. A clear yes continues, a requested change is one more Step 3 round, and anything
-  else ends in plan-only. The wait is left out of the run budget. (#17)
+  else ends in plan-only. The wait is left out of the run budget. After a yes, the
+  clean-tree check reruns before Step 3.7.2, with the local-branch check under
+  `--continue`, and a failure ends in `blocked`. (#17)
 - A Step 1 check for writable checkouts named in the task but not passed with `--repo`.
   The run ends in `blocked` with the rerun command instead of adopting Multi-repo mode
-  from prose. (#18)
+  from prose. The check covers any writable checkout not listed with `--repo`, and the
+  rerun command adds one `--repo` for each missing checkout. (#18)
 - A rule for an additional repository with skip-worktree files that differ from `HEAD`.
   The run continues, and the report names the files as the local state its checks ran
   against. (#18)
@@ -22,17 +29,26 @@
 
 - The worktree run, Multi-repo mode, and CI watch rules moved from `SKILL.md` to
   `worktree.md`, `multi-repo.md`, and `ci-watch.md`, read only when the run takes that
-  path. The text is unchanged apart from pointers and cross-references. A default
-  single-repository GitHub run reads 1,115 lines through Step 6 instead of 1,309. (#20)
+  path. The text is unchanged apart from pointers and cross-references. The move cut the
+  lines a default single-repository GitHub run reads through Step 6 from 1,309 to 1,115;
+  with the rest of 0.6.0 it reads 1,136, against 1,186 in 0.5.1. (#20)
 
 ### Fixed
 
 - Every `code-review` pass now targets `<base-commit>...HEAD`. A bare base commit made
   it review only that commit and skip the uncommitted task. Verified live on 2026-09-30
   in the Step 5 and CI repair states. (#15)
+- Every remote branch check queries the exact ref `refs/heads/<branch>`. A bare name
+  matches any ref whose path ends in it, which could report a missing branch as present.
+  This includes the new-branch collision check in Step 3.7.2. (#16)
+- In Multi-repo mode each repository's PR body is `.ccl/<run-id>/pr-body-<slug>.md` in
+  the primary, passed by absolute path to every `gh` body call for an additional
+  repository. The relative path that `gh pr create` used before would not resolve from
+  that repository's checkout. (#18)
 - Time logging runs `date` only at step headings and around timed calls, in one UTC
   format. Every logged time is copied from the `date` output, not recalled or derived.
-  (#19)
+  (#19) Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5
+  wait.
 
 ## 0.5.1 - 2026-09-29
 

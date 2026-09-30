@@ -545,7 +545,19 @@ taught it where there is one.
    exist on the primary's remote; each additional repository continues it where it exists
    and creates it where it does not, so one branch name serves all of them. Repair mode
    stays out, for the reason in Part 2 item 9: the run reads no review comments and no CI
-   state from before the run. Issue #16.
+   state from before the run. Review of the branch added five rules. Every remote branch
+   check queries `refs/heads/<branch>`, because `git ls-remote --heads <remote> <branch>`
+   with a bare name matches any ref whose path ends in it (reproduced on 2026-09-30), and
+   this covers the Step 3.7.2 new-branch collision check that predates `--continue`. The
+   flag value is rejected when it starts with `-`, contains `@{`, or fails `git
+   check-ref-format --branch`, so it cannot act as an option or a revision expression.
+   Step 0.2 fails a branch that another worktree has checked out, because `git switch`
+   refuses it. When `HEAD` is not the base commit, the plan reads the base commit with
+   `git show`, so it is written against the branch's own head and not against whatever the
+   session's checkout holds, and no file changes before the switch. A `prepared` run with
+   an open PR gives the `gh pr comment` command with the absolute path of a body file,
+   written at that point if Step 7.2 did not, so the user can finish the run by hand.
+   Issue #16.
 3. **The run never adopts Multi-repo mode from prose, and an additional repository with
    skip-worktree edits continues.** A task that named other writable repositories in prose
    ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,
@@ -555,7 +567,14 @@ taught it where there is one.
    had no rule. It continues, the paths are recorded in `run.md`, and the report names
    them as local state its baseline and Step 6 checks ran against. Its review is not
    affected, because its patch comes from `git -C <path> diff <base>`, which leaves those
-   paths out. Issue #18.
+   paths out. Step 1 blocks on any writable checkout that is not the primary and not
+   in `repos`, because a run that lists one of two needed checkouts would otherwise edit
+   only the listed one; the rerun command adds one `--repo` for each missing checkout.
+   In Multi-repo mode each repository's PR body is its own file,
+   `.ccl/<run-id>/pr-body-<slug>.md` in the primary, passed by absolute path to every
+   `gh` body call for an additional repository. The call runs inside that repository's
+   checkout, where `.ccl/<run-id>/` does not exist, so the relative path that the
+   `gh pr create` rule had before 0.6.0 was wrong. Issue #18.
 4. **Times in `run.md` come from a narrower `date` rule, not a helper script.** The user
    chose this on 2026-09-30. The old rule asked for `date` before every step and every
    call, and on a 3.3 hour live run the logged times drifted and had to be corrected. The
@@ -565,7 +584,9 @@ taught it where there is one.
    entry and testing in both Git Bash and PowerShell. One format,
    `date -u +%Y-%m-%dT%H:%M:%SZ`, is used for the whole run, and every logged time is
    copied from the command's output, never recalled or derived from earlier entries.
-   Issue #19.
+   Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5 wait
+   (item 5), so a wait cannot count against the budget. The skill no longer carries the
+   2026-09-30 test note for the range target; item 1 is the record. Issue #19.
 5. **`--confirm-plan` pauses once for approval after the plan is final.** A task that
    said to plan first and then approve had no supported path: `--plan-only` ends the run,
    and a later run starts over from Step 0. Step 3.5 runs the Step 3.7.1 reverification
@@ -573,9 +594,12 @@ taught it where there is one.
    reverification then revises. The wait does not count against the run budget, because
    the live run that asked for this did the same by hand and a long wait would otherwise
    end a run in `blocked` for time the user spent. A requested change is another Step 3
-   round, inside the cap of 3. Any reply that is not a clear yes ends in `plan-only`, so
-   an unclear answer never starts an implementation. The flag is rejected with
-   `--plan-only`, and `/ccl:plan` rejects it as not applicable. Issue #17.
+   round, inside the cap of 3. After the approval, before Step 3.7.2, the clean-tree check
+   reruns, and with `--continue` so does the check that the local branch equals the base,
+   because the user can change the tree during a long wait; a failure ends in `blocked`.
+   Any reply that is not a clear yes ends in `plan-only`, so an unclear answer never
+   starts an implementation. The flag is rejected with `--plan-only`, and `/ccl:plan`
+   rejects it as not applicable. Issue #17.
 6. **Rarely used paths live in their own files, read only when the run takes the path.**
    The worktree run is in `worktree.md`, Multi-repo mode in `multi-repo.md`, and the CI
    watch details (Step 7.3 items 1 to 4) in `ci-watch.md`. SKILL.md keeps a pointer at
@@ -586,7 +610,8 @@ taught it where there is one.
    through Step 6 (SKILL.md and `tiers.md`) were 1,186 at 0.5.1, 1,309 before the move on
    this branch, and 1,115 after. In total, adding `report.md`, `pr-body.md`, and after
    the move `ci-watch.md`, they were 1,409 at 0.5.1, 1,553 before the move, and 1,431
-   after. Issue #20.
+   after. The review fixes that followed brought 0.6.0 as shipped to 1,136 through Step 6
+   and 1,453 in total. Issue #20.
 
 ## Rules stated elsewhere in the loop, with reasons
 

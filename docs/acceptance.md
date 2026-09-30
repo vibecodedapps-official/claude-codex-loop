@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 100 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 103 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -484,8 +484,10 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     <owner>/<repo>#n` from the other, one comment per issue naming both PRs with the
     issue's own repo first, a Codex review of the primary by `codex-lite:review`, and of
     the second repo through `codex-lite:ask` with `diff-<slug>.patch`, the second repo's
-    PR opened against the second repo, and its CI read from the second repo. Rerun after
-    any change to `multi-repo.md` or Step 7.
+    PR opened against the second repo, its CI read from the second repo, and each PR
+    body in `.ccl/<run-id>/pr-body-<slug>.md` in the primary, with every `--body-file` of
+    a `gh` call for the second repo an absolute path. Rerun after any change to
+    `multi-repo.md` or Step 7.
 76. **Multi-repo host and bare `#n` rules.** Setup: as item 75, plus a third checkout whose
     `origin` is on a different host, and an issue number that exists only in the
     second repo. Command: `/ccl:run "x" --repo <third checkout>`, then `/ccl:run #<n>
@@ -536,26 +538,32 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
 
 ## M7: 0.6.0, 2026-09-30
 
-Setup for items 83 to 100: the common setup, plus the setup each item names. Items 83 to
-99 are hand runs against throwaway repos and cannot run inside a ccl run. Item 100 is a
-static check of the plugin files and needs no repo. In an item that continues a branch,
-"the branch" is already pushed to the remote with one commit, and "the remote head" is
-that branch's head on the remote.
+Setup for items 83 to 103: the common setup, plus the setup each item names. Items 83 to
+99 and 101 to 103 are hand runs against throwaway repos and cannot run inside a ccl run.
+Item 100 is a static check of the plugin files and needs no repo. In an item that
+continues a branch, "the branch" is already pushed to the remote with one commit, and "the
+remote head" is that branch's head on the remote.
 
 83. **An open PR is continued.** Setup: branch `t83` pushed, with an open PR #2 whose base
     branch is `release`, not the default branch, and a pull request workflow with `on:
     pull_request: types: [synchronize]` and `branches: [release]`. Local `t83` absent or
-    equal to the remote. Command: `/ccl:run #1 --no-codex --continue t83`. Expected:
-    Step 0.2 records the remote head as the base commit and PR #2 with its base branch
-    `release`; the run switches to `t83` without creating it; the push is
-    `git push <remote> t83`, with no `-u` and no force flag, after a `git ls-remote
-    --heads` compare with the base commit; the tool trace has no `gh pr create` and no
-    `gh pr edit` of PR #2; one `gh pr comment 2 --body-file` carries the continued-PR
-    body, which has an "Issues" section with `#1: complete` or `#1: partial`, no `Closes`
-    or `Refs` line, and the closing sentence about the PR's own body; the first CI watch
-    counts the `synchronize` workflow as applying and reads required checks from
-    `release`; and the report's Continued line names `t83` and PR #2. Rerun after any
-    change to Step 0.2, Step 7.2, `pr-body.md`, or `ci-watch.md`.
+    equal to the remote, and the session on the default branch, so `HEAD` is not the base
+    commit. Command: `/ccl:run #1 --no-codex --continue t83`. Expected: Step 0.2 records
+    the remote head as the base commit and PR #2 with its base branch `release`; `run.md`
+    says the planning snapshot is the base commit, and Steps 1 and 2 read files with `git
+    show <base-commit>:<path>` before the switch; the run switches to `t83` without
+    creating it; the push is `git push <remote> t83`, with no `-u` and no force flag,
+    after a `git ls-remote --heads <remote> refs/heads/t83` compare with the base commit;
+    every `git ls-remote` in the trace names `refs/heads/<branch>`; the tool trace has no
+    `gh pr create` and no `gh pr edit` of PR #2; one `gh pr comment 2 --body-file` carries
+    the continued-PR body, which has an "Issues" section with `#1: complete` or `#1:
+    partial`, no `Closes` or `Refs` line, and the closing sentence about the PR's own
+    body; the first CI watch counts the `synchronize` workflow as applying and reads
+    required checks from `release`; and the report's Continued line names `t83` and PR #2.
+    Then repeat with `--no-publish`: the run ends `prepared`, and the report gives `git
+    push <remote> t83` and `gh pr comment 2 --body-file <absolute path>`, not `gh pr
+    create`; the body file exists at that path and holds the continued-PR body. Rerun
+    after any change to Step 0.2, Step 7, `pr-body.md`, or `ci-watch.md`.
 84. **A branch with no PR gets one.** Setup: branch `t84` pushed, with no PR. Command:
     `/ccl:run #1 --no-codex --continue t84`. Expected: the run switches to `t84`, pushes
     with `git push <remote> t84` and no force flag, and opens the PR with `gh pr create
@@ -577,7 +585,8 @@ that branch's head on the remote.
     a second clone that can push to it, and `.ccl.json` with a `checks` entry that runs
     `sleep 90`, committed. Command: `/ccl:run #1 --no-codex --continue t87`, and while
     the check runs push one commit to `t87` from the second clone. Expected: `blocked`
-    before the first push, naming `t87`; the remote head is the second clone's commit;
+    before the first push, naming `t87`, after a `git ls-remote --heads <remote>
+    refs/heads/t87` compare; the remote head is the second clone's commit;
     the tool trace has no push by the run, no force flag, no `git rebase`, and no `git
     reset`; and the local branch is kept. Then repeat with `--confirm-plan`, pushing
     during the wait and answering yes: `blocked` naming `t87` before Step 3.7.2, with
@@ -588,12 +597,12 @@ that branch's head on the remote.
     not loaded, and no file written. Rerun after any change to the commands' flag rules.
 89. **`--continue` on a non-GitHub host ends `prepared`.** Setup: as item 62, plus a
     branch `t89` on the bare remote. Command: `/ccl:run "rename the README heading"
-    --no-codex --continue t89`. Expected: the command's `git ls-remote --heads` check
-    passes; Step 0.2 fetches `t89` and records `<remote>/t89` as the base commit; the tool
-    trace has no `gh pr list`; the run switches to `t89`, runs Steps 0 to 6, never runs
-    Step 7, and ends `prepared`; and the report gives `git push <remote> t89`, names the
-    host, and has no `gh pr create` command. Rerun after any change to Step 0 host
-    detection or Step 0.2.
+    --no-codex --continue t89`. Expected: the command's `git ls-remote --heads <remote>
+    refs/heads/t89` check passes; Step 0.2 fetches `t89` and records `<remote>/t89` as the
+    base commit; the tool trace has no `gh pr list`; the run switches to `t89`, runs Steps
+    0 to 6, never runs Step 7, and ends `prepared`; and the report gives `git push
+    <remote> t89`, names the host, and has no `gh pr create` command. Rerun after any
+    change to Step 0 host detection or Step 0.2.
 90. **Multi-repo with the branch on the primary only.** Setup: as item 75, with branch
     `t90` pushed to the primary's remote with an open PR, and no `t90` on the second
     repo's remote. Command: as item 75 with `--continue t90`. Expected: the primary
@@ -609,8 +618,10 @@ that branch's head on the remote.
     --no-codex`. Expected: `blocked` in Step 1 before Step 2, nothing implemented, and a
     report with the rerun command: the same inputs and flags plus `--repo <path>`, with
     the path from the issue. The run does not adopt Multi-repo mode. Then change the
-    issue so the second checkout is only read: the run is not blocked there. Rerun after
-    any change to Step 1.4.
+    issue so the second checkout is only read: the run is not blocked there. Then ask for
+    changes in two other checkouts and pass `--repo` for one of them: `blocked` in Step
+    1 again, and the rerun command adds one `--repo` for the missing checkout only. Rerun
+    after any change to Step 1.4.
 92. **An additional repo with a differing skip-worktree file continues.** Setup: as item
     75, plus `git update-index --skip-worktree <file>` in the second repo and an edit to
     that file, so `git status --porcelain` is empty there and the file differs from
@@ -627,16 +638,17 @@ that branch's head on the remote.
     `## Step` heading, before and after each timed call (Agent, Workflow, SendMessage,
     Codex, `code-review`, each check, each CI poll), and at the terminal state; no time
     is logged for an untimed `git` call or a substep; and each elapsed figure equals the
-    difference of two recorded times. Rerun after any change to the Budgets section.
+    difference between the Step 0 start and a recorded time, less each Step 3.5 wait.
+    Rerun after any change to the Budgets section.
 94. **`--confirm-plan` answered yes continues.** Command: `/ccl:run #1 --no-codex
     --confirm-plan`; when the plan is printed, wait about 3 minutes and reply "yes".
     Expected: the run prints the plan path and a short summary, asks, and ends its turn;
     after the reply it goes on through Step 3.6 and Step 3.7 to a normal terminal state;
     `run.md` holds the question time and the reply time; the report's plan approval line
     gives the question, the reply, and the wait; and the elapsed time against the run
-    budget is the run's total minus that wait. In default permission mode the Step 0.1
-    statement lists the plan approval question as a prompt. Rerun after any change to
-    Step 3.5, the Budgets section, or `report.md`.
+    budget is the Step 0 start to the latest recorded time, minus that wait. In default
+    permission mode the Step 0.1 statement lists the plan approval question as a prompt.
+    Rerun after any change to Step 3.5, the Budgets section, or `report.md`.
 95. **`--confirm-plan` answered with a change.** Command: as item 94, replying with a
     change, for example "also add a test for the empty input". Expected: the change is
     recorded in `inputs.md` as an ad-hoc input; `run.md` shows one more Step 3 round,
@@ -669,15 +681,36 @@ that branch's head on the remote.
      check of the plugin files, not a run, and it needs no repo. Command: take every line
      that `git diff 0ba8c61^ 0ba8c61 -- skills/ccl/SKILL.md` removes and compare each,
      with leading spaces trimmed, against the lines of `skills/ccl/worktree.md`,
-     `skills/ccl/multi-repo.md`, and `skills/ccl/ci-watch.md`; then run `wc -l` on
-     `skills/ccl/SKILL.md` and `skills/ccl/tiers.md`. Expected: every removed line that
+     `skills/ccl/multi-repo.md`, and `skills/ccl/ci-watch.md` as of 0ba8c61 (`git show
+     0ba8c61:<path>`); then run `wc -l` on `skills/ccl/SKILL.md` and `skills/ccl/tiers.md`
+     as of 0ba8c61. Later rule commits change the files, so the counts hold at 0ba8c61
+     only. Expected: every removed line that
      holds a rule is in one of the three files as a whole line; the only removed lines
      not found are the 11 lines `SKILL.md` rewrote in place for the pointers and
      cross-references, and every rule sentence in them is still in `SKILL.md` word for
      word apart from the reference to the moved section; and `SKILL.md` has 934 lines and
      `tiers.md` 181, so a default single-repository GitHub run reads 1,115 lines through
-     Step 6. Rerun after any edit that moves text between these files or changes the
-     length of `SKILL.md` or `tiers.md`.
+     Step 6. Rerun after any edit that moves text between these files.
+101. **A `--continue` value that is not a branch name is rejected by the command.**
+     Command: `/ccl:run #1 --continue -x`, `/ccl:run #1 --continue 'a@{1}'`, `/ccl:run #1
+     --continue 'a..b'`, and `/ccl:plan #1 --continue 'a..b'`. Expected: each is rejected
+     before Step 0 with a one-line message naming the value, the skill not loaded, and no
+     file written. Then `/ccl:run #1 --no-codex --continue t83` with a valid pushed
+     branch is not rejected for its name. Rerun after any change to the commands' flag
+     rules.
+102. **A branch checked out in another worktree is a preflight failure.** Setup: branch
+     `t102` pushed, local `t102` equal to the remote, and `git worktree add <path>
+     t102` so another checkout holds it. Command: `/ccl:run #1 --no-codex --continue
+     t102` from the main checkout. Expected: a preflight failure in Step 0.2 naming that
+     worktree path, the report printed, nothing written, no branch switched, and nothing
+     pushed. Rerun after any change to Step 0.2 or `worktree.md`.
+103. **A dirty tree after the Step 3.5 wait ends `blocked`.** Command: `/ccl:run #1
+     --no-codex --confirm-plan`; when the plan is printed, edit a tracked file, then
+     reply "yes". Expected: `blocked` before Step 3.7.2 naming the changed file, no
+     branch created, and nothing implemented. Then with a pushed branch `t103`, local
+     `t103` equal to the remote, and `--continue t103`, commit to local `t103` during the
+     wait: `blocked` naming the branch, with the branch not switched. Rerun after any
+     change to Step 3.5.
 
 ## Record of runs
 

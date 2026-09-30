@@ -135,7 +135,10 @@ The remaining text, joined, is one ad-hoc description.
   an open PR, the run posts the PR description it would have opened with as one comment
   on that PR and does not open one. If it has none, the run opens a PR. It is rejected
   with `--branch`, and it is not repair mode: the run reads no review comments and no CI
-  state from before the run.
+  state from before the run. A value that starts with `-`, contains `@{`, or fails `git
+  check-ref-format --branch` is rejected. A branch checked out in a worktree the run will
+  not use fails preflight. Every remote check of a branch name queries the exact ref
+  `refs/heads/<branch>`, because a bare name also matches any ref that ends in it.
 
 ### Multi-repo mode
 
@@ -148,9 +151,10 @@ directly. In this mode:
   rejected, naming both hosts.
 - A bare `#n` names an issue of the primary. An issue of a `--repo` checkout is given as
   a full URL.
-- Without `--repo`, a task that needs edits in another writable checkout ends in
-  `blocked`, and the report gives the rerun command with one `--repo <path>` per
-  repository. The mode is never adopted from prose.
+- A task that needs edits in a writable checkout that is not the primary and not listed
+  with `--repo` ends in `blocked`, including when `--repo` names other checkouts. The
+  report gives the rerun command with one `--repo <path>` for each missing checkout. The
+  mode is never adopted from prose.
 - Each repository gets its own base commit, its own branch under one shared name, its
   own baseline, and its own checks. Artifacts live only in the primary's
   `.ccl/<run-id>/`. No slice spans repositories. Every `gh` call for an additional
@@ -165,7 +169,9 @@ directly. In this mode:
   requests" section that links the siblings. `Closes #n` comes only from the PR in the
   issue's own repository. Every other PR of the run cites it as `Refs <owner>/<repo>#n`.
   `done` needs every PR green. A `blocked` in any repository stops publication in all,
-  except that a PR already opened still gets its sibling links filled in.
+  except that a PR already opened still gets its sibling links filled in. Each
+  repository's PR body is `.ccl/<run-id>/pr-body-<slug>.md` in the primary, and every
+  `gh` body call for an additional repository gets its absolute path.
 - The primary's `.ccl.json` governs `commit` and `timeouts`. Each repository's own
   `checks` list is read for that repository.
 - With `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in the first
@@ -201,9 +207,9 @@ tier, and the tier default replaces it then; a rise to high after implementation
 to the high default. An explicit instruction from you in the
 session that names a new budget replaces it from that point. The report names the budget
 in force and its source. The `run` budget bounds the whole run from Step 0 to the
-terminal state. The `codex` value is passed to codex-lite in seconds, which accepts 1 to
-3600, so a value above 60 minutes is capped at 60. An unknown field is reported and
-ignored.
+terminal state, less each Step 3.5 wait. The `codex` value is passed to codex-lite in
+seconds, which accepts 1 to 3600, so a value above 60 minutes is capped at 60. An unknown
+field is reported and ignored.
 
 Example:
 
@@ -286,8 +292,9 @@ Every run ends in exactly one state.
   Step 7 was withheld before anything was pushed: by `--no-publish`, by a non-GitHub
   host, or by your answer to a Step 7 ask-first prompt that was anything other than a
   clear yes. The report names the branch, the commit state, and the commands to
-  publish. With `--continue` the push command is `git push <remote> <branch>`. It is not
-  a failure.
+  publish. With `--continue` the push command is `git push <remote> <branch>`, and when
+  the branch has an open PR the report gives `gh pr comment <n> --body-file <absolute
+  path>` in place of `gh pr create`. It is not a failure.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask you a question it cannot decide, or a requested
@@ -299,8 +306,9 @@ Every run ends in exactly one state.
 With `"commit": false`, each run writes to `.ccl/<run-id>/` in the repo root:
 `inputs.md`, `plan.md`, `run.md` (the run log), `report.md`, and `diff.patch` when a
 follow-up review round, a CI repair round, or a worktree run's diff review needed it.
-In Multi-repo mode there is one `diff-<slug>.patch` per additional repository. `.ccl/`
-is added to `.git/info/exclude`, not to a committed `.gitignore`.
+In Multi-repo mode there is one `diff-<slug>.patch` and one `pr-body-<slug>.md` per
+additional repository. `.ccl/` is added to `.git/info/exclude`, not to a committed
+`.gitignore`.
 
 With `"commit": true`, the run still works entirely in `.ccl/<run-id>/`. At publish, the
 plan and a provisional report are copied to `specs/ccl/<run-id>/` and committed on the
