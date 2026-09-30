@@ -180,15 +180,15 @@ Enforcement:
 1. Run `date -u +%Y-%m-%dT%H:%M:%SZ` at the start of Step 0, at the start of each step
    that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
    SendMessage, each Codex call, each `code-review` pass, each check, each install step,
-   each CI poll), right after each push returns, and at the terminal state, and with
-   `confirm-plan` just before each Step 3.5 question and just after its reply, and nowhere
-   else. Use that one format for the whole run. Compare the run budget at each of those
-   points. Copy each time written to `run.md` from that command's output, never from
-   memory or from arithmetic on earlier entries. Elapsed time is the difference between
-   the Step 0 start and the latest recorded time, minus each Step 3.5 wait, all from
-   recorded outputs. Record the budget in force and its source in `run.md` at Step 0.5,
-   and again when Step 1.5 sets the tier, Step 4.5 raises it, or a session instruction
-   changes it.
+   each CI poll, and each poll of a background check), right after each push returns, and
+   at the terminal state, and with `confirm-plan` just before each Step 3.5 question and
+   just after its reply, and nowhere else. Use that one format for the whole run. Compare
+   the run budget at each of those points. Copy each time written to `run.md` from that
+   command's output, never from memory or from arithmetic on earlier entries. Elapsed time
+   is the difference between the Step 0 start and the latest recorded time, minus each
+   Step 3.5 wait, all from recorded outputs. Record the budget in force and its source in
+   `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises it, or a
+   session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
    timeout (Agent, Workflow, SendMessage), use the `date` times that item 1 requires
@@ -217,8 +217,8 @@ every one of them and follow Final report handling below.
   `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
   says the snapshot there is provisional), the `git push -u <remote> <branch>` command
   (`git push <remote> <branch>` with `continue`), and then the pull request step:
-  - On the `github` host, the `gh pr create` command; with `continue` and no open PR, the
-    same.
+  - On the `github` host, the `gh pr create` command; with `continue` and no pull request
+    of any state, the same.
   - With `continue` and one open PR, the `gh pr comment <n> --body-file <path>` command in
     its place, with the absolute path of the written body file.
   - With `continue`, `--no-publish`, and several open PRs, or only closed or merged PRs,
