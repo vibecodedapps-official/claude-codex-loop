@@ -549,13 +549,19 @@ taught it where there is one.
    check queries `refs/heads/<branch>`, because `git ls-remote --heads <remote> <branch>`
    with a bare name matches any ref whose path ends in it (reproduced on 2026-09-30), and
    this covers the Step 3.7.2 new-branch collision check that predates `--continue`. The
-   flag value is rejected when it starts with `-`, contains `@{`, has a character other
-   than letters, digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch`,
-   so it cannot act as an option or a revision expression.
+   flag value is rejected when it starts with `-`, has a character other than letters,
+   digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch`, so it cannot
+   act as an option or a revision expression. The character list already excludes `@`
+   and `{`, so a separate rule for revision syntax could never fire and was removed.
    Step 0.2 fails a branch that another worktree has checked out, because `git switch`
    refuses it. With `--continue`, `HEAD` of the session's checkout must be at the base
-   commit, on the branch or detached at it, or Step 0.2 fails with the `git switch`
-   command to run. An earlier draft read the base commit with `git show` when `HEAD`
+   commit, on the branch or detached at it, or Step 0.2 fails with the command to run:
+   `git merge --ff-only <remote>/<branch>` when the session is on the branch and it is
+   behind, because `git switch <branch>` then does nothing; `git switch <branch>` when
+   the session is elsewhere and the local branch equals the remote or is absent; else
+   `git switch --detach <remote>/<branch>`. The pull request list uses
+   `isCrossRepository`, because an owner field also passes a fork with the same
+   owner. An earlier draft read the base commit with `git show` when `HEAD`
    differed, but the Codex plan review and the Step 1.2 reproduction read the session's
    checkout, so they checked the wrong code. The requirement leaves the planning snapshot
    rule unchanged. A session on the branch blocks a worktree run, and one detached at the
@@ -609,16 +615,17 @@ taught it where there is one.
    chose this on 2026-09-30. The old rule asked for `date` before every step and every
    call, and on a 3.3 hour live run the logged times drifted and had to be corrected. The
    run budget is enforced only at step boundaries and around timed calls, so `date` runs
-   there, at the start of Step 0, and at the terminal state, and nowhere else. A helper
-   script is a new kind of file in a prompt-only plugin, and it needs an `allowed-tools`
-   entry and testing in both Git Bash and PowerShell. The worktree install step is a
-   timed call under the check budget, so it gets the same `date` and budget comparison as
-   a check. One format,
-   `date -u +%Y-%m-%dT%H:%M:%SZ`, is used for the whole run, and every logged time is
-   copied from the command's output, never recalled or derived from earlier entries.
-   Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5 wait
-   (item 5), so a wait cannot count against the budget. The skill no longer carries the
-   2026-09-30 test note for the range target; item 1 is the record. Issue #19.
+   there, right after each push returns, at the start of Step 0, and at the terminal
+   state, and nowhere else, so the 2 minute CI wait and the CI budget count from the push.
+   A helper script is a new kind of file in a prompt-only plugin, and it needs an
+   `allowed-tools` entry and testing in both Git Bash and PowerShell. The worktree install
+   step is a timed call under the check budget, so it gets the same `date` and budget
+   comparison as a check. One format, `date -u +%Y-%m-%dT%H:%M:%SZ`, is used for the whole
+   run, and every logged time is copied from the command's output, never recalled or
+   derived from earlier entries. Elapsed time is the Step 0 start to the latest recorded
+   time, less each Step 3.5 wait (item 5), so a wait cannot count against the budget. The
+   skill no longer carries the 2026-09-30 test note for the range target; item 1 is the
+   record. Issue #19.
 5. **`--confirm-plan` pauses once for approval after the plan is final.** A task that
    said to plan first and then approve had no supported path: `--plan-only` ends the run,
    and a later run starts over from Step 0. Step 3.5 runs the Step 3.7.1 reverification
@@ -626,8 +633,10 @@ taught it where there is one.
    reverification then revises. The wait does not count against the run budget, because
    the live run that asked for this did the same by hand and a long wait would otherwise
    end a run in `blocked` for time the user spent. A requested change is another Step 3
-   round, inside the cap of 3; when no round is left the run ends `stopped` and the report
-   gives the requested change. After the approval, before Step 3.7.2, the clean-tree check
+   round, inside the cap of 3, that follows Step 3 items 2 to 6, so an open blocking
+   objection at the cap ends `blocked` and the question is asked again only after a round
+   with none; when no round is left the run ends `stopped` and the report gives the
+   requested change. After the approval, before Step 3.7.2, the clean-tree check
    reruns, and with `--continue` so do the check that the local branch equals the base,
    the worktree check, and the `HEAD` check, because the user can change the tree or the
    checkout during a long wait; a failure ends in `blocked`.

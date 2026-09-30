@@ -180,14 +180,15 @@ Enforcement:
 1. Run `date -u +%Y-%m-%dT%H:%M:%SZ` at the start of Step 0, at the start of each step
    that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
    SendMessage, each Codex call, each `code-review` pass, each check, each install step,
-   each CI poll), and at the terminal state, and with `confirm-plan` just before each
-   Step 3.5 question and just after its reply, and nowhere else. Use that one format for
-   the whole run. Compare the run budget at each of those points. Copy each time written
-   to `run.md` from that command's output, never from memory or from arithmetic on
-   earlier entries. Elapsed time is the difference between the Step 0 start and the
-   latest recorded time, minus each Step 3.5 wait, all from recorded outputs. Record the
-   budget in force and its source in `run.md` at Step 0.5, and again when Step 1.5 sets
-   the tier, Step 4.5 raises it, or a session instruction changes it.
+   each CI poll), right after each push returns, and at the terminal state, and with
+   `confirm-plan` just before each Step 3.5 question and just after its reply, and nowhere
+   else. Use that one format for the whole run. Compare the run budget at each of those
+   points. Copy each time written to `run.md` from that command's output, never from
+   memory or from arithmetic on earlier entries. Elapsed time is the difference between
+   the Step 0 start and the latest recorded time, minus each Step 3.5 wait, all from
+   recorded outputs. Record the budget in force and its source in `run.md` at Step 0.5,
+   and again when Step 1.5 sets the tier, Step 4.5 raises it, or a session instruction
+   changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
    timeout (Agent, Workflow, SendMessage), use the `date` times that item 1 requires
@@ -215,12 +216,16 @@ every one of them and follow Final report handling below.
   commands when the work is uncommitted (the `git add` list includes the
   `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
   says the snapshot there is provisional), the `git push -u <remote> <branch>` command
-  (`git push <remote> <branch>` with `continue`), and, on the `github` host, the `gh pr
-  create` command; with `continue` and one open PR, the `gh pr comment <n> --body-file
-  <path>` command in its place, with the absolute path of the written body file; with
-  `continue`, `--no-publish`, and several open PRs, the PRs found in place of a `gh pr
-  comment` command; on any other host, a note that the pull request is opened with the
-  host's own tooling, which this version does not drive.
+  (`git push <remote> <branch>` with `continue`), and then the pull request step:
+  - On the `github` host, the `gh pr create` command; with `continue` and no open PR, the
+    same.
+  - With `continue` and one open PR, the `gh pr comment <n> --body-file <path>` command in
+    its place, with the absolute path of the written body file.
+  - With `continue`, `--no-publish`, and several open PRs, or only closed or merged PRs,
+    the PRs found, and neither a `gh pr comment` nor a `gh pr create` command.
+  - On any other host, a note that the pull request is opened with the host's own
+    tooling, which this version does not drive.
+
   `prepared` is not a failure.
 - `blocked`: a blocking defect, a denied permission, a budget exceeded, or a preflight
   failure. The report says what and what would unblock it.
@@ -568,26 +573,28 @@ it. Step 0 creates nothing except artifacts.
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
    With `continue`, also fetch the branch with the explicit refspec
    `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because `git fetch <remote>
-   <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it, and
-   record `<remote>/<branch>` after that fetch as the base commit, in place of the
-   default branch head. Still record the default branch. A branch equal to the default
-   branch is a preflight failure, also in a plan-only run, because the run would push
-   straight to it. A local branch of that name that does not equal `<remote>/<branch>` is
-   a preflight failure; never reset local work. With `continue`, `HEAD` of the session's
-   checkout must also be at the base commit, either on the branch or detached at it, so
-   that the plan review and the Step 1.2 reproduction read the branch's own code.
-   Otherwise it is a preflight failure whose message gives `git switch <branch>`, or `git
-   switch --detach <remote>/<branch>`. In Multi-repo mode the same holds for each
-   repository that continues the branch. With `continue`, also run `git worktree list
-   --porcelain`: a branch checked out in a worktree other than the one the run will use
-   is a preflight failure naming that worktree, because `git switch` refuses it. The run
-   uses the session's checkout, unless Step 0.3 creates a worktree, where `worktree.md`
-   makes the session's checkout a failure too, so a session on the branch blocks a
-   worktree run and one detached at the base commit does not. On `github`, read the pull
-   requests of the branch with `gh pr list --head <branch> --state all --limit 100 --json
-   number,state,baseRefName,url,headRepositoryOwner`, and keep only the entries whose
-   `headRepositoryOwner` is this repository's owner, so a fork's branch of the same name
-   is ignored. On `other`, read no pull request. Then:
+   <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it, and record
+   `<remote>/<branch>` after that fetch as the base commit, in place of the default branch
+   head. Still record the default branch. A branch equal to the default branch is a
+   preflight failure, also in a plan-only run, because the run would push straight to it.
+   A local branch of that name that does not equal `<remote>/<branch>` is a preflight
+   failure; never reset local work. With `continue`, `HEAD` of the session's checkout must
+   also be at the base commit, either on the branch or detached at it, so that the plan
+   review and the Step 1.2 reproduction read the branch's own code. Otherwise it is a
+   preflight failure whose message gives `git merge --ff-only <remote>/<branch>` when the
+   session is on that branch and the local branch is behind the remote, `git switch
+   <branch>` when the session is elsewhere and the local branch equals the remote or is
+   absent, and `git switch --detach <remote>/<branch>` otherwise. In Multi-repo mode the
+   same holds for each repository that continues the branch. With `continue`, also run
+   `git worktree list --porcelain`: a branch checked out in a worktree other than the one
+   the run will use is a preflight failure naming that worktree, because `git switch`
+   refuses it. The run uses the session's checkout, unless Step 0.3 creates a worktree,
+   where `worktree.md` makes the session's checkout a failure too, so a session on the
+   branch blocks a worktree run and one detached at the base commit does not. On `github`,
+   read the pull requests of the branch with `gh pr list --head <branch> --state all
+   --limit 100 --json number,state,baseRefName,url,isCrossRepository`, and keep only the
+   entries whose `isCrossRepository` is false, so a fork's branch of the same name is
+   ignored. On `other`, read no pull request. Then:
    - One open pull request: record its number, URL, and base branch. Closed or merged pull
      requests beside it are ignored. Step 7.3 uses its base branch in place of the default
      branch.
@@ -645,17 +652,16 @@ changes the tree.
    the explanation, and show the failure before planning a fix.
 3. If the issue text has drifted from the code, record what changed and why in `inputs.md`,
    plan against the corrected text, and put the correction in the PR body.
-4. Mark each input as buildable here, partial, or blocked, with the reason, in `inputs.md`.
-   Partial and blocked inputs stay in the run and are reported per input.
+4. Mark each input as buildable here, partial, or blocked, with the reason, in
+   `inputs.md`. Partial and blocked inputs stay in the run and are reported per input.
    When the work would need edits in a writable checkout that is neither the primary nor
    listed in `repos` (an input names another writable repository, or a path inside another
-   git checkout that is not a submodule of the primary, as `.gitmodules` or `git submodule
-   status` lists them, because a submodule change is a gitlink update in the primary), the
-   run ends in `blocked` here, before item 5 and Step 2. The report
-   gives the rerun command: the same inputs and flags plus one `--repo <path>` for each
-   missing checkout, with the path when an input names it and `<path-to-owner/repo>`
-   otherwise. A repository
-   the work only reads is not flagged. Never adopt Multi-repo mode from prose.
+   git checkout that is not a submodule of the primary, as `.gitmodules` lists them,
+   because a submodule change is a gitlink update in the primary), the run ends in
+   `blocked` here, before item 5 and Step 2. The report gives the rerun command: the same
+   inputs and flags plus one `--repo <path>` for each missing checkout, with the path when
+   an input names it and `<path-to-owner/repo>` otherwise. A repository the work only
+   reads is not flagged. Never adopt Multi-repo mode from prose.
 5. Read `tiers.md`. Estimate effort with its estimate rule, apply the risk floor, and record
    the tier and the reason in `inputs.md`. With `--effort` set, skip the estimate and force
    that tier, but still apply the risk floor: `--effort` cannot lower a task below it, so a
@@ -679,7 +685,9 @@ otherwise carry more than one area or more than one subagent timeout of work; do
 work that shares a file. State in the order of work which slices are independent and which
 must run in order. At xhigh and max, record the implementer model per slice with the
 criterion, from the Implementer choice section of `tiers.md`. With `--branch` and
-plan-only, record the name in the plan and create nothing.
+plan-only, record the name in the plan and create nothing. A plan that turns out to need
+edits in a writable checkout that is neither the primary nor listed in `repos` ends in
+`blocked` as Step 1 item 4 describes, with the same rerun command.
 
 ## Step 3: plan review and converge
 
@@ -708,9 +716,10 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
 
 1. Run Step 3.7.1's reverification now. It is read-only. A revision it causes gets its
    Step 3 round here, inside the cap of 3, so the plan is final before the user sees it.
-   Step 3.7.1 then does not repeat. When the reverification needs a revision and no Step 3
-   round remains, the run ends in `blocked` naming the unreviewed revision, the same as a
-   Step 3 cap with an open blocking objection.
+   Step 3.7.1 then does not repeat. That round follows Step 3 items 2 to 6, so an open
+   blocking objection at the cap ends in `blocked`. When the reverification needs a
+   revision and no Step 3 round remains, the run ends in `blocked` naming the unreviewed
+   revision, the same as a Step 3 cap with an open blocking objection.
 2. Print the plan path and a short summary of the plan. Ask the user in the session to
    reply yes to implement, or to describe a change. Take the `date` times of Budgets,
    Enforcement item 1, just before asking and just after the reply, and record both in
@@ -727,8 +736,10 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
    commit. If it moved, end in `blocked` naming the branch. The base commit stays the one
    fetched in Step 0.2: the default branch moving during the wait changes nothing.
 4. A requested change is recorded in `inputs.md` as an ad-hoc input. It gets one more Step
-   3 round, inside the cap of 3 that Step 3 and Step 3.7.1 share, and then the question is
-   asked again. When no round remains, end in `stopped` with the requested change as the
+   3 round, inside the cap of 3 that Step 3 and Step 3.7.1 share. That round follows Step
+   3 items 2 to 6: an open blocking objection at the cap ends in `blocked` (Step 3 item
+   6), and the question is asked again only when the round ends with no blocking
+   objection. When no round remains, end in `stopped` with the requested change as the
    question.
 5. Any other reply, including a no, is not approval: end in `plan-only`.
 
@@ -929,6 +940,10 @@ anything is pushed, stop Step 7 and end in `prepared`.
      and compare the head with the base commit. Before each CI repair push, compare it
      with the last commit this run pushed. If the remote head differs, end `blocked`
      naming the branch. Never force push, and never rebase or reset to catch up.
+   - Before the run's first push, also read the pull requests of the branch again with
+     the `gh pr list` command of Step 0.2, with the same filter. If the recorded open PR
+     is now closed or merged, a PR now exists where none did, or several are open, end
+     `blocked` naming the change. Nothing is pushed yet.
    - Push with `git push <remote> <branch>`, never forced, in place of the command above.
    - With an open PR (Step 0.2), do not run `gh pr create`. Write the body from the
      continued-PR variant in `pr-body.md` and post it as one comment with `gh pr comment
@@ -975,15 +990,11 @@ At every terminal state:
 4. With `"commit": true` and the state `done`, also post the terminal report as one comment on
    the PR, because the committed snapshot says `publishing`. Post no comment on any other state.
 5. The report holds:
-   1. Terminal state, PR link or links, CI state, host, run budget in force with its source,
-      worktree path when one exists, and for `prepared` the branch, commit state, the commit
-      commands when uncommitted, the push command, and, on the `github` host, the `gh pr
-      create` command (with `continue` and one open PR, the `gh pr comment <n> --body-file
-      <path>` command instead, with the absolute path of the written body file; with
-      several open PRs, the PRs found instead); on any other host the note that the pull
-      request is opened with the host's own tooling.
-      With `continue`, that the run continued an existing branch and which PR it commented
-      on. For an additional repository, the flagged paths from the Worktree rule.
+   1. Terminal state, PR link or links, CI state, host, run budget in force with its
+      source, worktree path when one exists, and for `prepared` the branch, the commit
+      state, and the publish commands Terminal states gives for `prepared`. With
+      `continue`, that the run continued an existing branch and which PR it commented on.
+      For an additional repository, the flagged paths from the Worktree rule.
    2. Attended or unattended, and the prompts that occurred.
    3. Effort tier and why, including any risk floor, any re-evaluation, and the Step 5
       reviewers it resolved.

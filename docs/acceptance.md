@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 118 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 124 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -538,8 +538,8 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
 
 ## M7: 0.6.0, 2026-09-30
 
-Setup for items 83 to 118: the common setup, plus the setup each item names. Items 83 to
-99 and 101 to 118 are hand runs against throwaway repos and cannot run inside a ccl run.
+Setup for items 83 to 124: the common setup, plus the setup each item names. Items 83 to
+99 and 101 to 124 are hand runs against throwaway repos and cannot run inside a ccl run.
 Item 100 is a static check of the plugin files and needs no repo. In an item that
 continues a branch, "the branch" is already pushed to the remote with one commit, "the
 remote head" is that branch's head on the remote, and the session's checkout is on the
@@ -808,13 +808,50 @@ branch or detached at the remote head unless the item says otherwise.
 117. **A `--no-publish` run records pull request states instead of failing.** Setup:
      branch `t117` pushed with two open PRs. Command: `/ccl:run #1 --no-codex --no-publish
      --continue t117`. Expected: preflight passes, `prepared` is reached, and the report
-     names both PRs and gives no `gh pr comment` command. Repeat with only a closed PR
-     and expect the same pass. Repeat with a local `t117` that differs from the remote
-     and expect a preflight failure. Rerun after any change to Step 0.2.
+     names both PRs and gives no `gh pr comment` and no `gh pr create` command. Repeat
+     with only a closed PR and expect the same pass and the same report. Repeat with a
+     local `t117` that differs from the remote and expect a preflight failure. Rerun after
+     any change to Step 0.2.
 118. **The PR list covers more than 30 pull requests.** Setup: a branch with 31 closed
      PRs and one open PR, all from this repository. Command: `/ccl:run #1 --no-codex
      --continue t118`. Expected: the tool trace shows `gh pr list` with `--limit 100`, and
      the run finds the open PR. Rerun after any change to Step 0.2.
+
+119. **Each push is timed.** Command: `/ccl:run #1 --no-codex`. Expected: `run.md` holds
+     a `date` time taken right after the push returned, and the CI watch does not judge
+     CI until 2 minutes after that time. Rerun after any change to the Budgets section or
+     `ci-watch.md`.
+120. **A changed PR state before the first push ends `blocked`.** Setup: branch `t120`
+     pushed with one open PR. Command: `/ccl:run #1 --no-codex --confirm-plan
+     --continue t120`; when the plan is printed, close the PR, then reply "yes".
+     Expected: `gh pr list` runs again before the push, and the run ends `blocked` naming
+     the closed PR, with nothing pushed. Repeat with no PR at the start and a PR opened
+     during the wait, and again with a second PR opened, and expect `blocked` each time.
+     Rerun after any change to Step 7.2.
+121. **A requested change that leaves a blocking objection at the cap ends `blocked`.**
+     Setup: a plan whose Step 3 review used 2 rounds; `--confirm-plan`. Command:
+     `/ccl:run #1 --no-codex --confirm-plan`; reply with a change that draws a blocking
+     objection the plan cannot resolve. Expected: the third round ends `blocked` naming
+     the objection, and the question is not asked again. Rerun after any change to Step
+     3.5.
+122. **A same-owner fork with the same branch name is ignored.** Setup: branch `t122`
+     pushed with one open PR, and a pull request from a fork with the same owner and a
+     branch named `t122`. Command: `/ccl:run #1 --no-codex --continue t122`. Expected:
+     the `gh pr list` call asks for `isCrossRepository`, the fork's PR is dropped, and the
+     run continues with the one open PR. Rerun after any change to Step 0.2.
+123. **A plan that needs an unlisted writable checkout ends `blocked` at Step 2.** Setup:
+     an issue whose text does not name the other repository, and whose plan turns out to
+     need edits in a second writable checkout not passed with `--repo`. Command:
+     `/ccl:run #1 --no-codex`. Expected: `blocked` with the rerun command that adds
+     `--repo <path-to-owner/repo>`, no branch created, and no `git submodule status` call
+     in the tool trace. Rerun after any change to Step 1.4 or Step 2.
+124. **The `HEAD` failure names the command that works.** Setup: branch `t124` pushed,
+     and a local `t124` one commit behind the remote. Command: `/ccl:plan #1 --continue
+     t124` with the session on local `t124`. Expected: a preflight failure whose message
+     gives `git merge --ff-only <remote>/t124`. Then with the session on the default
+     branch and local `t124` equal to the remote or absent: the message gives `git switch
+     t124`. Then with local `t124` holding a commit that is not on the remote: the message
+     gives `git switch --detach <remote>/t124`. Rerun after any change to Step 0.2.
 
 ## Record of runs
 

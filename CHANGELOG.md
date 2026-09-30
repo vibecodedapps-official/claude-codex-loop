@@ -7,28 +7,31 @@
 - `--continue <branch>` on `/ccl:run` and `/ccl:plan`. The run takes the remote branch
   head as the base, switches to the branch instead of creating one, pushes to it without
   force, and comments on its open PR instead of opening a second one, or opens a PR when
-  none exists. PR references stay rejected as inputs. The value is rejected when it
-  starts with `-`, contains `@{`, has a character other than letters, digits, `.`, `_`,
-  `/`, and `-`, or fails `git check-ref-format --branch`. A branch
-  checked out in another worktree fails preflight. `HEAD` of the session's checkout must
-  be at the base commit, on the branch or detached at it, or preflight fails with the
-  `git switch` command to run. The default branch is rejected as the value. A plan-only
-  run records a differing local branch, a branch checked out in another worktree, and the
-  pull request cases instead of failing, but it still needs `HEAD` at the remote head, for
-  example detached with `git switch --detach <remote>/<branch>`, and then records the
-  differing local branch. A `--no-publish` run also records the closed, merged, and
-  several-open pull request cases instead of failing. A repository whose remote lacks the
-  branch creates it under the same name in Multi-repo mode. A PR opened for a continued
-  branch says how many earlier commits the run did not review. The pull request list
-  reads up to 100 results.
-  A `prepared` run with an open PR gives `gh pr comment <n> --body-file <absolute path>`
-  in place of `gh pr create`. (#16)
-- `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks
-  once. A clear yes continues, a requested change is one more Step 3 round, and anything
-  else ends in plan-only. The wait is left out of the run budget. After a yes, the
-  clean-tree check reruns before Step 3.7.2, with the local-branch, worktree, and `HEAD`
-  checks under `--continue`, and a failure ends in `blocked`. A requested change with no
-  round left ends in `stopped`, and the report gives the change. (#17)
+  none exists. PR references stay rejected as inputs. The value is rejected when it starts
+  with `-`, has a character other than letters, digits, `.`, `_`, `/`, and `-`, or fails
+  `git check-ref-format --branch`. A branch checked out in another worktree fails
+  preflight. `HEAD` of the session's checkout must be at the base commit, on the branch or
+  detached at it, or preflight fails with the command to run, which is `git merge
+  --ff-only <remote>/<branch>`, `git switch <branch>`, or `git switch --detach
+  <remote>/<branch>`, by where the session is. The default branch is rejected as the
+  value. A plan-only run records a differing local branch, a branch checked out in another
+  worktree, and the pull request cases instead of failing, but it still needs `HEAD` at
+  the remote head, for example detached with `git switch --detach <remote>/<branch>`, and
+  then records the differing local branch. A `--no-publish` run also records the closed,
+  merged, and several-open pull request cases instead of failing. A repository whose
+  remote lacks the branch creates it under the same name in Multi-repo mode. A PR opened
+  for a continued branch says how many earlier commits the run did not review. The pull
+  request list reads up to 100 results. A `prepared` run with an open PR gives `gh pr
+  comment <n> --body-file <absolute path>` in place of `gh pr create`. With `--no-publish`
+  and several open PRs, or only closed or merged ones, it names them and gives neither
+  command. (#16)
+- `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks once.
+  A clear yes continues, a requested change is one more Step 3 round, so an open blocking
+  objection at the cap ends in `blocked`, and anything else ends in plan-only. The wait is
+  left out of the run budget. After a yes, the clean-tree check reruns before Step 3.7.2,
+  with the local-branch, worktree, and `HEAD` checks under `--continue`, and a failure
+  ends in `blocked`. A requested change with no round left ends in `stopped`, and the
+  report gives the change. (#17)
 - A Step 1 check for writable checkouts named in the task but not passed with `--repo`.
   The run ends in `blocked` with the rerun command instead of adopting Multi-repo mode
   from prose. The check covers any writable checkout not listed with `--repo`, and the

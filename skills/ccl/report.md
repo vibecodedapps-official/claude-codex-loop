@@ -41,8 +41,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Base commit: <sha, or "not resolved">
 - Branch: <name, or "none created">
 - Continued: <no | the existing branch continued, and the PR this run commented on, or
-  "no PR"; in a plan-only run, also each implementing or publishing condition recorded
-  instead of failed>
+  "no PR"; in a plan-only or `--no-publish` run, also each condition recorded instead of
+  failed>
 - Worktree: <path | none>
 - Repositories: <primary path, then each --repo path with its base commit and PR link; or
   "primary only">
@@ -118,11 +118,8 @@ non-blocking and anything out of scope. No issues were opened.
 - What would unblock it: <specific action>
 - If a budget expired: <which budget, its value, the step or call>
 - If work was already pushed: <PR link; nothing further was published>
-- Prepared: <branch, commit state, the commit commands when uncommitted, the push command
-  (`git push <remote> <branch>` with `continue`), and the `gh pr create` command on the
-  `github` host, or with `continue` and an open PR the `gh pr comment <n> --body-file
-  <path>` command instead, with the absolute path of the written body file, or the host
-  handoff note otherwise;
+- Prepared: <branch, commit state, and the publish commands Terminal states gives for
+  `prepared`;
   with `"commit": true` and a commit made, that the commit carries the `publishing`
   snapshot; or "not prepared">
 

@@ -138,9 +138,9 @@ The remaining text, joined, is one ad-hoc description.
   on that PR and does not open one. If it has none, the run opens a PR, and the body
   says how many earlier commits of the branch this run did not review. It is rejected
   with `--branch`, and it is not repair mode: the run reads no review comments and no CI
-  state from before the run. A value that starts with `-`, contains `@{`, has a
-  character other than letters, digits, `.`, `_`, `/`, and `-`, or fails `git
-  check-ref-format --branch` is rejected. A branch checked out in a worktree the run will
+  state from before the run. A value that starts with `-`, has a character other than
+  letters, digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch` is
+  rejected. A branch checked out in a worktree the run will
   not use fails preflight. `HEAD` of the checkout must be at the branch's remote head, on
   the branch or detached at it (`git switch --detach <remote>/<branch>`), or preflight
   fails. The branch must not be the default branch, because the run would push to it.
@@ -307,8 +307,9 @@ Every run ends in exactly one state.
   clear yes. The report names the branch, the commit state, and the commands to
   publish. With `--continue` the push command is `git push <remote> <branch>`, and when
   the branch has one open PR the report gives `gh pr comment <n> --body-file <absolute
-  path>` in place of `gh pr create`; with several open PRs under `--no-publish` it names
-  them. It is not a failure.
+  path>` in place of `gh pr create`; with several open PRs, or only closed or merged
+  ones, under `--no-publish` it names them and gives neither command. It is not a
+  failure.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask you a question it cannot decide, or a requested

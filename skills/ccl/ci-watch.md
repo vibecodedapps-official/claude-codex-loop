@@ -57,16 +57,18 @@ read, which workflows apply, what passes, and how to poll. Item 5, CI repair, st
       source. A required workflow is met when its latest run for the head commit, matched by
       the rule's workflow file path and repository, passes. A match that cannot be confirmed
       counts as unmet and is named in the report.
-   4. Poll at about 30 second intervals, checking the run budget each time. CI is not judged
-      until 2 minutes after the push. If `mergeable` is `CONFLICTING`, `pull_request`
-      workflows do not run: end in `blocked` at once, naming the conflict. CI is green when
-      every required check and required workflow is met, every expected deferred check has
-      passed on the head commit, every applicable workflow has reported at least one check on
-      the head commit, and every latest result on either commit has finished and passed. That
-      is stricter than GitHub's merge gate, on purpose: the loop publishes only fully green
-      work, and the report says so when an optional check blocked it. Anything unmet or not
-      yet reported is pending until the CI budget expires, then `blocked`. A failure in a
-      latest result is a CI failure. CI is not applicable only when there are no required
-      checks or workflows, no workflow applies, no deferred check is expected, and no result
-      has appeared on either commit within 2 minutes of the push; the report says so. A result
-      that appears on either commit keeps the watch open until it finishes.
+   4. Poll at about 30 second intervals, checking the run budget each time. CI is not
+      judged until 2 minutes after the push, measured from the time recorded right after
+      the push returned. If `mergeable` is `CONFLICTING`, `pull_request` workflows do not
+      run: end in `blocked` at once, naming the conflict. CI is green when every required
+      check and required workflow is met, every expected deferred check has passed on the
+      head commit, every applicable workflow has reported at least one check on the head
+      commit, and every latest result on either commit has finished and passed. That is
+      stricter than GitHub's merge gate, on purpose: the loop publishes only fully green
+      work, and the report says so when an optional check blocked it. Anything unmet or
+      not yet reported is pending until the CI budget expires, then `blocked`. A failure
+      in a latest result is a CI failure. CI is not applicable only when there are no
+      required checks or workflows, no workflow applies, no deferred check is expected,
+      and no result has appeared on either commit within 2 minutes of the push; the report
+      says so. A result that appears on either commit keeps the watch open until it
+      finishes.
