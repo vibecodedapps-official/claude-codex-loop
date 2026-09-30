@@ -67,8 +67,9 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - `--effort` request: <none | value, and whether it was below the floor (refused, run
   continued at high), at the floor (honored), or above the floor (honored)>
 - Re-evaluation after Step 4: <tier unchanged | rose to high, with the diff evidence>
-- Step 5 reviewers resolved: <skipped at low | Codex model, and at high tier and above the
-  Claude `code-review` level, with whether a trigger existed in the diff>
+- Step 5 reviewers resolved: <Codex model and Claude `code-review` level, or the Opus
+  substitute in a worktree run; at high tier, whether a trigger existed at the estimate or
+  in the diff>
 
 ## What changed
 
@@ -84,10 +85,11 @@ Per input, one entry:
 
 - <decision, reason, who or what decided>
 - Reviewer swaps: <stage, default reviewer, fallback used, reason, or "none">
-- Codex threads used: <stage and thread id, or "none">
-- Claude review passes: <stage, round, level, diff covered, result: clean or findings
-  count; and in Multi-repo mode the Opus subagent per additional repository; or "none"
-  below high tier>
+- Codex threads used: <stage and thread id, each `implement` call's slice and thread id
+  included, or "none">
+- Claude review passes: <stage, round, level (or "Opus substitute" for a worktree run or
+  an additional repository), diff covered, result: clean or findings count; or "none"
+  when the run did not reach Step 5>
 
 ## Findings rejected and why
 
@@ -125,7 +127,9 @@ non-blocking and anything out of scope. No issues were opened.
 
 ## Log
 
-- Implementer per slice: <slice, model, criterion or none; any swap with the error>
+- Implementer per slice: <slice, model (the tier's Codex model or `opus`), "codex" or the
+  Opus criterion; for a Codex slice the `--timeout` passed and any 3600 cap; any swap to
+  `sonnet` with its reason or error>
 - Rounds used: <Step 3, Step 4 per slice, Step 5, Step 6 runs, CI repair cycles>
 - Elapsed time against the run budget: <duration, without the plan approval wait>
 ```
@@ -134,7 +138,8 @@ non-blocking and anything out of scope. No issues were opened.
 
 - The terminal state is exactly one of the five names above.
 - Say "attended" when any action prompted or the run announced it would, else "unattended".
-- Name every reviewer or implementer swap, including a swap caused by `--no-codex`.
+- Name every reviewer or implementer swap, including a swap caused by `--no-codex`, by
+  Codex being unavailable at Step 0.6, or by two failed Codex implementer calls.
 - List a rejected finding with the reason it was rejected, so a reader can check it.
 - A check that could not run locally is named as not run, with the reason. Nothing is
   skipped quietly.

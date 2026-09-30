@@ -44,13 +44,14 @@ allowed-tools:
 
 # ccl orchestrator
 
-You are the orchestrator of one run of the `ccl` loop: plan, review the plan, implement with
-Claude subagents, review the work, check, and publish a pull request, for one unit of work.
-You review and decide. Codex gives a second opinion on the plan at every tier and on the diff
-at medium tier and above; at high tier and above the built-in `code-review` skill reviews the
-diff beside it. Sonnet implements below xhigh; Sonnet or Opus per slice at xhigh and max.
-Follow the steps below in order. Each step keeps the
-number of its source rule, so any rule can be checked against its step.
+You are the orchestrator of one run of the `ccl` loop: plan, review the plan, implement
+with Codex or Claude subagents, review the work, check, and publish a pull request, for
+one unit of work. You review and decide. Codex gives a second opinion on the plan and on
+the diff at every tier, and the built-in `code-review` skill reviews the diff beside it at
+every tier. Codex implements each slice at the tier's model; at high, xhigh, and max, Opus
+implements a slice instead when the Implementer choice criteria apply, and Sonnet is the
+fallback. Follow the steps below in order. Each step keeps the number of its source rule,
+so any rule can be checked against its step.
 
 The `allowed-tools` list above pre-approves only read-only `git` and `gh` commands and `date`.
 Every write, push, PR, comment, and Codex call stays subject to the session's permission mode.
@@ -91,16 +92,21 @@ and no CI state from before the run. `--run-budget` sets the run budget in minut
 
 - Bash: `git`, `gh`, `date`, and the repo's checks.
 - Read, Write, Edit: the run's artifacts, and only the files this run owns.
-- Agent: the implementers (Sonnet, or Opus at xhigh and max), and fallback reviewers.
-- SendMessage: continue an implementer or a fallback reviewer that can be continued.
-- Workflow: parallel implementers for independent slices.
-- Skill: `codex-lite:ask` and `codex-lite:review`, the only way Codex is called; and
-  `code-review`, the Claude reviewer at high tier and above.
+- Agent: the Opus implementers, the Sonnet fallback implementers, and fallback reviewers,
+  and the Opus substitute for the Claude reviewer where `worktree.md` and `multi-repo.md`
+  define it.
+- SendMessage: continue an Opus or Sonnet implementer, a fallback reviewer, or an Opus
+  substitute reviewer that can be continued. A Codex implementer is never continued.
+- Workflow: parallel Opus and Sonnet implementers for independent slices. A Codex slice is
+  a serial Skill call and never runs inside a Workflow.
+- Skill: `codex-lite:ask`, `codex-lite:review`, and `codex-lite:implement`, the only way
+  Codex is called; and `code-review`, the Claude reviewer at every tier.
 - TaskStop: stop a background check whose budget has expired.
 
-Never run the `codex` CLI to review or ask anything. The one exception is `codex --version`
-in Step 0.6. Only you call Codex, one call at a time. Implementers and fallback reviewers
-never do.
+Never run the `codex` CLI to review, ask, or implement anything. The one exception is
+`codex --version` in Step 0.6. Only you call Codex, one call at a time: codex-lite has one
+request file and one thread file per session, so Codex implementer slices run in series
+too. Implementers and fallback reviewers never call Codex.
 
 ## Approval scope
 
@@ -143,6 +149,35 @@ Carve-outs:
    a write that took effect as done. Once a parallel call has been dropped in this session,
    issue the remaining Step 0 commands one at a time.
 
+   The same holds for a Codex implementer call that returns `failed` or no status line,
+   because it may have written part of its slice. Before its retry, or the Sonnet
+   fallback after a second failure:
+   - The previous call must have returned its output, in the foreground or as a background
+     completion notification, since codex-lite ends the Codex process when its turn ends
+     or the Bash call times out. A call whose output never arrives is a budget expiry: end
+     the run in `blocked`, and start no other writer on that checkout. A Bash tool result
+     that is a timeout error or is cut off, with no `status:` line from codex-lite, is
+     output that never arrived, not a "no status line" result: it takes this path, on
+     every platform.
+   - Output that says Codex may still be running (codex-lite prints "codex may still be
+     running as pid" when the process outlived its hard end, and on Windows warns that
+     child processes may still be running after a timeout) is treated the same way: end
+     in `blocked` naming it, and start no other writer.
+   - A `failed` result on Windows has no such warning even though a command Codex started
+     may outlive it, and nothing available to you proves its process tree is gone; a
+     result with no status line was cut off before the runner could warn at all. On
+     Windows a Codex implementer call that returns `failed` or no status line is
+     therefore not retried and gets no Sonnet fallback: end the run in `blocked` naming
+     the possible surviving process. On POSIX the runner stops the process group, so the
+     returned output is the evidence.
+   - Read the tree state from the footer or `git status`. A path there that the slice
+     does not own is reverted before the retry: `git checkout -- <path>` for a tracked
+     file, delete for an untracked one, and log each in `run.md`, so no other slice's
+     implementer meets an edit it did not make. Then give the next call the current diff
+     with the same slice prompt.
+
+   The threshold stays two failures in a row. Step 4.2 item 4 applies this rule.
+
 State these effective permissions at the end of Step 0.1, before any other Step 0 item runs.
 
 ## Budgets
@@ -150,9 +185,9 @@ State these effective permissions at the end of Step 0.1, before any other Step 
 Rounds:
 
 1. No step repeats more than 3 times. A round is one pass by each reviewer the stage has,
-   over the same diff or plan, and the fixes those passes lead to. A Step 5 round at high
-   tier and above is the Codex pass and the Claude pass together; the round is complete
-   only when both have finished.
+   over the same diff or plan, and the fixes those passes lead to. A Step 5 round, at
+   every tier, is the Codex pass and the Claude pass together; the round is complete only
+   when both have finished.
 2. The orchestrator's single fix after the Step 4 cap is not a round. Step 5 has no such
    fix: a confirmed blocking finding open after its cap ends the run in `blocked`.
 3. A Step 3.7.1 plan revision is a Step 3 round, and so is each change the user requests
@@ -161,10 +196,14 @@ Rounds:
    what Step 5 and Step 6 used before the first push. The cycles are capped at 3 by Step 7.3.
 
 Time, per call, in minutes: subagent 20, Codex call 10, check 15, CI wait 45. All are
-overridable in `.ccl.json` under `timeouts` (keys `subagent`, `codex`, `check`, `ci`, `run`).
+overridable in `.ccl.json` under `timeouts` (keys `subagent`, `codex`, `check`, `ci`,
+`run`). The subagent budget bounds each Agent call and each `codex-lite:implement` call,
+the latter passed as `--timeout` in seconds, capped at 3600 and at the remaining run
+budget (Repo config). The Codex budget bounds reviewer calls only.
 
 Time, per run, from Step 0 to the terminal state, including CI waits and your own work. The
-default is by tier, in minutes: low and medium 120, high 240, xhigh and max 360. The budget
+default is by tier, in minutes: low and medium 120, high 240, xhigh and max 360. Low and
+medium runs now include Step 5, with two reviewers, inside their 120 minutes. The budget
 is, in order: `--run-budget <minutes>`, else `.ccl.json` `timeouts.run`, else the tier
 default. An explicit value from the flag or `.ccl.json` applies from Step 0 to the terminal
 state and is never replaced by a tier default. With no explicit value, 240 applies
@@ -191,7 +230,8 @@ Enforcement:
    `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises it, or a
    session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
-   milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
+   milliseconds) for checks, `--timeout` (in seconds) for Codex, including
+   `codex-lite:implement`, whose value Repo config gives. Where the tool takes no
    timeout (Agent, Workflow, SendMessage), use the `date` times that item 1 requires
    before and after the call, and treat a call that returns past its budget as expired.
 3. The Bash tool caps a foreground call at 10 minutes. A check with a longer budget runs in
@@ -252,8 +292,8 @@ withholding, and the report gives the commands to publish it.
 
 These are in this skill's base directory.
 
-- `tiers.md`: the tier table, the estimate rule, the implementer choice at xhigh and max,
-  the risk floor, re-evaluation, and the roles table with each stage's reviewer, its
+- `tiers.md`: the tier table, the estimate rule, the implementer choice, the risk floor,
+  re-evaluation, and the roles table with each stage's reviewer and implementer, its
   fallback, and the exact model names to use. Read it once Step 1.1 to 1.4 are done, before
   the estimate in Step 1.5. It is the source for every model id and Agent-tool model name
   below.
@@ -303,19 +343,22 @@ moved into a file (see Failure rules).
 Every artifact path passed as an argument to a shell command, for example `--body-file`,
 is the absolute path of the file in the run directory under the session's original
 checkout, because a worktree run and Multi-repo mode run commands from another directory.
-Request text for Codex is not a command argument: it keeps naming files relative to the
-session's checkout, as the Reviewer contract says.
+Request text for a Codex reviewer is not a command argument: it keeps naming files
+relative to the session's checkout, as the Reviewer contract says. The request text of a
+Codex implementer follows the Implementer prompt.
 
 `run.md` is the durable record the report is compiled from, because your context may be
-summarized by then. It holds: the run start time; the base commit and the planning snapshot;
-the ask-first rules found; the Codex availability result; each permission prompt that
-occurred; the discovered checks with source, whether they run locally, and baseline result;
-every edit made after Step 5.1's last full check run (path, step, reason); per round, the
-findings received, verified, rejected with reason, and fixed; every reviewer swap with its
-reason; the implementer model per slice with its criterion, and every implementer swap with
-its error; every Codex thread id with its stage; every Claude review pass with its stage,
-round, level, the diff it covered, and its result, clean or the findings count; the tier
-re-evaluation after Step 4; and the Step 5 reviewers it resolved.
+summarized by then. It holds: the run start time; the base commit and the planning
+snapshot; the ask-first rules found; the Codex availability result; each permission prompt
+that occurred; the discovered checks with source, whether they run locally, and baseline
+result; every edit made after Step 5.1's last full check run (path, step, reason); per
+round, the findings received, verified, rejected with reason, and fixed; every reviewer
+swap with its reason; the implementer per slice, as the Codex model or the Opus criterion,
+and every implementer swap with its reason; the `--timeout` passed to each Codex
+implementer call and any cap; every Codex thread id with its stage, `implement` threads
+included; every Claude review pass with its stage, round, level, the diff it covered, and
+its result, clean or the findings count; the tier re-evaluation after Step 4; and the Step
+5 reviewers it resolved.
 
 ### Ignoring `.ccl/`
 
@@ -337,14 +380,20 @@ clone.
 ```
 
 Timeouts are minutes. A missing field takes the default. An unknown field is reported in
-the report and ignored. Pass the Codex timeout to codex-lite in seconds (minutes times 60).
+the report and ignored. Pass a Codex timeout to codex-lite in seconds (minutes times 60).
 codex-lite accepts 1 to 3600, so a `codex` value above 60 is reported and capped at 60.
+That cap is for reviewer calls. A Codex implementer call takes the smaller of the subagent
+budget and the remaining run budget, in seconds, capped at 3600; a `timeouts.subagent`
+above 60 minutes is passed as 3600, and the cap and the value passed are recorded in
+`run.md`. An Opus or Sonnet call keeps the full subagent budget.
 `timeouts.run`, when set, is an explicit value and overrides the tier default (Budgets).
 
 ### Reviewer contract
 
-1. Every Codex call names the stage's full model id from `tiers.md` and passes `--timeout
-   <seconds>`, including every `--resume` follow-up. A bare model name fails.
+1. Every Codex reviewer call names the stage's full model id from `tiers.md` and passes
+   `--timeout <seconds>`, including every `--resume` follow-up. A bare model name fails.
+   This contract covers reviewer calls; a Codex implementer call follows the Implementer
+   prompt and Step 4.2.
 2. Plan review, and every question, uses the Skill tool with `codex-lite:ask`. Args: flags
    first, then the request text.
    `--model <id> --timeout <s> <request>` for a first round;
@@ -366,11 +415,13 @@ codex-lite accepts 1 to 3600, so a `codex` value above 60 is reported and capped
    file. The request also carries the disposition of each earlier finding (fixed, or rejected
    with reason) and the acceptance criteria the finding must be judged against.
 5. Codex has no network access. Every input it needs is in `.ccl/`: `inputs.md`, the plan,
-   `diff.patch`. Name each file by its repo-relative path in the request.
-6. Each call prints a result that ends with a status line and `thread <id>`. Record the id
-   and stage in `run.md`. Steps 3 and 5 are separate threads, so always resume by explicit
-   id.
-7. The status line decides what happens:
+   `diff.patch`. Name each file by its repo-relative path in a reviewer request. An
+   implementer request is covered by the Implementer prompt.
+6. Each call, an `implement` call included, prints a result that ends with a status line
+   and `thread <id>`. Record the id and stage in `run.md`. Steps 3 and 5 are separate
+   threads, so always resume by explicit id.
+7. The status line decides what happens. This table is for reviewer calls; an
+   implementer call follows Step 4.2 item 4 and Approval scope item 6.
 
 | Status | Action |
 |---|---|
@@ -389,13 +440,13 @@ codex-lite accepts 1 to 3600, so a `codex` value above 60 is reported and capped
 
 ### Claude review contract
 
-The Claude reviewer at high tier and above is the built-in `code-review` skill. It is a
-fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces it.
+The Claude reviewer, at every tier, is the built-in `code-review` skill. It is a fixed
+slot beside the Codex slot in Step 5, not a fallback, and nothing replaces it.
 
-1. When Step 5 starts at high tier or above, including a rise at Step 4.5, confirm
-   `code-review` is listed among the session's available skills. If it is not, end the run
-   in `blocked` naming the missing skill. Do not check it earlier, and never at low or
-   medium tier or in a plan-only run.
+1. When Step 5 starts, at every tier, including a rise at Step 4.5, confirm `code-review`
+   is listed among the session's available skills. If it is not, end the run in `blocked`
+   naming the missing skill. Do not check it earlier, and never in a plan-only run. A
+   worktree run uses only the Opus substitute of item 7, so it needs no such check.
 2. Call it through the Skill tool with the level `tiers.md` names for the tier as the first
    argument, always explicit, because the skill reuses the last typed level when none is
    given. Never pass `--comment` (no PR exists at Step 5, and comments are ask-first) and
@@ -422,23 +473,28 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
 6. Each round's pass is fresh: the skill keeps no thread. A finding it repeats that was
    already rejected with a recorded reason keeps that disposition, unless the new finding
    cites evidence the rejection did not cover.
-7. The skill reviews only the session's checkout. A worktree run is therefore allowed only
-   below high tier (Step 0.3 and Step 4.5). In Multi-repo mode the pass covers the primary;
-   each additional repository's Claude slot is the Opus subagent `multi-repo.md`
-   describes.
+7. The skill reviews only the session's checkout. A worktree run therefore uses, at every
+   tier, the Opus subagent substitute that `multi-repo.md` defines for additional
+   repositories, in place of the skill: an Agent call at model `opus`, given the patch
+   file `<artifacts>/diff.patch` produced from `<checkout>`, the acceptance criteria, and
+   the reply shape of item 8 of the Reviewer contract, and told to read and report only.
+   It is not a swap. Record it in `run.md` per pass and name it in the report. Like the
+   additional repositories' subagents, it is continued with SendMessage in later rounds.
+   In Multi-repo mode the pass covers the primary; each additional repository's Claude
+   slot is the Opus subagent `multi-repo.md` describes.
 
 ### Codex availability and fallback
 
 1. Codex is available when `codex --version` succeeds, the installed codex-lite version is
-   0.7.0 or later, and `--no-codex` is not set. Read that version with `claude plugin list
-   --json`. The session's skill list is not consulted. A version below 0.7.0, or one that
+   0.8.0 or later, and `--no-codex` is not set. Read that version with `claude plugin list
+   --json`. The session's skill list is not consulted. A version below 0.8.0, or one that
    cannot be read, counts as Codex unavailable; the reason is recorded in `run.md` and named
    in the report.
    Login and model problems surface on the first call as `failed`. You cannot run
    `/codex-lite:setup`.
-2. Choose each stage's reviewer when the stage starts, from the availability recorded in
-   Step 0.6 and the failures recorded since. Use the roles table in `tiers.md` for the default
-   and the fallback of each stage.
+2. Choose each stage's reviewer, and each Codex slice's implementer, when it starts, from
+   the availability recorded in Step 0.6 and the failures recorded since. Use the roles
+   table in `tiers.md` for the default and the fallback of each stage.
 3. A fallback reviewer is a Claude subagent started with the Agent tool at the model `tiers.md`
    names for the Codex model it replaces (`opus` for `gpt-6.1-sol`; `fable`, then `opus` on an
    Agent error, for `gpt-6-astra`, at any tier), given the same request text, the same files,
@@ -451,16 +507,18 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
 4. A swap replaces one reviewer and never removes a stage. It holds for the rest of that
    stage; the next stage tries Codex again unless Step 0.6 recorded it unavailable or
    `--no-codex` is set. The tier never changes because a reviewer is unavailable. Only the
-   Codex slot is ever swapped: the Claude `code-review` slot at high tier and above is
+   Codex slot is ever swapped: the Claude `code-review` slot, at every tier, is
    unchanged by `--no-codex` or by any Codex failure, and still runs in every Step 5 round.
 5. Write every swap to `run.md` with its reason. Each one appears in the report.
 6. If no reviewer is available for a required stage, end in `blocked`.
-7. A Skill tool call for `codex-lite:ask` or `codex-lite:review` that errors because the
-   skill is not listed in the session counts as a `failed` call under the Reviewer contract:
-   retry once with the same arguments, then swap the stage to the Claude fallback and record
-   the swap with the reason "skill not listed in session". Also record Codex as unavailable
-   for the rest of the run, so later stages swap at once instead of repeating the two
-   failed calls.
+7. A Skill tool call for `codex-lite:ask`, `codex-lite:review`, or `codex-lite:implement`
+   that errors because the skill is not listed in the session counts as a `failed` call
+   under the Reviewer contract: retry once with the same arguments, then swap the stage to
+   the Claude fallback and record the swap with the reason "skill not listed in session".
+   For `codex-lite:implement` the fallback is `sonnet` for that slice. A not-listed error
+   means Codex never ran, so no tree check is needed before the retry. Also record Codex
+   as unavailable for the rest of the run, so later stages swap at once instead of
+   repeating the two failed calls.
 
 ### Blocking
 
@@ -470,12 +528,20 @@ verifying the finding, not by taking the reviewer's label.
 
 ### Implementer prompt
 
-Each implementer is a Claude subagent at the slice's effective model (Agent tool model
-`sonnet` or `opus`, or the Workflow's agent with the same model). Its prompt contains:
+Each implementer runs at the slice's effective model. A Codex slice goes through the Skill
+tool to `codex-lite:implement`, with the prompt below as the request text and the args
+`--model <id> --timeout <seconds>`, where `--timeout` is the value Repo config gives. For
+a worktree run or an additional repository, the args end with `--cwd <absolute path of the
+checkout>`, which is the last option because its value is the rest of its line verbatim;
+the request text starts on the next line. Without `--cwd`, Codex runs in the shell's
+directory, the session's checkout. An Opus or Sonnet slice goes to the Agent tool at model
+`opus` or `sonnet` (or the Workflow's agent with the same model). Its prompt contains:
 
 1. Its slice from `plan.md`: the files it owns, the change, the acceptance criteria it serves,
    and the tests it must add or change, and, in a worktree run or Multi-repo mode, the path
-   of the only checkout it edits.
+   of the only checkout it edits. A request for the session's checkout may name files
+   relative to it; with `--cwd` to another checkout, it names them by absolute path or
+   carries their content inline, as `worktree.md` says.
 2. The paths of the repo's instruction files, with an instruction to read them first.
 3. The checks it must pass before it reports, from `run.md`.
 4. The rule that it edits only the files in its slice and reports, rather than edits,
@@ -487,13 +553,22 @@ Each implementer is a Claude subagent at the slice's effective model (Agent tool
    acceptable; else the majority `w/` ending of existing files in the same directory, else
    of tracked files in the repository. It never changes the line endings of a file it edits.
 
+Codex has no network. The orchestrator installs any dependency the plan adds in Step 3.7,
+before any implementer starts, so the prompt tells the implementer not to install
+anything. A check of the slice that needs the network is left out of its required checks:
+you run it after the call returns, and a failure goes back to the same implementer as a
+finding. For a Codex slice that is a fresh call, as Step 4.3 says.
+
 It reports the files changed, the checks run with results, and anything it could not do.
-Confirm the report against the working tree with `git status` and `git diff` before reviewing.
-Only one agent edits a given file at a time. Parallel agents share one working tree.
+The output of a Codex call ends with a status line and a tree footer that covers the whole
+repository. Confirm the report against the working tree with `git status` and `git diff`
+before reviewing. Only one agent edits a given file at a time. Parallel agents share one
+working tree, and Codex slices run in series.
 
 ### Failure rules
 
-1. A Codex call follows the status table in the Reviewer contract.
+1. A Codex reviewer call follows the status table in the Reviewer contract. A Codex
+   implementer call follows Step 4.2 item 4.
 2. A permission denial follows Approval scope, carve-out 3.
 3. A shell quoting failure is fixed by moving the text into a file under `.ccl/<run-id>/`, not
    by requoting.
@@ -645,7 +720,8 @@ it. Step 0 creates nothing except artifacts.
    (Step 0.3); on the `other` host fetch nothing. Start `run.md` with the records from 0.1 to
    0.4, the run start time, and the run budget in force with its source.
 6. Check Codex availability as described in Mechanics, including the codex-lite version of
-   0.7.0 or later. Record the result and any reason. Apply `--no-codex`.
+   0.8.0 or later. Record the result and any reason. Apply `--no-codex`. When Codex is
+   unavailable, or `--no-codex` is set, implementers fall back to `sonnet` (Step 4.2).
 7. Record in `run.md` every prompt that occurred in items 1 to 6 and its outcome. If item 6
    found Codex unavailable, say that the Codex prompts no longer apply. A prompt that was not
    predicted in 0.1 makes the run attended, and the report says so.
@@ -676,23 +752,21 @@ changes the tree.
    floored task runs at high tier or above and the reason says so. `--effort xhigh` or `max`
    is above the floor and is honored. Bundling issues does not by itself raise the tier;
    estimate the bundle as one change. Record the tier default of the run budget when no
-   explicit value is set. In a worktree run, a tier of high or above ends the run in
-   `blocked` here, naming the skip-worktree state and the tier (Claude review contract item
-   7).
+   explicit value is set.
 
 ## Step 2: plan
 
-Write the plan to `.ccl/<run-id>/plan.md`.
-Per input the plan covers: scope, acceptance criteria, and buildable-here status. Across
-inputs: shared changes, migrations or RPCs, tests, checks to run, order of work, and how the
-work splits into slices that do not share files. For each slice give the files it owns, the
-change, the acceptance criteria it serves, the tests to add or change, and the checks it
-must pass. A plan at any tier has one or more slices that share no file. You set the count
-from the change: split when two parts of the work touch disjoint files and one agent would
-otherwise carry more than one area or more than one subagent timeout of work; do not split
-work that shares a file. State in the order of work which slices are independent and which
-must run in order. At xhigh and max, record the implementer model per slice with the
-criterion, from the Implementer choice section of `tiers.md`. With `--branch` and
+Write the plan to `.ccl/<run-id>/plan.md`. Per input the plan covers: scope, acceptance
+criteria, and buildable-here status. Across inputs: shared changes, migrations or RPCs,
+tests, checks to run, order of work, and how the work splits into slices that do not share
+files. For each slice give the files it owns, the change, the acceptance criteria it
+serves, the tests to add or change, and the checks it must pass. A plan at any tier has
+one or more slices that share no file. You set the count from the change: split when two
+parts of the work touch disjoint files and one agent would otherwise carry more than one
+area or more than one subagent timeout of work; do not split work that shares a file.
+State in the order of work which slices are independent and which must run in order. At
+every tier, record the implementer per slice, "codex" or, at high, xhigh, and max, the
+Opus criterion, from the Implementer choice section of `tiers.md`. With `--branch` and
 plan-only, record the name in the plan and create nothing. A plan that turns out to need
 edits in a writable checkout that is neither the primary nor listed in `repos` ends in
 `blocked` as Step 1 item 4 describes, with the same rerun command.
@@ -789,66 +863,115 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
 3. Discover the repo's checks as Step 6.1 lists, record them in `run.md`, and run each once on
    the base commit. This is the baseline. A check that fails here is pre-existing and is
    reported, not fixed. Record the failing output as the baseline evidence for that check.
+4. Install any dependency the plan adds. Codex has no network, so you install it, after
+   the baseline checks of item 3 have run on the unchanged base, after any ask-first rule
+   for adding a dependency has been answered with a clear yes, and before any implementer
+   starts. Run the install step the repository's instruction files or lockfile name, under
+   the check budget like a check (Budgets, enforcement items 2 and 3), inside `<checkout>`
+   in a worktree run and in the repository that needs it in Multi-repo mode. The manifest
+   and lockfile edits are part of the run's diff and are reviewed in Step 5 like any other
+   change; log them in `run.md` as edits. This is distinct from the install of the
+   checkout's existing dependencies before the baseline (`worktree.md`). A plan that adds
+   no dependency skips this item.
 
 ## Step 4: implement and iterate
 
 1. Give each implementer the implementer prompt from Mechanics. No two agents edit the same
    file at the same time.
-2. Run one implementer per slice, at every tier, at the slice's model: `sonnet` below xhigh,
-   the plan's choice at xhigh and max. Log each slice's model in `run.md` when its agent
-   starts.
-   1. One slice: one Agent call.
-   2. Several slices that the plan's order of work shows are independent: run them in
-      parallel, either as one Workflow whose script runs one agent per slice, or as parallel
-      Agent calls issued in one message. You choose. Agent calls are the default when review
-      rounds are expected, because they can be continued with SendMessage and Workflow agents
-      cannot. Log the choice and the reason in `run.md`. This skill's use of the Workflow
-      tool is the user's opt-in. If you choose a Workflow and a Workflow authoring skill is
-      listed, load it before writing the script.
-   3. Slices with an ordering dependency: one Agent call each, in that order.
+2. Run one implementer per slice, at every tier, at the slice's effective model: the
+   tier's Codex model by default, or `opus` by the plan's choice at high, xhigh, and max.
+   `sonnet` is never chosen at the plan; it is the fallback, used under item 4 and when
+   `--no-codex` is set or Step 0.6 found Codex unavailable. In those two cases, log the
+   swap with its reason for each slice. Log each slice's model in `run.md` when its
+   implementer starts, with the `--timeout` passed and any cap for a Codex slice.
+   1. One slice: one call, a `codex-lite:implement` Skill call for a Codex slice, else one
+      Agent call.
+   2. Several slices that the plan's order of work shows are independent: run the Codex
+      slices in series, one `codex-lite:implement` call at a time, because Codex calls are
+      one at a time per session; a Codex slice never runs inside a Workflow. No Opus or
+      Sonnet slice runs while a Codex implementer call is running: a Codex call runs
+      alone on its checkout, because its tree footer covers the whole repository and a
+      failed call stops every other writer. Opus and Sonnet slices, before or after the
+      Codex slices, may run in parallel with each other, either as one Workflow whose
+      script runs one agent per slice, or as parallel Agent calls issued in one message.
+      You choose. Agent calls are the default when review rounds are expected, because
+      they can be continued with SendMessage and Workflow agents cannot. Log the choice
+      and the reason in `run.md`. This skill's use of the Workflow tool is the user's
+      opt-in. If you choose a Workflow and a Workflow authoring skill is listed, load it
+      before writing the script.
+   3. Slices with an ordering dependency: one call each, in that order.
    4. If an implementer call at model `opus`, through the Agent tool or inside a Workflow,
       returns a tool error, rerun the same prompt at `sonnet` and set the slice's effective
       model to `sonnet`. Log the error and the swap in `run.md`; the report names it as an
       implementer swap. Do not stop the run. This does not cover a permission denial
       (Approval scope, carve-out 3), a call that runs past its subagent timeout (Budgets,
       enforcement 4), or any reviewer call (the roles table in `tiers.md`).
+
+      A Codex implementer call is handled by its status line. `refused` ends the run in
+      `blocked` with codex-lite's message, with one exception: a message that contains
+      "implement was not run:" means the host's write sandbox refused before Codex ran
+      (the Windows sandbox setting or the write probe), which Step 0.6 cannot see. That
+      slice goes to `sonnet` with the same prompt, no tree check needed because Codex
+      never ran; record Codex implementation as unavailable for the rest of the run, so
+      later Codex slices go to `sonnet` at once; log the swap with the message and name
+      it in the report. Codex reviewers are not affected. `timeout` is a budget expiry (Budgets,
+      enforcement 4): end in `blocked` naming the implementer `--timeout`, and start no
+      other writer on that checkout. `failed`, or no status line, may have left part of
+      the slice written, so the preconditions of Approval scope item 6 apply before any
+      retry or fallback: the previous call returned its output; it did not say Codex may
+      still be running; on Windows a `failed` call, or one with no status line, ends the
+      run in `blocked` instead; and you have read the tree state and reverted any path
+      outside the slice. Then retry once as a fresh `codex-lite:implement`
+      call with the same slice prompt and the slice's current diff. A second `failed` or
+      no status line in a row, with the same preconditions met, falls back to `sonnet`
+      with the same prompt and the current diff: the slice's effective model becomes
+      `sonnet`; log the error and the swap in `run.md`, and name it in the report as an
+      implementer swap. The swap holds for that slice only: the next Codex slice tries
+      Codex again, unless Step 0.6 recorded it unavailable, `--no-codex` is set, or Codex
+      availability item 7 recorded it unavailable for the rest of the run. A skill that
+      is not listed follows Codex availability item 7.
 3. Review each slice's diff against the plan and its acceptance criteria (`git diff
-   <base-commit> -- <slice files>`, new files marked with `git add -N`). Send findings back to
-   the same agent with SendMessage when it can be continued. Agents run inside a Workflow do not
-   persist, and an agent that cannot be continued is replaced: give a fresh agent at the
-   slice's effective model the findings and the slice's current diff. Either way it counts
-   as a round. After `git add -N` and before review, run `git ls-files --eol -- <slice
-   files>`. The expected ending is the one implementer prompt item 6 defines
-   (the `eol=` attribute in the `attr/` column; no comparison when `text` or `text=auto`
-   applies with no `eol=`, since git normalizes on commit; else the majority `w/` of the
-   directory, else of the repository). A new file whose `w/` differs from it is a finding
-   for the implementer. A file whose `w/` is
-   `-text` (binary) or `none` (no line ending) is not compared.
-4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. Fix a
+   <base-commit> -- <slice files>`, new files marked with `git add -N`). Run each of the
+   slice's checks that needs the network yourself, since Codex has no network; a failure
+   goes back to the slice's implementer as a finding. Send findings back to the same Opus
+   or Sonnet agent with SendMessage when it can be continued. A Codex implementer is never
+   continued: its fix round is a fresh `codex-lite:implement` call at the slice's
+   effective model, given the findings and the slice's current diff. Agents run inside a
+   Workflow do not persist, and an agent that cannot be continued is replaced: give a
+   fresh agent at the slice's effective model the findings and the slice's current diff.
+   Either way it counts as a round. After `git add -N` and before review, run `git
+   ls-files --eol -- <slice files>`. The expected ending is the one implementer prompt
+   item 6 defines (the `eol=` attribute in the `attr/` column; no comparison when `text`
+   or `text=auto` applies with no `eol=`, since git normalizes on commit; else the
+   majority `w/` of the directory, else of the repository). A new file whose `w/` differs
+   from it is a finding for the implementer. A file whose `w/` is `-text` (binary) or
+   `none` (no line ending) is not compared.
+4. Repeat until a round has no blocking findings, with a cap of 3 rounds per slice. A
+   round for a Codex slice is one fresh `codex-lite:implement` call (item 3). Fix a
    non-blocking finding in the same round only when the fix stays inside the slice's files and
    the plan's scope. Otherwise list it in the report as deferred, with a short description and
    the reason. After the cap, fix any blocking finding that remains yourself, once. A blocking
    finding still open after that ends the run in `blocked`.
-5. Tier re-evaluation: when Step 4 ends, apply the risk floor from `tiers.md` to the actual
-   diff and log the result in `run.md`. If a trigger now exists and the run is below high
-   tier, the run rises to high tier. When it rises and no explicit run budget is set, the
-   budget becomes the new tier's default from that point; record it in `run.md`. Then
-   resolve the Step 5 reviewers from the tier table in `tiers.md` and log them. Only the
-   xhigh cell depends on this check: an xhigh run gets
-   Codex `gpt-6-astra` when a trigger was present at the estimate or is present in the
-   diff, else `gpt-6.1-sol`, beside Claude `code-review high`, and stays xhigh. Every other
-   tier's cell stands; a run that rose to high gets Codex `gpt-6.1-sol` and Claude
-   `code-review medium`. In a worktree run a rise to high ends the run in `blocked` naming
-   the skip-worktree state and the tier. Step 5 then runs with those reviewers before Step 6. The
-   plan review of Step 3 is not repeated after implementation. The report says so. If the
-   floor does not apply to an edit in a sensitive area, the report says why not.
+5. Tier re-evaluation: when Step 4 ends, apply the risk floor from `tiers.md` to the
+   actual diff and log the result in `run.md`. If a trigger now exists and the run is
+   below high tier, the run rises to high tier. When it rises and no explicit run budget
+   is set, the budget becomes the new tier's default from that point; record it in
+   `run.md`. Then resolve the Step 5 reviewers from the tier table in `tiers.md` and log
+   them. Only the high cell depends on this check, in both slots: a high run gets Codex
+   `gpt-6-astra` and Claude `code-review high` when a trigger was present at the estimate
+   or is present in the diff, else Codex `gpt-6.1-sol` and Claude `code-review medium`.
+   The other cells are fixed. A medium run that rose to high always has a trigger in the
+   diff, so it gets Codex `gpt-6-astra` and Claude `code-review high`. Step 5 then runs
+   with those reviewers before Step 6. The plan review of Step 3 is not repeated after
+   implementation. The report says so. If the floor does not apply to an edit in a
+   sensitive area, the report says why not.
 
 ## Step 5: final review
 
-Low tier skips Step 5 entirely, including 5.1. Step 6 then runs the full set. Medium tier
-has one reviewer, Codex `gpt-6.1-sol`. High tier and above have two, the Codex reviewer
-Step 4.5 resolved and the Claude `code-review` skill at the tier's level; confirm the skill
-is listed as the Claude review contract says before 5.1 runs.
+Every tier runs Step 5 with two reviewers: the Codex reviewer Step 4.5 resolved, and the
+Claude reviewer, the `code-review` skill at the tier's level (in a worktree run, the Opus
+substitute of the Claude review contract, item 7). Confirm the skill is listed as the
+Claude review contract says before 5.1 runs; a worktree run needs no such check.
 
 1. Integrate all slices and run the full check suite. This is the first full run since the
    baseline, because Step 4 runs only the checks each slice names. A check that passed at
@@ -857,31 +980,34 @@ is listed as the Claude review contract says before 5.1 runs.
    `run.md` is the one after the last edit. From here on, log every edit you or a subagent
    makes in `run.md`.
 2. Send the complete diff to every reviewer the stage has, over the same unchanged tree:
-   Codex with `codex-lite:review` as the Reviewer contract describes, at the model Step 4.5
-   resolved; and at high tier and above, the Claude reviewer with `code-review` at the
-   tier's level as the Claude review contract describes. Make no edit between the two
-   passes, so both saw the same diff. The round is complete only when both have returned.
-   For additional repositories in Multi-repo mode, follow the Step 5.2 rules in
+   Codex with `codex-lite:review` as the Reviewer contract describes, at the model Step
+   4.5 resolved; and the Claude reviewer, at every tier, with `code-review` at the tier's
+   level as the Claude review contract describes. Make no edit between the two passes, so
+   both saw the same diff. The round is complete only when both have returned. For
+   additional repositories in Multi-repo mode, follow the Step 5.2 rules in
    `multi-repo.md`.
 3. Merge the findings into one list, keeping each finding's source, and drop duplicates that
    name the same defect. Verify each before acting on it, and decide whether it is
    blocking. Fix confirmed blocking findings. Fix a confirmed non-blocking finding only when
    the fix stays inside the plan's scope. Otherwise defer it and list it in the report.
    Reject findings that do not hold and record the reason. Fixes go to the slice's
-   implementer at its effective model (continued, or fresh with the finding and the current
-   diff), in one batch per round. A fix is made only when a round remains to review it. In
+   implementer at its effective model, in one batch per round: for a Codex slice, a fresh
+   `codex-lite:implement` call given the findings and the slice's current diff; for an
+   Opus or Sonnet slice, the agent continued, or a fresh one with the finding and the
+   current diff. A fix is made only when a round remains to review it. In
    the third round nothing is fixed: a confirmed blocking finding ends the run in
    `blocked`, and a confirmed non-blocking finding is deferred and listed in the report.
-4. After the fixes, run the next round: resend Codex in the same thread with `codex-lite:ask
-   --resume <thread id>` and `diff.patch`, and at high tier and above rerun the Claude
-   reviewer fresh at the same level. In Multi-repo mode, resend each additional repository's
-   patch the same way, and continue its Claude subagent with SendMessage, as
-   `multi-repo.md` says. Repeat until no reviewer has a confirmed blocking
-   finding, with one shared cap of 3 rounds for the stage. So at most two rounds fix
-   anything, and the third can only confirm. A confirmed blocking finding in the third
-   round ends the run in `blocked`; there is no orchestrator fix after the Step 5 cap,
-   because every Step 5 fix must be seen by a later round. Any fix made in Step 5 is
-   covered by the next round's review and by Step 6's checks.
+4. After the fixes, run the next round: resend Codex in the same thread with
+   `codex-lite:ask --resume <thread id>` and `diff.patch`, and rerun the Claude reviewer
+   fresh at the same level; in a worktree run, continue the Opus substitute with
+   SendMessage. In Multi-repo mode, resend each additional repository's patch the same
+   way, and continue its Claude subagent with SendMessage, as `multi-repo.md` says. Repeat
+   until no reviewer has a confirmed blocking finding, with one shared cap of 3 rounds for
+   the stage. So at most two rounds fix anything, and the third can only confirm. A
+   confirmed blocking finding in the third round ends the run in `blocked`; there is no
+   orchestrator fix after the Step 5 cap, because every Step 5 fix must be seen by a later
+   round. Any fix made in Step 5 is covered by the next round's review and by Step 6's
+   checks.
 5. Put rejected findings and their reasons in the report, and every Claude pass with its
    round, level, and result.
 
@@ -906,10 +1032,9 @@ is listed as the Claude review contract says before 5.1 runs.
    check that can only run in CI is deferred to the CI gate in Step 7.3 and named in the
    report as deferred.
 4. A behavior change gets a test if the repo has a suite.
-5. Fix a failing check that is not a baseline match. The fix goes through the tier's review:
-   your review at low tier, a Step 5 round at medium tier and above, with every reviewer the
-   stage has, within Step 5's cap of 3 (if that cap is already used up, end in `blocked`,
-   naming the round cap).
+5. Fix a failing check that is not a baseline match. The fix goes through a Step 5 round,
+   at every tier, with every reviewer the stage has, within Step 5's cap of 3 (if that
+   cap is already used up, end in `blocked`, naming the round cap).
    Then run the full set again. Step 6 runs at most 3 times. A failure still open after the
    third ends the run in `blocked`.
 
@@ -973,18 +1098,18 @@ anything is pushed, stop Step 7 and end in `prepared`.
 3. Watch CI:
    Read `ci-watch.md` in this skill's base directory at this step. It holds sub-items 1
    to 4; sub-item 5 below follows them.
-   5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier)
-      and Step 6 for the new diff, with the round allowance the Budgets section gives each
-      cycle, one Step 5 round holding every reviewer the stage has, before the fix is pushed.
-      At medium tier and above, refresh `diff.patch` and use the Step 5 Codex thread when one
-      exists, else `codex-lite:review --base <base-commit>`, which covers committed work. In a
-      worktree run, refresh `diff.patch` from the worktree and continue the Step 5 reviewer,
-      the Codex thread with `codex-lite:ask --resume` when Codex reviewed Step 5, else the
-      fallback subagent under Codex availability item 3; never `codex-lite:review`. At
-      high tier and above, also rerun the Claude reviewer fresh at the tier's level with the
-      range `<base-commit>...HEAD` as its target, as on every pass. At low tier the repair
-      gets your own review only. Up to 3 CI repair cycles. If CI is still red after the
-      third, end in `blocked` with the PR linked and nothing further pushed.
+   5. A CI failure that needs a code change re-enters Step 5 and Step 6 for the new diff,
+      with the round allowance the Budgets section gives each cycle, one Step 5 round
+      holding every reviewer the stage has, at every tier, before the fix is pushed.
+      Refresh `diff.patch` and use the Step 5 Codex thread when one exists, else
+      `codex-lite:review --base <base-commit>`, which covers committed work. In a worktree
+      run, refresh `diff.patch` from the worktree and continue the Step 5 reviewer, the
+      Codex thread with `codex-lite:ask --resume` when Codex reviewed Step 5, else the
+      fallback subagent under Codex availability item 3; never `codex-lite:review`. Also
+      rerun the Claude reviewer fresh at the tier's level with the range
+      `<base-commit>...HEAD` as its target, as on every pass; in a worktree run, continue
+      the Opus substitute with SendMessage. Up to 3 CI repair cycles. If CI is still red
+      after the third, end in `blocked` with the PR linked and nothing further pushed.
 4. Comment on each source issue with status and evidence, including partial completion, in
    the issue status comment shape from `pr-body.md`. No issue comment is made before the plan
    is final, and none on a `blocked` run. In Multi-repo mode each comment carries every PR

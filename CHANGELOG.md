@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.7.0 - 2026-09-30
+
+Requires codex-lite 0.8.0 or later, for `codex-lite:implement`. 0.7.0 is no longer enough.
+
+### Changed
+
+- Codex implements every slice by default, through `codex-lite:implement`: `gpt-6-luna`
+  at low, `gpt-6.1-sol` at medium and high, and `gpt-6-astra` at xhigh and max. The
+  orchestrator still reviews each slice in Step 4. At high, xhigh, and max a slice that
+  meets the existing Implementer choice criteria (a risk floor trigger, more than eight
+  files, or a new module, type, interface, or rule section that another file cites) goes
+  to an Opus agent instead. The plan records "codex" or the criterion for each slice at
+  every tier. Sonnet is never chosen at the plan. It is the fallback: under
+  `--no-codex`, when Codex is unavailable at Step 0.6, when a Codex implementer call
+  returns `failed` or no status line twice in a row, and when an Opus call errors.
+- Breaking: low tier now has a final review. Step 5 runs at every tier with a Codex
+  reviewer and the Claude `code-review` skill. A run that needs the skill and cannot find
+  it ends in `blocked` when Step 5 starts, so low and medium runs now need it. A
+  plan-only run still does not. The low and medium run budgets of 120 minutes now include
+  Step 5.
+- Breaking: the high cell carries the trigger. At high tier the final review is
+  `gpt-6-astra` with `code-review high` when a trigger was present at the estimate or is
+  in the diff after Step 4, else `gpt-6.1-sol` with `code-review medium`. A medium run
+  that rises to high always has a trigger in the diff, so it gets the trigger cell. The
+  xhigh and max cells no longer depend on the trigger: `gpt-6-astra`, with
+  `code-review high` at xhigh and `code-review xhigh` at max.
+- Breaking: a worktree run is allowed at every tier. The gates at Step 0.3, Step 1.5, and
+  Step 4.5 are gone. The Claude slot of a worktree run is the Opus subagent that
+  `multi-repo.md` defines for additional repositories, recorded in `run.md` and named in
+  the report as a substitute, not a swap, because the `code-review` skill reviews only the
+  session's checkout.
+- A Step 6 check-failure fix goes through a Step 5 round with every reviewer the stage
+  has, at every tier, low included, within Step 5's cap. A CI repair at every tier uses
+  the Step 5 Codex thread when one exists, else `codex-lite:review --base <base-commit>`,
+  plus the Claude reviewer, and each cycle keeps its one extra review round.
+- A fix round for a Codex slice, in Step 4.3 or Step 5.3, is a fresh `implement` call with
+  the findings and the slice's current diff, because resume is read-only in codex-lite.
+  `SendMessage` continues Opus and Sonnet implementers only.
+- Codex calls stay one at a time per session, so independent Codex slices run in series
+  and never inside a Workflow. Opus and Sonnet slices may still run in parallel.
+- Reviewer and implementer Codex calls have separate budgets and fallbacks. Reviewer
+  calls keep the Codex budget, capped at 60 minutes, and the `opus` and `fable` then
+  `opus` fallbacks. An implementer call takes the smaller of the subagent budget and the
+  remaining run budget, capped at 3600 seconds because codex-lite refuses a larger
+  `--timeout`, and falls back to `sonnet` only. The cap and the value passed are logged
+  in `run.md`. Opus and Sonnet agents keep the full subagent budget.
+- Codex has no network. Dependencies the plan adds are installed by the orchestrator in
+  Step 3.7, after the baseline checks and the ask-first rule and before any implementer
+  starts, and their manifest and lockfile edits are reviewed in Step 5 with the rest of
+  the diff. A slice's checks that need the network run in the orchestrator after the
+  implementer returns, and a failure goes back as a finding.
+- A worktree run, or an additional repository in Multi-repo mode, passes `--cwd
+  <checkout>` to `implement`, and the request names files by absolute path or carries
+  their content. The relative-path rule for requests applies to reviewer calls only.
+
+### Added
+
+- Failure rules for a Codex implementer call. A `failed` call or one with no status line
+  may have written part of the slice, so the previous call must have returned its output
+  before a retry or the Sonnet fallback. A call whose output never arrives is a budget
+  expiry, and output that says Codex may still be running ends the run in `blocked`, with
+  no other writer started on that checkout. On Windows a `failed` call, or one with no
+  status line, is not retried and gets no fallback, and ends in `blocked` naming the
+  possible surviving process. A Bash tool result with no `status:` line is output that
+  never arrived. A path the footer lists outside the slice is reverted before the retry.
+  A `refused` status ends the run in `blocked`, except a refusal from the host's write
+  sandbox ("implement was not run:"), which swaps the slice to `sonnet` and marks Codex
+  implementation unavailable for the run; a `timeout` status is a budget expiry.
+  The threshold stays two failures in a row.
+- The Skill tool entry `codex-lite:implement` in the skill's tools, and the minimum
+  codex-lite version of 0.8.0 in the Step 0.6 check. `implement` is invocable by Claude,
+  which weakens codex-lite's guarantee that writes are gated on a typed command. In a
+  session in default permission mode the Skill call still prompts.
+
 ## 0.6.0 - 2026-09-30
 
 ### Added

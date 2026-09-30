@@ -70,7 +70,9 @@ names, for each repository, and leaves the rest of that step as written.
   branch switches to it and skips the name check, and one whose remote lacks it uses the
   `continue` name. 3.7.3 runs a baseline per repository.
 - Step 4: each implementer prompt names the repository path of its slice as the only
-  checkout it edits.
+  checkout it edits. A Codex implementer call for an additional repository passes `--cwd
+  <absolute path of that repository>` as its last option, and its request names files by
+  absolute path or carries the content inline.
 - Step 5.2: review only repositories that have a diff from their base commit (`git -C <path>
   diff <base> --stat`, after `git -C <path> add -N` of new files). A repository with an
   empty diff is skipped and named in `run.md`.
@@ -87,14 +89,15 @@ names, for each repository, and leaves the rest of that step as written.
     <base-commit>` itself. Before the first fallback review, write the primary's diff to
     `.ccl/<run-id>/diff.patch`, after `git add -N` of new files. Step 5.4 and CI repair
     (Step 7.3.5) continue that same subagent with SendMessage.
-  - Claude, at high tier and above: the `code-review` pass covers the primary when it has a
-    diff, as the Claude review contract says. For each additional repository with a diff,
-    the Claude slot is a Claude subagent at Agent model `opus`, given the repository's patch
+  - Claude, at every tier: the `code-review` pass covers the primary when it has a diff,
+    as the Claude review contract says. For each additional repository with a diff, the
+    Claude slot is a Claude subagent at Agent model `opus`, given the repository's patch
     file, the acceptance criteria, and the reply shape of Reviewer contract item 8, and
     told to read and report only. This is a defined substitute for a checkout the skill
-    cannot target. It is not a swap. Record it in `run.md` per repository and name it in the
-    report. It is the one Claude pass that is continued rather than fresh: Step 5.4
-    follow-ups continue the same subagent with SendMessage.
+    cannot target, and a worktree run uses the same substitute for its checkout (Claude
+    review contract item 7). It is not a swap. Record it in `run.md` per repository and
+    name it in the report. It is the one Claude pass that is continued rather than fresh:
+    Step 5.4 follow-ups continue the same subagent with SendMessage.
 - Step 6: discover and run checks per repository.
 - Step 7: commit and push per repository that has a diff, and open one PR per such
   repository. Each body has a "Related pull requests" section, with "pending" there in the
