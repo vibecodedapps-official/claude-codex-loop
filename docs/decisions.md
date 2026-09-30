@@ -775,7 +775,13 @@ these rules; each has its reason.
     followed the Codex model without regard to the role. The rules that said "every Codex
     call" carries the Codex budget, and "a `gpt-6-astra` stage" falls back to `fable`, now
     apply to reviewer calls only. A `refused` status from an implementer ends the run in
-    `blocked`, as for a reviewer, and a `timeout` status is a budget expiry.
+    `blocked`, as for a reviewer, and a `timeout` status is a budget expiry. One
+    exception: a refusal whose message contains "implement was not run:" is the host's
+    write sandbox (the Windows sandbox setting or the write probe), which `ask` and
+    `review` tolerate and Step 0.6 cannot see; a host that ran 0.6.0 with Sonnet
+    implementers would otherwise block at the first Codex slice on every run. That slice
+    swaps to `sonnet`, Codex implementation is marked unavailable for the run, and the
+    Codex reviewers stay.
 11. **A failed Codex implementer call may have written part of the slice, so the retry
     waits for the process to end.** Before a retry or the Sonnet fallback, the previous
     call must have returned its output, in the foreground or as a background completion

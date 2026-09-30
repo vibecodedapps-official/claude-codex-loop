@@ -155,7 +155,10 @@ Carve-outs:
    - The previous call must have returned its output, in the foreground or as a background
      completion notification, since codex-lite ends the Codex process when its turn ends
      or the Bash call times out. A call whose output never arrives is a budget expiry: end
-     the run in `blocked`, and start no other writer on that checkout.
+     the run in `blocked`, and start no other writer on that checkout. A Bash tool result
+     that is a timeout error or is cut off, with no `status:` line from codex-lite, is
+     output that never arrived, not a "no status line" result: it takes this path, on
+     every platform.
    - Output that says Codex may still be running (codex-lite prints "codex may still be
      running as pid" when the process outlived its hard end, and on Windows warns that
      child processes may still be running after a timeout) is treated the same way: end
@@ -167,8 +170,11 @@ Carve-outs:
      therefore not retried and gets no Sonnet fallback: end the run in `blocked` naming
      the possible surviving process. On POSIX the runner stops the process group, so the
      returned output is the evidence.
-   - Read the tree state from the footer or `git status`, and give the next call the
-     current diff with the same slice prompt.
+   - Read the tree state from the footer or `git status`. A path there that the slice
+     does not own is reverted before the retry: `git checkout -- <path>` for a tracked
+     file, delete for an untracked one, and log each in `run.md`, so no other slice's
+     implementer meets an edit it did not make. Then give the next call the current diff
+     with the same slice prompt.
 
    The threshold stays two failures in a row. Step 4.2 item 4 applies this rule.
 
@@ -902,13 +908,20 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
       enforcement 4), or any reviewer call (the roles table in `tiers.md`).
 
       A Codex implementer call is handled by its status line. `refused` ends the run in
-      `blocked` with codex-lite's message. `timeout` is a budget expiry (Budgets,
+      `blocked` with codex-lite's message, with one exception: a message that contains
+      "implement was not run:" means the host's write sandbox refused before Codex ran
+      (the Windows sandbox setting or the write probe), which Step 0.6 cannot see. That
+      slice goes to `sonnet` with the same prompt, no tree check needed because Codex
+      never ran; record Codex implementation as unavailable for the rest of the run, so
+      later Codex slices go to `sonnet` at once; log the swap with the message and name
+      it in the report. Codex reviewers are not affected. `timeout` is a budget expiry (Budgets,
       enforcement 4): end in `blocked` naming the implementer `--timeout`, and start no
       other writer on that checkout. `failed`, or no status line, may have left part of
       the slice written, so the preconditions of Approval scope item 6 apply before any
       retry or fallback: the previous call returned its output; it did not say Codex may
       still be running; on Windows a `failed` call, or one with no status line, ends the
-      run in `blocked` instead; and you have read the tree state. Then retry once as a fresh `codex-lite:implement`
+      run in `blocked` instead; and you have read the tree state and reverted any path
+      outside the slice. Then retry once as a fresh `codex-lite:implement`
       call with the same slice prompt and the slice's current diff. A second `failed` or
       no status line in a row, with the same preconditions met, falls back to `sonnet`
       with the same prompt and the current diff: the slice's effective model becomes

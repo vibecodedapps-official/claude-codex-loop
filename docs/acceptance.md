@@ -222,8 +222,9 @@ unless the item says otherwise. Item 38 uses the M4 setup.
 39. **Codex model ids.** Setup: a ChatGPT account with Codex, codex-lite 0.8.0 or later,
     and a scratch repository. Command: run a `/codex-lite:ask --model gpt-6.1-sol
     --timeout 60` call, then the same with `gpt-6-astra`, then a
-    `codex-lite:implement --model gpt-6-luna --timeout 60 --cwd <scratch repo>` call
-    with a one-line task to add a file. Expected: all three return status `ok`, and the
+    `codex-lite:implement` call whose request is `--model gpt-6-luna --timeout 60 --cwd
+    <scratch repo>` on the first line and a one-line task to add a file on the next
+    line, since the `--cwd` value is the rest of its line. Expected: all three return status `ok`, and the
     `implement` footer shows the new file. Rerun before each release and whenever a Codex
     call fails with a model error.
 40. **Pre-approval of Codex calls.** Setup: default permission mode, and a command with

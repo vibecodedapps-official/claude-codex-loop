@@ -64,7 +64,10 @@ Rules for roles:
   `failed` or no status line is retried or swapped only under the preconditions of Step
   4.2.4 in `SKILL.md`, which include the state of the process and the tree. A `refused`
   status is not retried and is not swapped: it ends the run in `blocked` with the
-  message, for a reviewer and for an implementer. A `timeout` status is a budget expiry
+  message, for a reviewer and for an implementer, except an implementer refusal whose
+  message contains "implement was not run:", the host's write sandbox, which swaps
+  the slice to `sonnet` and marks Codex implementation unavailable for the run (Step
+  4.2.4 in `SKILL.md`). A `timeout` status is a budget expiry
   and ends the run in `blocked` with the budget named: the Codex budget for a reviewer,
   the implementer `--timeout` for an implementer.
 - Write every swap to the run log with the stage, the reason, and the fallback model. Every

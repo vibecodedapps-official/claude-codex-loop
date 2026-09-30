@@ -63,8 +63,11 @@ Requires codex-lite 0.8.0 or later, for `codex-lite:implement`. 0.7.0 is no long
   expiry, and output that says Codex may still be running ends the run in `blocked`, with
   no other writer started on that checkout. On Windows a `failed` call, or one with no
   status line, is not retried and gets no fallback, and ends in `blocked` naming the
-  possible surviving process. A
-  `refused` status ends the run in `blocked`, and a `timeout` status is a budget expiry.
+  possible surviving process. A Bash tool result with no `status:` line is output that
+  never arrived. A path the footer lists outside the slice is reverted before the retry.
+  A `refused` status ends the run in `blocked`, except a refusal from the host's write
+  sandbox ("implement was not run:"), which swaps the slice to `sonnet` and marks Codex
+  implementation unavailable for the run; a `timeout` status is a budget expiry.
   The threshold stays two failures in a row.
 - The Skill tool entry `codex-lite:implement` in the skill's tools, and the minimum
   codex-lite version of 0.8.0 in the Step 0.6 check. `implement` is invocable by Claude,
