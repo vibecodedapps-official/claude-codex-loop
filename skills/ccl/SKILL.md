@@ -179,15 +179,15 @@ Enforcement:
 
 1. Run `date -u +%Y-%m-%dT%H:%M:%SZ` at the start of Step 0, at the start of each step
    that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
-   SendMessage, each Codex call, each `code-review` pass, each check, each CI poll), and
-   at the terminal state, and with `confirm-plan` just before each Step 3.5 question and
-   just after its reply, and nowhere else. Use that one format for the whole run. Compare
-   the run budget at each of those points. Copy each time written to `run.md` from that
-   command's output, never from memory or from arithmetic on earlier entries. Elapsed
-   time is the difference between the Step 0 start and the latest recorded time, minus
-   each Step 3.5 wait, all from recorded outputs. Record the budget in force and its
-   source in `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises
-   it, or a session instruction changes it.
+   SendMessage, each Codex call, each `code-review` pass, each check, each install step,
+   each CI poll), and at the terminal state, and with `confirm-plan` just before each
+   Step 3.5 question and just after its reply, and nowhere else. Use that one format for
+   the whole run. Compare the run budget at each of those points. Copy each time written
+   to `run.md` from that command's output, never from memory or from arithmetic on
+   earlier entries. Elapsed time is the difference between the Step 0 start and the
+   latest recorded time, minus each Step 3.5 wait, all from recorded outputs. Record the
+   budget in force and its source in `run.md` at Step 0.5, and again when Step 1.5 sets
+   the tier, Step 4.5 raises it, or a session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
    timeout (Agent, Workflow, SendMessage), use the `date` times that item 1 requires
@@ -224,11 +224,14 @@ every one of them and follow Final report handling below.
 - `blocked`: a blocking defect, a denied permission, a budget exceeded, or a preflight
   failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask the user a question it cannot decide. The question and
-  both positions are in the report. A rerun with the same inputs and the answer as an extra
-  ad-hoc input starts from Step 0 with a new run id. `stopped` is reached only from a Step 3
-  round, including the one Step 3.7.1 can add and the one a change requested in Step 3.5
-  adds, before Step 3.7.2 creates or switches to a branch, so no branch is created or
-  switched and nothing collides.
+  both positions are in the report. When Step 3.5 item 4 ended the run because a requested
+  change has no round left, the report gives the requested change and that no plan review
+  round was left instead. A rerun with the same inputs and the answer, or the requested
+  change, as an extra ad-hoc input starts from Step 0 with a new run id. `stopped` is
+  reached only from a Step 3 round, including the one Step 3.7.1 can add and the one a
+  change requested in Step 3.5 adds, or from Step 3.5 item 4 when no round is left,
+  before Step 3.7.2 creates or switches to a branch, so no branch is created or switched
+  and nothing collides.
 
 Publish runs only when no blocking defect is open and Step 6 passes. A blocked run performs
 no further publication: no push, no PR, no comment. Work already pushed by this run stays
@@ -559,11 +562,17 @@ it. Step 0 creates nothing except artifacts.
    With `continue`, also fetch `<remote> <branch>`, and record `<remote>/<branch>` after
    that fetch as the base commit, in place of the default branch head. Still record the
    default branch. A local branch of that name that does not equal `<remote>/<branch>` is
-   a preflight failure; never reset local work. With `continue`, also run `git worktree
-   list --porcelain`: a branch checked out in a worktree other than the one the run will
-   use is a preflight failure naming that worktree, because `git switch` refuses it. The
-   run uses the session's checkout, unless Step 0.3 creates a worktree, where
-   `worktree.md` makes the session's checkout a failure too. On `github`, read the pull
+   a preflight failure; never reset local work. With `continue`, `HEAD` of the session's
+   checkout must also be at the base commit, either on the branch or detached at it, so
+   that the plan review and the Step 1.2 reproduction read the branch's own code.
+   Otherwise it is a preflight failure whose message gives `git switch <branch>`, or `git
+   switch --detach <remote>/<branch>`. In Multi-repo mode the same holds for each
+   repository that continues the branch. With `continue`, also run `git worktree list
+   --porcelain`: a branch checked out in a worktree other than the one the run will use
+   is a preflight failure naming that worktree, because `git switch` refuses it. The run
+   uses the session's checkout, unless Step 0.3 creates a worktree, where `worktree.md`
+   makes the session's checkout a failure too, so a session on the branch blocks a
+   worktree run and one detached at the base commit does not. On `github`, read the pull
    requests of the branch with `gh pr list --head <branch> --state all --json
    number,state,baseRefName,url,headRepositoryOwner`, and keep only the entries whose
    `headRepositoryOwner` is this repository's owner, so a fork's branch of the same name
@@ -574,6 +583,10 @@ it. Step 0 creates nothing except artifacts.
    - No pull request: Step 7.2 opens one against the default branch.
    - Only closed or merged pull requests, or several open ones: a preflight failure naming
      them.
+
+   In a plan-only run, a local branch that differs from the remote, a branch checked out
+   in another worktree, and the pull request failures above do not fail the run: record
+   each in `run.md` and in the report. The `HEAD` requirement above still applies.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
    (untracked files that are not ignored count as dirty) and `git diff --cached --quiet`
    passes. If either is dirty, stop with `blocked` and say what is dirty. Do not stash.
@@ -592,12 +605,9 @@ it. Step 0 creates nothing except artifacts.
    skip-worktree files, the state the worktree exists to escape. When status is dirty for
    any other reason,
    the run ends in `blocked` as above. The exception is not available in Multi-repo mode.
-4. Record `HEAD` as the planning snapshot. With `continue`, when `HEAD` is not the base
-   commit, the planning snapshot is the base commit instead, and Steps 1 and 2 read files
-   at it without changing the tree, for example `git show <base-commit>:<path>`; Step
-   3.7.1 then has nothing to reverify for that reason. If the snapshot is not the base
-   commit, say so in `run.md` once Step 0.5 creates it. Steps 1 and 2 read the snapshot,
-   and Step 3.7.1 reverifies against the base commit.
+4. Record `HEAD` as the planning snapshot. If the snapshot is not the base commit, say so
+   in `run.md` once Step 0.5 creates it. Steps 1 and 2 read the snapshot, and Step 3.7.1
+   reverifies against the base commit.
 5. Ignore `.ccl/` as described in Mechanics. Allocate `<run-id>` and create the run
    directory. Write `inputs.md` with the invocation block and timestamp first, then fetch
    every issue with `gh issue view <n> --json number,title,body,labels,comments,url,state`
@@ -691,7 +701,8 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
    the run edits, rerun Step 0.3's clean-tree check (`git status --porcelain` and
    `git diff --cached --quiet`, not the flagged-file detection; in a worktree run, on
    the worktree) and, with `continue`, Step 0.2's check that a local branch of that name
-   equals the base commit. A failure ends in `blocked` naming what changed. With
+   equals the base commit, Step 0.2's worktree check, and that `HEAD` of the session's
+   checkout is at the base commit. A failure ends in `blocked` naming what changed. With
    `continue`, also, in each repository that continues the branch, run `git ls-remote
    --heads <remote> refs/heads/<branch>` and compare its head with that repository's base
    commit. If it moved, end in `blocked` naming the branch. The base commit stays the one
@@ -860,9 +871,10 @@ Publish runs only when no blocking defect is open and Step 6 passes. Otherwise e
 `blocked`, with no further publication (see Terminal states). Step 7 runs only on the
 `github` host and when `--no-publish` is not set. Otherwise the run ends in `prepared` here.
 When a run with `continue` ends `prepared` and its branch has an open PR, and Step 7.2 has
-not written the body, read `pr-body.md` and write the continued-PR body to
-`.ccl/<run-id>/pr-body.md` first (the path `multi-repo.md` gives for an additional
-repository), so the report can give the `gh pr comment` command.
+not written the body, read `pr-body.md` and write the continued-PR body first, so the
+report can give the `gh pr comment` command. Each repository's body is written to its own
+path under `.ccl/<run-id>/`, as `multi-repo.md` gives it: `pr-body.md` for the primary
+and `pr-body-<slug>.md` for each additional repository.
 If an ask-first prompt for commit, push, or PR is not answered with a clear yes before
 anything is pushed, stop Step 7 and end in `prepared`.
 
@@ -887,7 +899,9 @@ anything is pushed, stop Step 7 and end in `prepared`.
    corrections, checks not run, and a closing reference per input. Decide completion per input
    after implementation, the tier's required reviews, and Step 6: `Closes #n` when every
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
-   otherwise.
+   otherwise. Pass every `--body-file`, in `gh pr create` and in `gh pr comment`, as an
+   absolute path, the run directory under the original checkout, because in a worktree run
+   the `gh` call runs as `cd <checkout> && ...`, where `.ccl/<run-id>/` does not exist.
    In each repository that continues the branch (`continue`):
    - Before the run's first push, run `git ls-remote --heads <remote> refs/heads/<branch>`
      and compare the head with the base commit. Before each CI repair push, compare it

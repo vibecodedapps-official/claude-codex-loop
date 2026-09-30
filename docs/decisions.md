@@ -552,12 +552,20 @@ taught it where there is one.
    flag value is rejected when it starts with `-`, contains `@{`, or fails `git
    check-ref-format --branch`, so it cannot act as an option or a revision expression.
    Step 0.2 fails a branch that another worktree has checked out, because `git switch`
-   refuses it. When `HEAD` is not the base commit, the plan reads the base commit with
-   `git show`, so it is written against the branch's own head and not against whatever the
-   session's checkout holds, and no file changes before the switch. A `prepared` run with
-   an open PR gives the `gh pr comment` command with the absolute path of a body file,
-   written at that point if Step 7.2 did not, so the user can finish the run by hand.
-   Issue #16.
+   refuses it. With `--continue`, `HEAD` of the session's checkout must be at the base
+   commit, on the branch or detached at it, or Step 0.2 fails with the `git switch`
+   command to run. An earlier draft read the base commit with `git show` when `HEAD`
+   differed, but the Codex plan review and the Step 1.2 reproduction read the session's
+   checkout, so they checked the wrong code. The requirement leaves the planning snapshot
+   rule unchanged. A session on the branch blocks a worktree run, and one detached at the
+   base commit does not. A plan-only run records a differing local branch, a branch
+   checked out in another worktree, and the pull request cases instead of failing,
+   because they matter only for building and publishing; the `HEAD` requirement stays,
+   since it makes the plan correct. A `prepared` run with an open PR gives the `gh pr
+   comment` command with the absolute path of a body file, written at that point if Step
+   7.2 did not, one per repository at its own path in Multi-repo mode, so the user can
+   finish the run by hand. Every `--body-file` is an absolute path, because in a worktree
+   run the `gh` call runs inside the checkout. Issue #16.
 3. **The run never adopts Multi-repo mode from prose, and an additional repository with
    skip-worktree edits continues.** A task that named other writable repositories in prose
    ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,
@@ -567,7 +575,10 @@ taught it where there is one.
    had no rule. It continues, the paths are recorded in `run.md`, and the report names
    them as local state its baseline and Step 6 checks ran against. Its review is not
    affected, because its patch comes from `git -C <path> diff <base>`, which leaves those
-   paths out. Step 1 blocks on any writable checkout that is not the primary and not
+   paths out. No slice may edit such a path: an edit to it is invisible to `git diff`,
+   `git add -N`, and staging, so review and the commit would drop it while local checks
+   pass on it, and a plan that needs one ends in `blocked` at Step 2. Step 1 blocks on
+   any writable checkout that is not the primary and not
    in `repos`, because a run that lists one of two needed checkouts would otherwise edit
    only the listed one; the rerun command adds one `--repo` for each missing checkout.
    In Multi-repo mode each repository's PR body is its own file,
@@ -581,7 +592,9 @@ taught it where there is one.
    run budget is enforced only at step boundaries and around timed calls, so `date` runs
    there, at the start of Step 0, and at the terminal state, and nowhere else. A helper
    script is a new kind of file in a prompt-only plugin, and it needs an `allowed-tools`
-   entry and testing in both Git Bash and PowerShell. One format,
+   entry and testing in both Git Bash and PowerShell. The worktree install step is a
+   timed call under the check budget, so it gets the same `date` and budget comparison as
+   a check. One format,
    `date -u +%Y-%m-%dT%H:%M:%SZ`, is used for the whole run, and every logged time is
    copied from the command's output, never recalled or derived from earlier entries.
    Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5 wait
@@ -594,9 +607,11 @@ taught it where there is one.
    reverification then revises. The wait does not count against the run budget, because
    the live run that asked for this did the same by hand and a long wait would otherwise
    end a run in `blocked` for time the user spent. A requested change is another Step 3
-   round, inside the cap of 3. After the approval, before Step 3.7.2, the clean-tree check
-   reruns, and with `--continue` so does the check that the local branch equals the base,
-   because the user can change the tree during a long wait; a failure ends in `blocked`.
+   round, inside the cap of 3; when no round is left the run ends `stopped` and the report
+   gives the requested change. After the approval, before Step 3.7.2, the clean-tree check
+   reruns, and with `--continue` so do the check that the local branch equals the base,
+   the worktree check, and the `HEAD` check, because the user can change the tree or the
+   checkout during a long wait; a failure ends in `blocked`.
    Any reply that is not a clear yes ends in `plan-only`, so an unclear answer never
    starts an implementation. The flag is rejected with `--plan-only`, and `/ccl:plan`
    rejects it as not applicable. Issue #17.
@@ -610,8 +625,8 @@ taught it where there is one.
    through Step 6 (SKILL.md and `tiers.md`) were 1,186 at 0.5.1, 1,309 before the move on
    this branch, and 1,115 after. In total, adding `report.md`, `pr-body.md`, and after
    the move `ci-watch.md`, they were 1,409 at 0.5.1, 1,553 before the move, and 1,431
-   after. The review fixes that followed brought 0.6.0 as shipped to 1,136 through Step 6
-   and 1,453 in total. Issue #20.
+   after. Later edits change these counts; acceptance item 100 pins them to the move
+   commit. Issue #20.
 
 ## Rules stated elsewhere in the loop, with reasons
 

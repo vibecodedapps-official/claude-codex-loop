@@ -27,7 +27,11 @@ names, for each repository, and leaves the rest of that step as written.
   continues and records those paths in `run.md` under that repository. The report names
   them as local state that repository's Step 3.7.3 baseline and Step 6 checks ran against.
   Its review is unaffected, because its patch comes from `git -C <path> diff <base>`,
-  which leaves those paths out.
+  which leaves those paths out. No slice may edit such a path: an edit to it is invisible
+  to `git diff`, `git add -N`, and staging, so review and the commit would drop it while
+  local checks pass on it. If the plan needs to change one, the run ends in `blocked` at
+  Step 2 naming the path. Implementer prompts for that repository name the paths as off
+  limits.
 - Commit snapshot: with `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in
   the first repository, the primary first and then the `--repo` order, that has a diff. A
   repository with no diff never receives it and gets no PR.
@@ -52,8 +56,9 @@ names, for each repository, and leaves the rest of that step as written.
   Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
   --heads <remote> refs/heads/<branch>`. A repository whose remote has the branch
   continues it as Step 0.2 says. A repository whose remote lacks it creates it in Step
-  3.7.2 as a new branch from its default branch, as without `continue`. Different branch
-  names per repository are not supported.
+  3.7.2 as a new branch from its default branch, as without `continue`. Step 0.2's `HEAD`
+  requirement applies to each repository that continues it. Different branch names per
+  repository are not supported.
 - Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
   primary's `.ccl/<run-id>/`, with a section per repository in `inputs.md` and `run.md`.
 - Input guard: an issue may belong to any listed repository. Compare the issue URL's owner

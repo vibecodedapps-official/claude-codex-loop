@@ -14,7 +14,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
   `--no-publish`, by a non-GitHub host, or by the user answering a Step 7 ask-first prompt
   with anything other than a clear yes; not a failure), `blocked` (a blocking defect, a
   denied permission, a budget exceeded, or a preflight failure), `stopped` (the run stopped
-  to ask the user a question it cannot decide).
+  to ask the user a question it cannot decide, or a change requested under
+  `--confirm-plan` found no plan review round left).
 - A failure before Step 0.5, when the run directory does not exist yet, prints the report
   and writes nothing. The tree may be dirty and the artifacts directory may not be ignored
   yet. The printed report names the preflight item that failed and the fix. Run id and
@@ -40,7 +41,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Base commit: <sha, or "not resolved">
 - Branch: <name, or "none created">
 - Continued: <no | the existing branch continued, and the PR this run commented on, or
-  "no PR">
+  "no PR"; in a plan-only run, also each implementing or publishing condition recorded
+  instead of failed>
 - Worktree: <path | none>
 - Repositories: <primary path, then each --repo path with its base commit and PR link; or
   "primary only">
@@ -109,7 +111,8 @@ non-blocking and anything out of scope. No issues were opened.
 ## Blocked, stopped, or prepared
 
 - What is blocked or what question is open: <state the blocking defect, denied permission,
-  budget, preflight item, or the question with both positions>
+  budget, preflight item, the question with both positions, or the change requested under
+  `--confirm-plan` and that no plan review round was left>
 - Steps marked not done: <list, or "none">
 - Where the work is: <local branch name, PR link, or "nothing created">
 - What would unblock it: <specific action>

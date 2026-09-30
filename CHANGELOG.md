@@ -9,29 +9,34 @@
   force, and comments on its open PR instead of opening a second one, or opens a PR when
   none exists. PR references stay rejected as inputs. The value is rejected when it
   starts with `-`, contains `@{`, or fails `git check-ref-format --branch`. A branch
-  checked out in another worktree fails preflight. When `HEAD` is not the base commit,
-  the plan reads the base commit with `git show`. A `prepared` run with an open PR gives
-  `gh pr comment <n> --body-file <absolute path>` in place of `gh pr create`. (#16)
+  checked out in another worktree fails preflight. `HEAD` of the session's checkout must
+  be at the base commit, on the branch or detached at it, or preflight fails with the
+  `git switch` command to run. A plan-only run records a differing local branch, a
+  branch checked out in another worktree, and the pull request cases instead of failing.
+  A `prepared` run with an open PR gives `gh pr comment <n> --body-file <absolute path>`
+  in place of `gh pr create`. (#16)
 - `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks
   once. A clear yes continues, a requested change is one more Step 3 round, and anything
   else ends in plan-only. The wait is left out of the run budget. After a yes, the
-  clean-tree check reruns before Step 3.7.2, with the local-branch check under
-  `--continue`, and a failure ends in `blocked`. (#17)
+  clean-tree check reruns before Step 3.7.2, with the local-branch, worktree, and `HEAD`
+  checks under `--continue`, and a failure ends in `blocked`. A requested change with no
+  round left ends in `stopped`, and the report gives the change. (#17)
 - A Step 1 check for writable checkouts named in the task but not passed with `--repo`.
   The run ends in `blocked` with the rerun command instead of adopting Multi-repo mode
   from prose. The check covers any writable checkout not listed with `--repo`, and the
   rerun command adds one `--repo` for each missing checkout. (#18)
 - A rule for an additional repository with skip-worktree files that differ from `HEAD`.
   The run continues, and the report names the files as the local state its checks ran
-  against. (#18)
+  against. No slice may edit such a path, because the edit would be invisible to review
+  and the commit: a plan that needs one ends in `blocked` at Step 2. (#18)
 
 ### Changed
 
 - The worktree run, Multi-repo mode, and CI watch rules moved from `SKILL.md` to
   `worktree.md`, `multi-repo.md`, and `ci-watch.md`, read only when the run takes that
   path. The text is unchanged apart from pointers and cross-references. The move cut the
-  lines a default single-repository GitHub run reads through Step 6 from 1,309 to 1,115;
-  with the rest of 0.6.0 it reads 1,136, against 1,186 in 0.5.1. (#20)
+  lines a default single-repository GitHub run reads through Step 6 from 1,309 to 1,115.
+  (#20)
 
 ### Fixed
 
@@ -48,7 +53,7 @@
 - Time logging runs `date` only at step headings and around timed calls, in one UTC
   format. Every logged time is copied from the `date` output, not recalled or derived.
   (#19) Elapsed time is the Step 0 start to the latest recorded time, less each Step 3.5
-  wait.
+  wait. The worktree install step is a timed call under the check budget.
 
 ## 0.5.1 - 2026-09-29
 

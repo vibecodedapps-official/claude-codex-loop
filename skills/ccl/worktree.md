@@ -6,17 +6,19 @@ rest of the run.
 
    - With `continue`, a branch that is checked out in the session's checkout (`git
      worktree list --porcelain`) cannot be checked out in the worktree: end `blocked`
-     naming the branch and that checkout, before the worktree is created. Step 0.2 already
-     fails a branch checked out in any other worktree. Otherwise Step 3.7.2 switches to
-     it inside the worktree.
+     naming the branch and that checkout, before the worktree is created. In a plan-only
+     run, record it in `run.md` and the report instead. Step 0.2 already fails a branch
+     checked out in any other worktree. Otherwise Step 3.7.2 switches to it inside the
+     worktree.
    - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
      itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
      before its statement. Record each prompt in `run.md`.
    - A detached worktree from the base commit has no installed dependencies, build output, or
      local env files. Before the baseline in Step 3.7.3, run the install step the repository's
-     instruction files or lockfile name (for example `npm ci`) inside the worktree. When none
-     is known and a discovered check fails for that reason, record the check as not run in
-     the worktree with the reason, not as a baseline failure.
+     instruction files or lockfile name (for example `npm ci`) inside the worktree. The
+     install runs under the check budget like a check (Budgets, enforcement items 2 and
+     3). When none is known and a discovered check fails for that reason, record the
+     check as not run in the worktree with the reason, not as a baseline failure.
    - Step 0.3 first performs the Ignoring `.ccl/` setup and allocates the run id, the work
      Step 0.5 would do first, then creates the worktree, so `.ccl/` is ignored before the
      first write. From then on the run directory exists, so a later preflight failure writes

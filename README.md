@@ -137,8 +137,12 @@ The remaining text, joined, is one ad-hoc description.
   with `--branch`, and it is not repair mode: the run reads no review comments and no CI
   state from before the run. A value that starts with `-`, contains `@{`, or fails `git
   check-ref-format --branch` is rejected. A branch checked out in a worktree the run will
-  not use fails preflight. Every remote check of a branch name queries the exact ref
-  `refs/heads/<branch>`, because a bare name also matches any ref that ends in it.
+  not use fails preflight. `HEAD` of the checkout must be at the branch's remote head, on
+  the branch or detached at it (`git switch --detach <remote>/<branch>`), or preflight
+  fails. With `/ccl:plan` or `--plan-only`, a differing local branch, a branch checked out
+  elsewhere, and the pull request cases are recorded in the report instead of failing.
+  Every remote check of a branch name queries the exact ref `refs/heads/<branch>`,
+  because a bare name also matches any ref that ends in it.
 
 ### Multi-repo mode
 
@@ -182,7 +186,8 @@ directly. In this mode:
   The narrow worktree exception for that case is not available in this mode.
 - An additional repository with skip-worktree or assume-unchanged files that differ from
   `HEAD` does not block. The run continues, and the report names those files as local
-  state that repository's baseline and checks ran against.
+  state that repository's baseline and checks ran against. No slice may edit them: a
+  plan that needs to ends in `blocked` at Step 2, naming the path.
 - With `--continue`, the branch must exist on the primary. Each additional repository
   continues it where its remote has it, and creates it otherwise. All repositories use one
   branch name.
@@ -298,8 +303,9 @@ Every run ends in exactly one state.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask you a question it cannot decide, or a requested
-  change under `--confirm-plan` found no plan review round left. Rerun with the same
-  inputs and your answer as an extra ad-hoc input.
+  change under `--confirm-plan` found no plan review round left, and the report gives
+  the change. Rerun with the same inputs and your answer, or the change, as an extra
+  ad-hoc input.
 
 ## Artifacts
 
