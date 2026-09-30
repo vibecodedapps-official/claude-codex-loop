@@ -68,6 +68,7 @@ flags:
   plan-only: true | false
   no-codex: true | false
   branch: <name> | default
+  continue: <branch> | none
   no-publish: true | false
   run-budget: <minutes> | default
   repos: <path>[, <path>...] | none
@@ -76,8 +77,11 @@ flags:
 The run is plan-only when `mode` is `plan-only` or the `plan-only` flag is `true`. Step 0.5
 writes this block, with a timestamp, as the first section of `inputs.md`. Both modes run
 build mode. Repair mode and merging are not part of this version. The only worktree use is
-the narrow one in Step 0.3. `--no-publish` withholds Step 7. `--run-budget` sets the run
-budget in minutes. `repos` lists additional writable checkouts; see Multi-repo mode.
+the narrow one in Step 0.3. `--no-publish` withholds Step 7. `continue` names an existing
+remote branch that the run continues instead of creating one; see Step 0.2 and Step 7.2.
+It is not repair mode: the run reads no review comments and no CI state from before the
+run. `--run-budget` sets the run budget in minutes. `repos` lists additional writable
+checkouts; see Multi-repo mode.
 
 ## Tools
 
@@ -102,8 +106,12 @@ run only, to do these things without asking:
 - Create a branch, commit, push that branch, open one PR, or one PR per repository in
   Multi-repo mode, edit each of this run's PR bodies once to link the siblings, and comment
   on the source issues.
-- Post the report update comment on this run's own PR, as Step 7.1 and Final report handling
-  describe.
+- With `continue`, push to the continued branch, which this run does not create, and post
+  one comment on that branch's open PR, which this run does not open, plus the report
+  update comment when Final report handling item 4 applies. That PR's body is never
+  edited.
+- Post the report update comment on this run's own PR, or on the continued PR, as Step 7.1
+  and Final report handling describe.
 
 Carve-outs:
 
@@ -191,17 +199,19 @@ every one of them and follow Final report handling below.
   `publishing`. It gives how to publish: the exact `git add <paths>` and `git commit`
   commands when the work is uncommitted (the `git add` list includes the
   `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
-  says the snapshot there is provisional), the `git push -u <remote> <branch>` command, and,
-  on the `github` host, the `gh pr create` command; on any other host, a note that the pull
-  request is opened with the host's own tooling, which this version does not drive.
+  says the snapshot there is provisional), the `git push -u <remote> <branch>` command
+  (`git push <remote> <branch>` with `continue`), and, on the `github` host, the `gh pr
+  create` command, which a run with `continue` omits when its branch has an open PR; on
+  any other host, a note that the pull request is opened with the host's own tooling,
+  which this version does not drive.
   `prepared` is not a failure.
 - `blocked`: a blocking defect, a denied permission, a budget exceeded, or a preflight
   failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask the user a question it cannot decide. The question and
   both positions are in the report. A rerun with the same inputs and the answer as an extra
   ad-hoc input starts from Step 0 with a new run id. `stopped` is reached only from a Step 3
-  round, including the one Step 3.7.1 can add, before Step 3.7.2 creates a branch, so no
-  branch exists and nothing collides.
+  round, including the one Step 3.7.1 can add, before Step 3.7.2 creates or switches to a
+  branch, so no branch is created or switched and nothing collides.
 
 Publish runs only when no blocking defect is open and Step 6 passes. A blocked run performs
 no further publication: no push, no PR, no comment. Work already pushed by this run stays
@@ -480,6 +490,12 @@ names, for each repository, and leaves the rest of that step as written.
   them. The permission statement lists each repository's push and PR.
 - Steps 0.2 to 0.4 run per repository. Record a base commit and a planning snapshot for
   each.
+- `continue`: the branch must exist on the primary's remote, which the command checks.
+  Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
+  --heads <remote> <branch>`. A repository whose remote has the branch continues it as
+  Step 0.2 says. A repository whose remote lacks it creates it in Step 3.7.2 as a new
+  branch from its default branch, as without `continue`. Different branch names per
+  repository are not supported.
 - Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
   primary's `.ccl/<run-id>/`, with a section per repository in `inputs.md` and `run.md`.
 - Input guard: an issue may belong to any listed repository. Compare the issue URL's owner
@@ -488,7 +504,8 @@ names, for each repository, and leaves the rest of that step as written.
   <owner>/<repo>`.
 - Step 2: name the repository of every slice. No slice spans repositories.
 - Step 3.7: 3.7.2 creates the same branch name in every repository, and the name check runs
-  in every repository. 3.7.3 runs a baseline per repository.
+  in every repository, except that with `continue` a repository whose remote has the
+  branch switches to it and skips the name check. 3.7.3 runs a baseline per repository.
 - Step 4: each implementer prompt names the repository path of its slice as the only
   checkout it edits.
 - Step 5.2: review only repositories that have a diff from their base commit (`git -C <path>
@@ -519,11 +536,15 @@ names, for each repository, and leaves the rest of that step as written.
 - Step 7: commit and push per repository that has a diff, and open one PR per such
   repository. Each body has a "Related pull requests" section, with "pending" there in the
   first PR opened. Then edit each body once with `gh pr edit <n> --body-file` to fill the
-  sibling links. Watch CI per PR, and comment on each issue with every PR link. `done`
-  needs every PR green. A `blocked` in any repository blocks the run, and no further
-  publication happens in any repository, with one exception: the sibling-link edit of a PR
-  this run already opened still runs, so no PR is left saying "pending". Editing the body
-  of this run's own PR is inside the approval scope and publishes nothing new.
+  sibling links. With `continue`, a continued PR gets no body edit: its comment is posted
+  after every PR of the run is open, so its "Related pull requests" section is filled from
+  the start, and the `gh pr edit` pass covers only the PRs this run opened. Watch CI per
+  PR, and comment on each issue with every PR link. `done` needs every PR green. A
+  `blocked` in any repository blocks the run, and no further publication happens in any
+  repository, with one exception: the sibling-link edit of a PR this run already opened
+  still runs, so no PR is left saying "pending". The exception covers only PRs this run
+  opened; a continued PR whose comment was not yet posted gets none. Editing the body of
+  this run's own PR is inside the approval scope and publishes nothing new.
 - Step 7.3.5: a CI repair review for an additional repository uses the Step 5.2 patch rule
   (Codex through `codex-lite:ask --resume`, and the repository's Claude subagent), never
   `codex-lite:review`.
@@ -547,17 +568,21 @@ selected remote and the class.
 
 On `other`, the run accepts only file and text inputs, runs Steps 0 to 6, never runs Step 7,
 and ends in `prepared`. Step 0.2 resolves the default branch from the selected remote's
-`HEAD` symref (`git ls-remote --symref <remote> HEAD`) and fetches it. Step 0.5 fetches
-nothing. Step 3.7.2 creates the branch locally and checks the remote with `git ls-remote
---heads`. The report names the host and says publication is handed to the repo's own tooling.
+`HEAD` symref (`git ls-remote --symref <remote> HEAD`) and fetches it. With `continue`, it
+also fetches the branch and reads no pull request. Step 0.5 fetches nothing. Step 3.7.2
+creates the branch locally and checks the remote with `git ls-remote --heads`; with
+`continue` it switches to the branch instead. The report names the host and says
+publication is handed to the repo's own tooling; with `continue` it gives `git push
+<remote> <branch>`.
 
 Input guard, before 0.1: every issue input must belong to the repo of the current checkout,
 and no input may be a pull request. Check with `gh repo view` and `gh pr view <n>` (a `#n`
 that `gh` reports as a pull request is a pull request). A token that is an issue URL or `#n`
 is an issue; a token that names an existing file is a file input; the remaining text, joined,
-is one ad-hoc description. A pull request or a cross-repo issue is a preflight failure. On a
-non-GitHub host an issue input is a preflight failure: only file and text inputs are accepted
-there. In Multi-repo mode a bare `#n` names an issue of the primary; an issue of another
+is one ad-hoc description. A pull request or a cross-repo issue is a preflight failure.
+`continue` names a branch, not a pull request, and is not an input. On a non-GitHub host
+an issue input is a preflight failure: only file and text inputs are accepted there. In
+Multi-repo mode a bare `#n` names an issue of the primary; an issue of another
 listed repo must be a full URL and is accepted when its owner and repo match a listed
 checkout's remote.
 
@@ -577,8 +602,9 @@ it. Step 0 creates nothing except artifacts.
       instruction file's ask-first rule will prompt for it: fetching the default branch,
       writing `.git/info/exclude` and the artifacts under `.ccl/`, the Codex availability
       commands of item 6 (`codex --version`, `claude plugin list --json`), running the repo's
-      checks, branch creation, commit, push, opening the PR, issue comments, the PR report
-      comment, the CI watch's `gh` calls, each Codex call if Codex is used, subagents, and any
+      checks, branch creation, commit, push, opening the PR, the comment on the continued
+      PR (with `continue`), issue comments, the PR report comment, the CI watch's `gh`
+      calls, each Codex call if Codex is used, subagents, and any
       other command this skill does not pre-approve. Take the mode from what the session
       states and from the settings files' default mode and allow rules (user, project, and
       local settings). An action whose outcome cannot be determined counts as one that will
@@ -592,6 +618,20 @@ it. Step 0 creates nothing except artifacts.
       "this run is unattended" and continue.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
+   With `continue`, also fetch `<remote> <branch>`, and record `<remote>/<branch>` after
+   that fetch as the base commit, in place of the default branch head. Still record the
+   default branch. A local branch of that name that does not equal `<remote>/<branch>` is
+   a preflight failure; never reset local work. On `github`, read the pull requests of the
+   branch with `gh pr list --head <branch> --state all --json
+   number,state,baseRefName,url,headRepositoryOwner`, and keep only the entries whose
+   `headRepositoryOwner` is this repository's owner, so a fork's branch of the same name
+   is ignored. On `other`, read no pull request. Then:
+   - One open pull request: record its number, URL, and base branch. Closed or merged pull
+     requests beside it are ignored. Step 7.3 uses its base branch in place of the default
+     branch.
+   - No pull request: Step 7.2 opens one against the default branch.
+   - Only closed or merged pull requests, or several open ones: a preflight failure naming
+     them.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
    (untracked files that are not ignored count as dirty) and `git diff --cached --quiet`
    passes. If either is dirty, stop with `blocked` and say what is dirty. Do not stash.
@@ -609,6 +649,10 @@ it. Step 0 creates nothing except artifacts.
    any other reason,
    the run ends in `blocked` as above. The exception is not available in Multi-repo mode. In
    this path:
+   - With `continue`, a branch that is checked out in the session's checkout (`git
+     worktree list`) cannot be checked out in the worktree: end `blocked` naming the
+     branch, before the worktree is created. Otherwise Step 3.7.2 switches to it inside
+     the worktree.
    - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
      itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
      before its statement. Record each prompt in `run.md`.
@@ -740,6 +784,10 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    <base-commit>`. On the `other` host, create the branch locally and check the remote with
    `git ls-remote --heads`. In Multi-repo mode, the check and the creation run in every
    repository.
+   With `continue`, in each repository that continues the branch, skip the naming and the
+   collision check, and switch to the branch instead of creating it: `git switch <branch>`
+   when it exists locally, else `git switch -c <branch> <base-commit>`. In a worktree run,
+   use `git -C <checkout> switch` for this.
 3. Discover the repo's checks as Step 6.1 lists, record them in `run.md`, and run each once on
    the base commit. This is the baseline. A check that fails here is pre-existing and is
    reported, not fixed. Record the failing output as the baseline evidence for that check.
@@ -896,12 +944,25 @@ anything is pushed, stop Step 7 and end in `prepared`.
    after implementation, the tier's required reviews, and Step 6: `Closes #n` when every
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
    otherwise.
+   In each repository that continues the branch (`continue`):
+   - Before the run's first push, run `git ls-remote --heads <remote> <branch>` and
+     compare the head with the base commit. Before each CI repair push, compare it with
+     the last commit this run pushed. If the remote head differs, end `blocked` naming the
+     branch. Never force push, and never rebase or reset to catch up.
+   - Push with `git push <remote> <branch>`, never forced, in place of the command above.
+   - With an open PR (Step 0.2), do not run `gh pr create`. Write the body from the
+     continued-PR variant in `pr-body.md` and post it as one comment with `gh pr comment
+     <n> --body-file .ccl/<run-id>/pr-body.md`. Never edit that PR's body: it belongs to
+     the PR's author.
+   - With no PR, open one with `gh pr create --head <branch>` and the other arguments as
+     above.
 3. Watch CI:
    1. Read these with `gh`, all readable with read access. If any read fails, CI cannot be
       verified: end in `blocked`, naming the failed read. Never treat a failed read as "nothing
       is required".
       - Required checks: `gh api repos/{owner}/{repo}/branches/<base> --jq .protection` gives
-        `required_status_checks` (`contexts`, and `checks` with `app_id`). Do not read the
+        `required_status_checks` (`contexts`, and `checks` with `app_id`). `<base>` is the
+        PR's base branch (Step 0.2 records it with `continue`). Do not read the
         `/protection` endpoint, which returns 404 without admin rights.
         `gh api repos/{owner}/{repo}/rules/branches/<base>` gives the active rules, including
         organization rulesets: its `required_status_checks` rules add required checks and its
@@ -925,7 +986,8 @@ anything is pushed, stop Step 7 and end in `prepared`.
       `branches-ignore`, `paths`, and `paths-ignore` filters match the PR's base branch and
       changed files, and its `types` filter, when present, includes the event the watched head
       commit produced: `opened` for the first watch after the PR is created, `synchronize`
-      after a CI repair push to the open PR. A filter that cannot be evaluated with
+      for the first watch when the PR already existed (`continue`) and after a CI repair
+      push to the open PR. A filter that cannot be evaluated with
       confidence counts as a match. A workflow triggered by `pull_request` (not
       `pull_request_target`) does not apply when the PR head commit's message carries a skip
       instruction: `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, or
@@ -996,8 +1058,10 @@ At every terminal state:
    1. Terminal state, PR link or links, CI state, host, run budget in force with its source,
       worktree path when one exists, and for `prepared` the branch, commit state, the commit
       commands when uncommitted, the push command, and, on the `github` host, the `gh pr
-      create` command; on any other host the note that the pull request is opened with the
-      host's own tooling.
+      create` command (omitted with `continue` when the branch has an open PR); on any
+      other host the note that the pull request is opened with the host's own tooling.
+      With `continue`, that the run continued an existing branch and which PR it commented
+      on.
    2. Attended or unattended, and the prompts that occurred.
    3. Effort tier and why, including any risk floor, any re-evaluation, and the Step 5
       reviewers it resolved.

@@ -38,6 +38,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Run budget: <minutes> (<flag | .ccl.json | tier default | session instruction at hh:mm>)
 - Base commit: <sha, or "not resolved">
 - Branch: <name, or "none created">
+- Continued: <no | the existing branch continued, and the PR this run commented on, or
+  "no PR">
 - Worktree: <path | none>
 - Repositories: <primary path, then each --repo path with its base commit and PR link; or
   "primary only">
@@ -110,8 +112,10 @@ non-blocking and anything out of scope. No issues were opened.
 - What would unblock it: <specific action>
 - If a budget expired: <which budget, its value, the step or call>
 - If work was already pushed: <PR link; nothing further was published>
-- Prepared: <branch, commit state, the commit commands when uncommitted, the push command,
-  and the `gh pr create` command on the `github` host or the host handoff note otherwise;
+- Prepared: <branch, commit state, the commit commands when uncommitted, the push command
+  (`git push <remote> <branch>` with `continue`), and the `gh pr create` command on the
+  `github` host, omitted with `continue` when the branch has an open PR, or the host
+  handoff note otherwise;
   with `"commit": true` and a commit made, that the commit carries the `publishing`
   snapshot; or "not prepared">
 

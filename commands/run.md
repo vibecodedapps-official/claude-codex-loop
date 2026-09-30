@@ -1,6 +1,6 @@
 ---
-description: "Run the tiered plan, review, implement, review, publish loop for one unit of work, from issues, a handoff file, or a description. Use when the user asks to run the ccl loop, or types /ccl:run. Inputs are issue URLs or #n numbers of this repo, file paths, and a quoted description. Flags are --effort low|medium|high|xhigh|max, --plan-only, --no-codex, --no-publish, --branch <name>, --run-budget <minutes>, and --repo <path>. Pull request references are rejected. To only plan, use /ccl:plan."
-argument-hint: '<#n | issue URL | file path | "description">... [--effort low|medium|high|xhigh|max] [--plan-only] [--no-codex] [--no-publish] [--branch <name>] [--run-budget <minutes>] [--repo <path>]...'
+description: "Run the tiered plan, review, implement, review, publish loop for one unit of work, from issues, a handoff file, or a description. Use when the user asks to run the ccl loop, or types /ccl:run. Inputs are issue URLs or #n numbers of this repo, file paths, and a quoted description. Flags are --effort low|medium|high|xhigh|max, --plan-only, --no-codex, --no-publish, --branch <name>, --continue <branch>, --run-budget <minutes>, and --repo <path>. Pull request references are rejected. To only plan, use /ccl:plan."
+argument-hint: '<#n | issue URL | file path | "description">... [--effort low|medium|high|xhigh|max] [--plan-only] [--no-codex] [--no-publish] [--branch <name>] [--continue <branch>] [--run-budget <minutes>] [--repo <path>]...'
 allowed-tools: Bash(git status:*), Bash(git rev-parse:*), Bash(git remote:*), Bash(gh repo view:*), Bash(gh issue view:*), Bash(gh pr view:*), Bash(git ls-remote *), Bash(git -C * remote -v), Bash(git -C * rev-parse *), Read, Skill
 ---
 
@@ -12,7 +12,7 @@ You are a thin forwarder for the ccl orchestrator. Do the steps below in order.
 "$ARGUMENTS"
 </user-text>
 
-   - A flag is a token that starts with `--`. Accepted flags: `--effort`, `--plan-only`, `--no-codex`, `--no-publish`, `--branch`, `--run-budget`, `--repo`. `--effort` takes exactly one value, one of `low`, `medium`, `high`, `xhigh`, `max`; without it, effort is `auto`. `--branch` takes exactly one value, a branch name; without it, branch is `default`. Reject any other flag, a missing flag value, and any `--effort` value other than `low`, `medium`, `high`, `xhigh`, `max`. `--plan-only`, `--no-codex`, and `--no-publish` take no value. `--run-budget` takes exactly one value, a positive integer number of minutes; without it, run-budget is `default`. Reject any other value. `--repo` takes exactly one value, a path, and may be repeated. Without `--repo`, repos is `none`.
+   - A flag is a token that starts with `--`. Accepted flags: `--effort`, `--plan-only`, `--no-codex`, `--no-publish`, `--branch`, `--continue`, `--run-budget`, `--repo`. `--effort` takes exactly one value, one of `low`, `medium`, `high`, `xhigh`, `max`; without it, effort is `auto`. `--branch` takes exactly one value, a branch name; without it, branch is `default`. `--continue` takes exactly one value, the name of an existing branch on the remote; without it, continue is `none`. Reject `--continue` together with `--branch`. Reject any other flag, a missing flag value, and any `--effort` value other than `low`, `medium`, `high`, `xhigh`, `max`. `--plan-only`, `--no-codex`, and `--no-publish` take no value. `--run-budget` takes exactly one value, a positive integer number of minutes; without it, run-budget is `default`. Reject any other value. `--repo` takes exactly one value, a path, and may be repeated. Without `--repo`, repos is `none`.
    - An input token that is an issue URL (`https://<host>/<owner>/<repo>/issues/<n>`, where `<host>` is `github.com` or the GitHub host that `gh repo view` resolves for the current checkout, as with GitHub Enterprise) or `#<n>` is an issue. Several issues are allowed. With `--repo`, a bare `#<n>` always names an issue of the current checkout, the primary. An issue of a `--repo` checkout must be given as a full URL.
    - A pull request URL (`https://<host>/<owner>/<repo>/pull/<n>`, with the same `<host>` rule) is a pull request. A `#<n>` is a pull request if `gh issue view <n> --json url` returns a URL containing `/pull/`. Check each `#<n>` this way against the primary only, and check any issue URL's repo the same way.
    - A token that names an existing file is a file input. Check with the Read tool. Any number of file inputs is allowed.
@@ -20,7 +20,9 @@ You are a thin forwarder for the ccl orchestrator. Do the steps below in order.
    - There must be at least one input of some kind.
 
 2. Before anything else, run `gh repo view --json nameWithOwner` and reject the request, with a short one-line message and no further action, if any of these is true:
-   - An input is a pull request, by URL or by `#<n>`. Pull request references are not inputs; only issues, files, and text are.
+   - An input is a pull request, by URL or by `#<n>`. Pull request references are not inputs; only issues, files, and text are. To continue a pull request's branch, pass `--continue <branch>`.
+   - `--continue` is given together with `--branch`.
+   - `--continue <branch>` names a branch that is not on the primary's selected remote. Check this on every host with `git ls-remote --heads <remote> <branch>`, which prints nothing when the branch does not exist. The selected remote is the one `gh repo view` resolves when it succeeds, else the one selected below. Additional `--repo` checkouts are not checked here.
    - An issue number or issue URL that gh cannot find, meaning `gh issue view <n or URL> --json url` fails. Name the input in the message.
    - An issue belongs to a different repository than the one `gh repo view` reports for the current checkout. With `--repo`, an issue URL is accepted when its owner and repo match the current checkout or any `--repo` checkout's remote (`git -C <path> remote -v`); otherwise reject it.
    - A `--repo` path that is not an existing directory or not a git checkout, checked with `git -C <path> rev-parse --git-dir`.
@@ -44,6 +46,7 @@ flags:
   no-codex: true | false
   no-publish: true | false
   branch: <name> | default
+  continue: <branch> | none
   run-budget: <minutes> | default
   repos: <path>[, <path>...] | none
 ```

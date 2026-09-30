@@ -54,6 +54,18 @@ The criteria come from the plan.
 - Use one line per issue, for example `Closes #12` on one line and `Refs #14` on the next,
   so the platform links each one. Do not join them.
 
+## Continued PR comment
+
+With `continue` and an open PR, Step 7.2 posts the body as one comment on that PR, not as
+a body edit. A comment cannot close an issue, and the PR's own body decides what merging
+closes. Use the PR body template with these changes.
+
+- Replace the "Closes" section with an "Issues" section. Write one line per issue, `#n:
+  complete` or `#n: partial`, with what is left when partial. Write no `Closes` or `Refs`
+  line. Write an issue of another repository as `<owner>/<repo>#n`.
+- End the "Issues" section with the line: The PR's own body decides what merging this PR
+  closes.
+
 ## Issue status comment
 
 Post at Step 7.4, once per source issue, after the PR is open. Post it for `Closes` issues
