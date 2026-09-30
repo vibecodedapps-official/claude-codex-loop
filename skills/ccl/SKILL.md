@@ -83,7 +83,7 @@ the plan is final and asks the user to approve it before anything is implemented
 3.5. `continue` names an existing remote branch that the run continues instead of creating
 one; see Step 0.2 and Step 7.2. It is not repair mode: the run reads no review comments
 and no CI state from before the run. `--run-budget` sets the run budget in minutes.
-`repos` lists additional writable checkouts; see Multi-repo mode.
+`repos` lists additional writable checkouts; see `multi-repo.md`.
 
 ## Tools
 
@@ -245,6 +245,12 @@ These are in this skill's base directory.
   below.
 - `report.md`: the final report template. Read it at every terminal state.
 - `pr-body.md`: the PR body template. Read it at Step 7.2.
+- `multi-repo.md`: the rules for Multi-repo mode. Read it at the start of Step 0, before
+  host detection, when `repos` is not `none`.
+- `worktree.md`: the rules for a run in the detached worktree. Read it as soon as the
+  exception in Step 0.3 applies, before the worktree is created.
+- `ci-watch.md`: Step 7.3 items 1 to 4, reading CI state, which workflows apply, what
+  passes, and polling. Read it at Step 7.3.
 
 ## Mechanics
 
@@ -331,7 +337,7 @@ codex-lite accepts 1 to 3600, so a `codex` value above 60 is reported and capped
    (Step 0.3), `codex-lite:review` reviews the session's checkout, not the worktree, so every
    diff review goes through `codex-lite:ask` with a patch file as item 4 describes, in a
    fresh `codex-lite:ask` thread that becomes the stage's thread. In Multi-repo mode it
-   reviews the primary only; see that section.
+   reviews the primary only; see `multi-repo.md`.
 4. A diff review follow-up goes through `codex-lite:ask` with `--resume <thread id>`, the same
    `--model`, `--timeout`, and a request that names `.ccl/<run-id>/diff.patch`. Refresh the
    file first: mark new files with `git add -N`, then run `git diff <base-commit>` into the
@@ -397,7 +403,8 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
    cites evidence the rejection did not cover.
 7. The skill reviews only the session's checkout. A worktree run is therefore allowed only
    below high tier (Step 0.3 and Step 4.5). In Multi-repo mode the pass covers the primary;
-   each additional repository's Claude slot is the Opus subagent that section describes.
+   each additional repository's Claude slot is the Opus subagent `multi-repo.md`
+   describes.
 
 ### Codex availability and fallback
 
@@ -474,104 +481,8 @@ Only one agent edits a given file at a time. Parallel agents share one working t
 
 ### Multi-repo mode
 
-`repos` names additional writable checkouts. The current checkout is the primary. Read-only
-repositories are not named; agents read them directly. Every rule below changes the step it
-names, for each repository, and leaves the rest of that step as written.
-
-- Host: every repository must be on the same host as the primary: the same class and the
-  same hostname. Classify each with Step 0 host detection, run as `git -C <path>`. A
-  `--repo` checkout on a different host, including a GitHub Enterprise host beside a
-  github.com primary, is a preflight failure naming both hostnames. When the hostname is
-  not `github.com`, every `-R` argument takes the form `<host>/<owner>/<repo>`. On `other`,
-  all repositories end in `prepared` together.
-- Issue references: a bare `#n` always names an issue of the primary. An issue of a `--repo`
-  checkout must be given as a full URL.
-- Worktree: the Step 0.3 worktree exception is not available. A primary with a clean status
-  and skip-worktree or assume-unchanged files that differ from HEAD ends in `blocked`, and
-  the report says so. This keeps Step 5's `codex-lite:review` and `code-review` of the
-  primary correct.
-  Step 0.3's flagged-file check runs per repository. An additional repository whose
-  skip-worktree or assume-unchanged files differ from `HEAD` does not block: the run
-  continues and records those paths in `run.md` under that repository. The report names
-  them as local state that repository's Step 3.7.3 baseline and Step 6 checks ran against.
-  Its review is unaffected, because its patch comes from `git -C <path> diff <base>`,
-  which leaves those paths out.
-- Commit snapshot: with `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in
-  the first repository, the primary first and then the `--repo` order, that has a diff. A
-  repository with no diff never receives it and gets no PR.
-- `.ccl.json`: the primary's governs `commit` and `timeouts`. Each repository's own `checks`
-  list is read for that repository's Step 3.7.3 and Step 6.
-- `gh` and `git` targets: every `gh` call for an additional repository (PR create and edit,
-  checks, CI reads under Step 7.3.1, and issue comments) runs inside one Bash call as `cd
-  <path> && ...`, or with `-R <owner>/<repo>` where the subcommand accepts it. `gh api` does
-  not accept `-R`: run it from the checkout, or spell the endpoint out as
-  `repos/<owner>/<repo>/...` instead of `repos/{owner}/{repo}/...`. Every `git` call for it
-  runs as `git -C <path>`.
-- Step 0.1: read the instruction files and ask-first rules in every repository and union
-  them. The permission statement lists each repository's push and PR.
-- Steps 0.2 to 0.4 run per repository. Record a base commit and a planning snapshot for
-  each.
-- `continue`: the branch must exist on the primary's remote, which the command checks.
-  Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
-  --heads <remote> <branch>`. A repository whose remote has the branch continues it as
-  Step 0.2 says. A repository whose remote lacks it creates it in Step 3.7.2 as a new
-  branch from its default branch, as without `continue`. Different branch names per
-  repository are not supported.
-- Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
-  primary's `.ccl/<run-id>/`, with a section per repository in `inputs.md` and `run.md`.
-- Input guard: an issue may belong to any listed repository. Compare the issue URL's owner
-  and repo with `git -C <path> remote -v` of each listed repository, and record which one.
-- Step 0.5: fetch each issue from its owning repository with `gh issue view <n> -R
-  <owner>/<repo>`.
-- Step 2: name the repository of every slice. No slice spans repositories.
-- Step 3.7: 3.7.2 creates the same branch name in every repository, and the name check runs
-  in every repository, except that with `continue` a repository whose remote has the
-  branch switches to it and skips the name check. 3.7.3 runs a baseline per repository.
-- Step 4: each implementer prompt names the repository path of its slice as the only
-  checkout it edits.
-- Step 5.2: review only repositories that have a diff from their base commit (`git -C <path>
-  diff <base> --stat`, after `git -C <path> add -N` of new files). A repository with an
-  empty diff is skipped and named in `run.md`.
-  - Codex: when the primary has a diff, review it with `codex-lite:review --base <primary
-    base>`; that thread becomes the stage's thread. When no primary review happened, the
-    first additional repository's patch review starts the stage's thread, as a fresh
-    `codex-lite:ask` thread. Every later additional repository resumes it
-    with `codex-lite:ask --resume <stage thread>`, naming `.ccl/<run-id>/diff-<slug>.patch`,
-    written from `git -C <path> diff <base>`, because codex-lite reviews only the session's
-    checkout.
-  - Under `--no-codex` or after a swap, the stage's fallback subagent (Codex availability
-    item 3) is given every repository's patch file, `diff.patch` for the primary and
-    `diff-<slug>.patch` for each additional repository, instead of reading `git diff
-    <base-commit>` itself. Before the first fallback review, write the primary's diff to
-    `.ccl/<run-id>/diff.patch`, after `git add -N` of new files. Step 5.4 and CI repair
-    (Step 7.3.5) continue that same subagent with SendMessage.
-  - Claude, at high tier and above: the `code-review` pass covers the primary when it has a
-    diff, as the Claude review contract says. For each additional repository with a diff,
-    the Claude slot is a Claude subagent at Agent model `opus`, given the repository's patch
-    file, the acceptance criteria, and the reply shape of Reviewer contract item 8, and
-    told to read and report only. This is a defined substitute for a checkout the skill
-    cannot target. It is not a swap. Record it in `run.md` per repository and name it in the
-    report. It is the one Claude pass that is continued rather than fresh: Step 5.4
-    follow-ups continue the same subagent with SendMessage.
-- Step 6: discover and run checks per repository.
-- Step 7: commit and push per repository that has a diff, and open one PR per such
-  repository. Each body has a "Related pull requests" section, with "pending" there in the
-  first PR opened. Then edit each body once with `gh pr edit <n> --body-file` to fill the
-  sibling links. With `continue`, a continued PR gets no body edit: its comment is posted
-  after every PR of the run is open, so its "Related pull requests" section is filled from
-  the start, and the `gh pr edit` pass covers only the PRs this run opened. Watch CI per
-  PR, and comment on each issue with every PR link. `done` needs every PR green. A
-  `blocked` in any repository blocks the run, and no further publication happens in any
-  repository, with one exception: the sibling-link edit of a PR this run already opened
-  still runs, so no PR is left saying "pending". The exception covers only PRs this run
-  opened; a continued PR whose comment was not yet posted gets none. Editing the body of
-  this run's own PR is inside the approval scope and publishes nothing new.
-- Step 7.3.5: a CI repair review for an additional repository uses the Step 5.2 patch rule
-  (Codex through `codex-lite:ask --resume`, and the repository's Claude subagent), never
-  `codex-lite:review`.
-- Closing references: an issue is closed only by the PR in its own repository (`Closes #n`).
-  Every other PR of the run cites it as `Refs <owner>/<repo>#n`. The issue status comment
-  names the PR in the issue's repository first, then the siblings.
+When `repos` is not `none`, read `multi-repo.md` in this skill's base directory at the
+start of Step 0, before host detection, and apply it for the rest of the run.
 
 ## Step 0: preflight
 
@@ -663,58 +574,16 @@ it. Step 0 creates nothing except artifacts.
    its content with `git cat-file --filters HEAD:<path>` (`cmp`), which applies the
    checkout's line-ending conversion so a CRLF working copy is not read as an edit. When
    status and index are clean and at least one flagged path differs, the exception applies:
-   create a detached worktree beside the checkout, at
+   read `worktree.md` in this skill's base directory before creating the worktree, and
+   follow it for the rest of the run. Then create a detached
+   worktree beside the checkout, at
    `<checkout-parent>/<checkout-name>-ccl-<run-id>`, from the base commit with `git worktree
    add --detach`, use it as the run's checkout for every later step, and record it in
    `run.md`. The worktree is never placed inside the checkout: a toolchain that resolves
    dependencies or config by walking parent directories would otherwise read the checkout's
    skip-worktree files, the state the worktree exists to escape. When status is dirty for
    any other reason,
-   the run ends in `blocked` as above. The exception is not available in Multi-repo mode. In
-   this path:
-   - With `continue`, a branch that is checked out in the session's checkout (`git
-     worktree list`) cannot be checked out in the worktree: end `blocked` naming the
-     branch, before the worktree is created. Otherwise Step 3.7.2 switches to it inside
-     the worktree.
-   - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
-     itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
-     before its statement. Record each prompt in `run.md`.
-   - A detached worktree from the base commit has no installed dependencies, build output, or
-     local env files. Before the baseline in Step 3.7.3, run the install step the repository's
-     instruction files or lockfile name (for example `npm ci`) inside the worktree. When none
-     is known and a discovered check fails for that reason, record the check as not run in
-     the worktree with the reason, not as a baseline failure.
-   - Step 0.3 first performs the Ignoring `.ccl/` setup and allocates the run id, the work
-     Step 0.5 would do first, then creates the worktree, so `.ccl/` is ignored before the
-     first write. From then on the run directory exists, so a later preflight failure writes
-     the report as Final report handling item 3 says. The "writes nothing" rule applies only
-     when the run directory does not exist.
-   - A worktree run has two absolute roots, recorded in `run.md`: `<checkout>`, the worktree,
-     and `<artifacts>`, the run directory `.ccl/<run-id>/` under the original checkout.
-   - Every later git command runs as `git -C <checkout> ...`. Every other command that acts
-     on the tree, each repo check (Step 3.7.3, Step 4, Step 5.1, Step 6), the `git add -N`
-     marking, and every `gh` call that reads the current branch, runs inside one Bash call as
-     `cd <checkout> && <command>`, with every path it is given absolute. A bare `cd` that
-     outlives the call is never used.
-   - Step 7.2 opens the PR from `<checkout>` with the branch named explicitly (`cd
-     <checkout> && gh pr create --head <branch> --body-file <artifacts>/pr-body.md ...`).
-   - Every artifact path, including `diff.patch` and the `specs/ccl/<run-id>/` copy source of
-     Step 7.1, is written under `<artifacts>`. Every Codex request names files by their path
-     relative to the session's checkout (`.ccl/<run-id>/diff.patch`), which is where Codex
-     runs.
-   - Every implementer prompt and fallback reviewer prompt names `<checkout>` as the only
-     checkout to edit or read (`git -C <checkout> diff <base-commit>`). `diff.patch` is
-     produced from `<checkout>` into `<artifacts>`.
-   - Because codex-lite reviews the session's checkout, every diff review goes through
-     `codex-lite:ask` with `diff.patch`, in a fresh `codex-lite:ask` thread that becomes the
-     stage's thread.
-   - Because the Claude `code-review` skill also reviews only the session's checkout, a
-     worktree run is allowed only below high tier. When Step 1.5 sets high or above, or Step
-     4.5 raises the run to high, the run ends in `blocked` naming the skip-worktree
-     state and the tier, before anything is implemented in the first case and before Step 5
-     in the second.
-   - At the terminal state the worktree is kept. The report names its path and how to remove
-     it (`git worktree remove <path>`).
+   the run ends in `blocked` as above. The exception is not available in Multi-repo mode.
 4. Record `HEAD` as the planning snapshot. If it is not the base commit, say so in `run.md`
    once Step 0.5 creates it. Steps 1 and 2 read the snapshot, and Step 3.7.1 reverifies against
    the base commit.
@@ -917,7 +786,8 @@ is listed as the Claude review contract says before 5.1 runs.
    resolved; and at high tier and above, the Claude reviewer with `code-review` at the
    tier's level as the Claude review contract describes. Make no edit between the two
    passes, so both saw the same diff. The round is complete only when both have returned.
-   For additional repositories in Multi-repo mode, follow the Step 5.2 rules in that section.
+   For additional repositories in Multi-repo mode, follow the Step 5.2 rules in
+   `multi-repo.md`.
 3. Merge the findings into one list, keeping each finding's source, and drop duplicates that
    name the same defect. Verify each before acting on it, and decide whether it is
    blocking. Fix confirmed blocking findings. Fix a confirmed non-blocking finding only when
@@ -930,8 +800,8 @@ is listed as the Claude review contract says before 5.1 runs.
 4. After the fixes, run the next round: resend Codex in the same thread with `codex-lite:ask
    --resume <thread id>` and `diff.patch`, and at high tier and above rerun the Claude
    reviewer fresh at the same level. In Multi-repo mode, resend each additional repository's
-   patch the same way, and continue its Claude subagent with SendMessage, as that section
-   says. Repeat until no reviewer has a confirmed blocking
+   patch the same way, and continue its Claude subagent with SendMessage, as
+   `multi-repo.md` says. Repeat until no reviewer has a confirmed blocking
    finding, with one shared cap of 3 rounds for the stage. So at most two rounds fix
    anything, and the third can only confirm. A confirmed blocking finding in the third
    round ends the run in `blocked`; there is no orchestrator fix after the Step 5 cap,
@@ -988,8 +858,8 @@ anything is pushed, stop Step 7 and end in `prepared`.
 2. Push the branch to the selected remote (`git push -u <remote> <branch>`, never
    forced) and open one PR against the default branch. In Multi-repo mode, open one PR per
    repository that has a diff, each body with a "Related pull requests" section, then edit
-   each body once to link the siblings, as that section describes. Before pushing, check
-   whether the push or the PR would trigger a deploy
+   each body once to link the siblings, as `multi-repo.md` describes. Before
+   pushing, check whether the push or the PR would trigger a deploy
    (workflows that run on `push` or `pull_request` and deploy or release). If so, ask first.
    Read `pr-body.md` in this skill's base directory, write the body to
    `.ccl/<run-id>/pr-body.md`, and pass it with `gh pr create --body-file`. The body has what
@@ -1011,72 +881,8 @@ anything is pushed, stop Step 7 and end in `prepared`.
    - With no PR, open one with `gh pr create --head <branch>` and the other arguments as
      above.
 3. Watch CI:
-   1. Read these with `gh`, all readable with read access. If any read fails, CI cannot be
-      verified: end in `blocked`, naming the failed read. Never treat a failed read as "nothing
-      is required".
-      - Required checks: `gh api repos/{owner}/{repo}/branches/<base> --jq .protection` gives
-        `required_status_checks` (`contexts`, and `checks` with `app_id`). `<base>` is the
-        PR's base branch (Step 0.2 records it with `continue`). Do not read the
-        `/protection` endpoint, which returns 404 without admin rights.
-        `gh api repos/{owner}/{repo}/rules/branches/<base>` gives the active rules, including
-        organization rulesets: its `required_status_checks` rules add required checks and its
-        `workflows` rules name required workflows by file path and repository. A required check
-        is a name and, when set, the app that must report it.
-      - The PR: `gh pr view <n> --json headRefOid,mergeable` for the head SHA and merge state,
-        and `gh api repos/{owner}/{repo}/pulls/<n> --jq .merge_commit_sha` for the test merge
-        commit. A missing `merge_commit_sha` is read again on the next poll.
-      - Results, for the head commit and the test merge commit:
-        `gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?filter=latest&per_page=100"`
-        (page on when `total_count` exceeds 100) and
-        `gh api repos/{owner}/{repo}/commits/<sha>/status`, which gives the latest status per
-        context. Only the latest result counts: the latest status per context, and the latest
-        attempt of each check run within its own check suite, so same-named checks from
-        different workflows are judged separately. Earlier attempts are report history only.
-      - Required workflows: `gh api "repos/{owner}/{repo}/actions/runs?head_sha=<head sha>"`,
-        comparing each run's `path` and repository with the rule's workflow file path and
-        `repository_id`.
-      Read both commits again after every push.
-   2. A workflow applies to the PR when it triggers on pull requests, its `branches`,
-      `branches-ignore`, `paths`, and `paths-ignore` filters match the PR's base branch and
-      changed files, and its `types` filter, when present, includes the event the watched head
-      commit produced: `opened` for the first watch after the PR is created, `synchronize`
-      for the first watch when the PR already existed (`continue`) and after a CI repair
-      push to the open PR. A filter that cannot be evaluated with
-      confidence counts as a match. A workflow triggered by `pull_request` (not
-      `pull_request_target`) does not apply when the PR head commit's message carries a skip
-      instruction: `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, or
-      a `skip-checks:true` or `skip-checks: true` trailer. The report names each workflow a
-      skip instruction made not applicable. A required check stays required either way.
-      Expected deferred checks are a separate set: every check Step 6 deferred to CI whose
-      workflow applies, matched by job name. A deferred check whose workflow does not apply is
-      named in the report as not triggered, with the filter that excluded it, unless it is
-      also a required check.
-   3. A result passes when it is `success`, `neutral`, or `skipped`. Any other finished
-      result is a failure: `failure`, `cancelled`, `timed_out`, `action_required`, `stale`, or
-      a commit status of `failure` or `error`. The gated commit is the test merge commit when
-      it has any status or check run, else the head commit, because GitHub judges required
-      checks on the test merge commit when it has a status. A required check is met when its
-      latest result on the gated commit passes, from the required app when one is set, and,
-      when the name exists both as a check run and as a status, both pass. A required app is
-      verified from a check run's app. A commit status carries no app, so when a required check
-      names an app and only a status carries that name, its source cannot be verified: end in
-      `blocked` at once, naming the check, rather than risk `done` while GitHub rejects the
-      source. A required workflow is met when its latest run for the head commit, matched by
-      the rule's workflow file path and repository, passes. A match that cannot be confirmed
-      counts as unmet and is named in the report.
-   4. Poll at about 30 second intervals, checking the run budget each time. CI is not judged
-      until 2 minutes after the push. If `mergeable` is `CONFLICTING`, `pull_request`
-      workflows do not run: end in `blocked` at once, naming the conflict. CI is green when
-      every required check and required workflow is met, every expected deferred check has
-      passed on the head commit, every applicable workflow has reported at least one check on
-      the head commit, and every latest result on either commit has finished and passed. That
-      is stricter than GitHub's merge gate, on purpose: the loop publishes only fully green
-      work, and the report says so when an optional check blocked it. Anything unmet or not
-      yet reported is pending until the CI budget expires, then `blocked`. A failure in a
-      latest result is a CI failure. CI is not applicable only when there are no required
-      checks or workflows, no workflow applies, no deferred check is expected, and no result
-      has appeared on either commit within 2 minutes of the push; the report says so. A result
-      that appears on either commit keeps the watch open until it finishes.
+   Read `ci-watch.md` in this skill's base directory at this step. It holds sub-items 1
+   to 4; sub-item 5 below follows them.
    5. A CI failure that needs a code change re-enters Step 5 (your own review at low tier)
       and Step 6 for the new diff, with the round allowance the Budgets section gives each
       cycle, one Step 5 round holding every reviewer the stage has, before the fix is pushed.

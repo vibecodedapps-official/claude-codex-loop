@@ -14,7 +14,7 @@ each stage uses at each tier.
 | Orchestrator and primary reviewer | The session's current Claude model (Opus or Fable) | none, the run stops |
 | Codex reviewer, `gpt-6.1-sol` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6.1-sol` | Agent tool, model `opus` |
 | Codex reviewer, `gpt-6-astra` | Skill tool, `codex-lite:ask` or `codex-lite:review`, model `gpt-6-astra` | Agent tool, model `fable`; on an error from that call, model `opus` |
-| Claude reviewer (Step 5, high tier and above) | Skill tool, `code-review`, at the tier's level; in Multi-repo mode, an Opus subagent for each additional repository, as the Multi-repo mode section of `SKILL.md` describes | none; if the skill is not listed when the stage starts, the run ends in `blocked` |
+| Claude reviewer (Step 5, high tier and above) | Skill tool, `code-review`, at the tier's level; in Multi-repo mode, an Opus subagent for each additional repository, as `multi-repo.md` describes | none; if the skill is not listed when the stage starts, the run ends in `blocked` |
 | Implementer, low, medium, and high tier | Agent tool model `sonnet` | none, the run stops |
 | Implementer, xhigh and max tier | Agent tool model `sonnet`, or `opus` when the Opus criteria apply to the slice | on a tool error from an `opus` call, `sonnet`, and the error is recorded |
 
