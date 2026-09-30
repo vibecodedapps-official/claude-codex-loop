@@ -475,6 +475,12 @@ names, for each repository, and leaves the rest of that step as written.
   and skip-worktree or assume-unchanged files that differ from HEAD ends in `blocked`, and
   the report says so. This keeps Step 5's `codex-lite:review` and `code-review` of the
   primary correct.
+  Step 0.3's flagged-file check runs per repository. An additional repository whose
+  skip-worktree or assume-unchanged files differ from `HEAD` does not block: the run
+  continues and records those paths in `run.md` under that repository. The report names
+  them as local state that repository's Step 3.7.3 baseline and Step 6 checks ran against.
+  Its review is unaffected, because its patch comes from `git -C <path> diff <base>`,
+  which leaves those paths out.
 - Commit snapshot: with `"commit": true`, the `specs/ccl/<run-id>/` snapshot is committed in
   the first repository, the primary first and then the `--repo` order, that has a diff. A
   repository with no diff never receives it and gets no PR.
@@ -719,6 +725,12 @@ changes the tree.
    plan against the corrected text, and put the correction in the PR body.
 4. Mark each input as buildable here, partial, or blocked, with the reason, in `inputs.md`.
    Partial and blocked inputs stay in the run and are reported per input.
+   When `repos` is `none` and the work would need edits to files outside the primary
+   checkout (an input names another writable repository, or a path inside another git
+   checkout), the run ends in `blocked` here, before item 5 and Step 2. The report gives
+   the rerun command: the same inputs and flags plus one `--repo <path>` per repository,
+   with the path when an input names it and `<path-to-owner/repo>` otherwise. A repository
+   the work only reads is not flagged. Never adopt Multi-repo mode from prose.
 5. Read `tiers.md`. Estimate effort with its estimate rule, apply the risk floor, and record
    the tier and the reason in `inputs.md`. With `--effort` set, skip the estimate and force
    that tier, but still apply the risk floor: `--effort` cannot lower a task below it, so a
@@ -1061,7 +1073,7 @@ At every terminal state:
       create` command (omitted with `continue` when the branch has an open PR); on any
       other host the note that the pull request is opened with the host's own tooling.
       With `continue`, that the run continued an existing branch and which PR it commented
-      on.
+      on. For an additional repository, the flagged paths from the Worktree rule.
    2. Attended or unattended, and the prompts that occurred.
    3. Effort tier and why, including any risk floor, any re-evaluation, and the Step 5
       reviewers it resolved.
