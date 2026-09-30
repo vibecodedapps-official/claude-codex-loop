@@ -170,14 +170,19 @@ force and its source.
 
 Enforcement:
 
-1. At the start of Step 0, run `date` and record the start time. Run `date` before every step
-   and before every call, and compare against the run budget. Record the budget in force and
-   its source in `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises
-   it, or a session instruction changes it.
+1. Run `date -u +%Y-%m-%dT%H:%M:%SZ` at the start of Step 0, at the start of each step
+   that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
+   SendMessage, each Codex call, each `code-review` pass, each check, each CI poll), and
+   at the terminal state, and nowhere else. Use that one format for the whole run. Compare
+   the run budget at each of those points. Copy each time written to `run.md` from that
+   command's output, never from memory or from arithmetic on earlier entries. Compute
+   elapsed time from two recorded outputs. Record the budget in force and its source in
+   `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises it, or a
+   session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex. Where the tool takes no
-   timeout (Agent, Workflow, SendMessage), run `date` before and after the call and treat a
-   call that returns past its budget as expired.
+   timeout (Agent, Workflow, SendMessage), use the `date` times that item 1 requires
+   before and after the call, and treat a call that returns past its budget as expired.
 3. The Bash tool caps a foreground call at 10 minutes. A check with a longer budget runs in
    the background and is stopped with TaskStop when its budget expires.
 4. On expiry the step or call is cancelled, its output so far is kept, and the run ends in
@@ -371,8 +376,9 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
    `git diff HEAD` shows intent-to-add files. The range target was verified on 2026-09-30
    with Claude Code 2.1.284 at low, medium, high, and xhigh, in the Step 5 state and the
    CI repair state; acceptance item 58 rechecks it after an upgrade.
-4. Run it under the subagent budget: run `date` before and after, and treat a call that
-   returns past the budget as expired (Budgets, enforcement 4).
+4. Run it under the subagent budget: take the `date` times that Budgets, enforcement 1
+   requires before and after, and treat a call that returns past the budget as expired
+   (Budgets, enforcement 4).
 5. Its output is a findings list, or a statement that it found nothing. Use it as it comes.
    Record in `run.md` the stage, round, level, the diff covered, and the result, clean or
    the findings count, so the report can show the pass ran. A pass that returns an error
