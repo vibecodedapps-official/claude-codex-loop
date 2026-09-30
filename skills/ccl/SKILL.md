@@ -348,15 +348,19 @@ fixed slot beside the Codex slot in Step 5, not a fallback, and nothing replaces
    argument, always explicit, because the skill reuses the last typed level when none is
    given. Never pass `--comment` (no PR exists at Step 5, and comments are ask-first) and
    never `--fix` (fixes go to the implementer through Step 5.3).
-3. On every pass, pass the level and then the base commit as the target, so the review
-   covers the same diff Codex sees: the base commit to the working tree, committed and
-   uncommitted. Never pass the level alone. Without a target the skill picks its own
-   range, the upstream, else local `main`, else `HEAD~1`, plus uncommitted changes; the
-   work branch has no upstream before the push, and a local `main` behind the fetched
-   base would put unrelated commits under review, which breaks the shared-diff rule and
-   can raise blocking findings the task did not cause. Mark new files with `git add -N`
-   first, as for Codex. Whether the skill honors a commit as its target is unverified;
-   acceptance item 58 checks it with a stale local `main`.
+3. On every pass, pass the level first and then the range `<base-commit>...HEAD` as the
+   target, with the full base SHA, so the review covers the same diff Codex sees: the base
+   commit to the working tree, committed and uncommitted. With that target the skill runs
+   `git diff <base-commit>...HEAD` and `git diff HEAD`, which together cover both. Never
+   pass the level alone. Without a target the skill picks its own range, the upstream,
+   else local `main`, else `HEAD~1`, plus uncommitted changes; the work branch has no
+   upstream before the push, and a local `main` behind the fetched base would put
+   unrelated commits under review, which breaks the shared-diff rule and can raise
+   blocking findings the task did not cause. Never pass a bare commit: the skill then
+   reviews only that commit. Mark new files with `git add -N` first, as for Codex, because
+   `git diff HEAD` shows intent-to-add files. The range target was verified on 2026-09-30
+   with Claude Code 2.1.284 at low, medium, high, and xhigh, in the Step 5 state and the
+   CI repair state; acceptance item 58 rechecks it after an upgrade.
 4. Run it under the subagent budget: run `date` before and after, and treat a call that
    returns past the budget as expired (Budgets, enforcement 4).
 5. Its output is a findings list, or a statement that it found nothing. Use it as it comes.
@@ -966,7 +970,7 @@ anything is pushed, stop Step 7 and end in `prepared`.
       the Codex thread with `codex-lite:ask --resume` when Codex reviewed Step 5, else the
       fallback subagent under Codex availability item 3; never `codex-lite:review`. At
       high tier and above, also rerun the Claude reviewer fresh at the tier's level with the
-      base commit as its target, as on every pass. At low tier the repair
+      range `<base-commit>...HEAD` as its target, as on every pass. At low tier the repair
       gets your own review only. Up to 3 CI repair cycles. If CI is still red after the
       third, end in `blocked` with the PR linked and nothing further pushed.
 4. Comment on each source issue with status and evidence, including partial completion, in
