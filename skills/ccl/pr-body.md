@@ -21,7 +21,10 @@ the code showed, and the plan that followed. Write "none" when nothing drifted.>
 ## Decisions for the reviewer
 
 <Decisions a reviewer needs to understand the shipped change: design choices, options
-rejected and why, behavior a reader could take for a bug. Not a log of the run.>
+rejected and why, behavior a reader could take for a bug. Not a log of the run. When
+this run opens the PR for a continued branch and the branch has earlier commits beyond
+the default branch (Step 7.2), one sentence says the branch carries that many earlier
+commits this run did not review.>
 
 ## Checks not run
 

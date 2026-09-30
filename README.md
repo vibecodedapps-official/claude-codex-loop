@@ -124,7 +124,9 @@ The remaining text, joined, is one ad-hoc description.
   ends the run in `plan-only`. The wait does not count against the run budget. The run is
   attended.
 - `--no-codex`: use the Claude fallbacks even if Codex is installed.
-- `--no-publish` (`/ccl:run` only): withhold Step 7. The run ends in `prepared`.
+- `--no-publish` (`/ccl:run` only): withhold Step 7. The run ends in `prepared`. With
+  `--continue`, closed, merged, or several open pull requests on the branch are recorded
+  in the report instead of failing preflight.
 - `--run-budget <minutes>`: the run budget for this run, a positive integer.
 - `--repo <path>`: an additional writable checkout. Repeatable. See Multi-repo mode.
 - `--branch <name>`: the branch to work on. The default is a new branch off the
@@ -133,9 +135,11 @@ The remaining text, joined, is one ad-hoc description.
 - `--continue <branch>`: continue an existing remote branch. The base is that branch's
   remote head, no new branch is created, and the push is never forced. If the branch has
   an open PR, the run posts the PR description it would have opened with as one comment
-  on that PR and does not open one. If it has none, the run opens a PR. It is rejected
+  on that PR and does not open one. If it has none, the run opens a PR, and the body
+  says how many earlier commits of the branch this run did not review. It is rejected
   with `--branch`, and it is not repair mode: the run reads no review comments and no CI
-  state from before the run. A value that starts with `-`, contains `@{`, or fails `git
+  state from before the run. A value that starts with `-`, contains `@{`, has a
+  character other than letters, digits, `.`, `_`, `/`, and `-`, or fails `git
   check-ref-format --branch` is rejected. A branch checked out in a worktree the run will
   not use fails preflight. `HEAD` of the checkout must be at the branch's remote head, on
   the branch or detached at it (`git switch --detach <remote>/<branch>`), or preflight
@@ -193,8 +197,8 @@ directly. In this mode:
   state that repository's baseline and checks ran against. No slice may edit them: a
   plan that needs to ends in `blocked` at Step 2, naming the path.
 - With `--continue`, the branch must exist on the primary. Each additional repository
-  continues it where its remote has it, and creates it otherwise. All repositories use one
-  branch name.
+  continues it where its remote has it, and creates it under the same name otherwise. All
+  repositories use one branch name.
 
 ## Repo config: `.ccl.json`
 
@@ -302,8 +306,9 @@ Every run ends in exactly one state.
   host, or by your answer to a Step 7 ask-first prompt that was anything other than a
   clear yes. The report names the branch, the commit state, and the commands to
   publish. With `--continue` the push command is `git push <remote> <branch>`, and when
-  the branch has an open PR the report gives `gh pr comment <n> --body-file <absolute
-  path>` in place of `gh pr create`. It is not a failure.
+  the branch has one open PR the report gives `gh pr comment <n> --body-file <absolute
+  path>` in place of `gh pr create`; with several open PRs under `--no-publish` it names
+  them. It is not a failure.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.
 - `stopped`: the run stopped to ask you a question it cannot decide, or a requested

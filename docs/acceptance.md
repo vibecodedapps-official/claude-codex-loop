@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 114 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 118 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -538,8 +538,8 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
 
 ## M7: 0.6.0, 2026-09-30
 
-Setup for items 83 to 114: the common setup, plus the setup each item names. Items 83 to
-99 and 101 to 114 are hand runs against throwaway repos and cannot run inside a ccl run.
+Setup for items 83 to 118: the common setup, plus the setup each item names. Items 83 to
+99 and 101 to 118 are hand runs against throwaway repos and cannot run inside a ccl run.
 Item 100 is a static check of the plugin files and needs no repo. In an item that
 continues a branch, "the branch" is already pushed to the remote with one commit, "the
 remote head" is that branch's head on the remote, and the session's checkout is on the
@@ -696,7 +696,8 @@ branch or detached at the remote head unless the item says otherwise.
      Step 6. Rerun after any edit that moves text between these files.
 101. **A `--continue` value that is not a branch name is rejected by the command.**
      Command: `/ccl:run #1 --continue -x`, `/ccl:run #1 --continue 'a@{1}'`, `/ccl:run #1
-     --continue 'a..b'`, and `/ccl:plan #1 --continue 'a..b'`. Expected: each is rejected
+     --continue 'a..b'`, `/ccl:run #1 --continue 'a;b'`, `/ccl:run #1 --continue 'a$b'`,
+     and `/ccl:plan #1 --continue 'a..b'`. Expected: each is rejected
      before Step 0 with a one-line message naming the value, the skill not loaded, and no
      file written. Then `/ccl:run #1 --no-codex --continue t83` with a valid pushed
      branch is not rejected for its name. Rerun after any change to the commands' flag
@@ -792,6 +793,28 @@ branch or detached at the remote head unless the item says otherwise.
      checkout with `--body-file` set to an absolute path under the original checkout's
      `.ccl/<run-id>/`, and the comment posts. Rerun after any change to Step 7.2 or
      `worktree.md`.
+115. **A repository that lacks the continued branch creates it under that name.** Setup:
+     Multi-repo mode with a second checkout whose remote lacks branch `t115`, and the
+     primary's remote has it. Command: `/ccl:run #1 --no-codex --continue t115 --repo
+     <path>`. Expected: both repositories end on a branch named `t115`, with no derived
+     `feat/...` name, and the collision check runs for the second repository. Rerun after
+     any change to Step 3.7.2 or `multi-repo.md`.
+116. **A PR opened for a continued branch names the unreviewed commits.** Setup: branch
+     `t116` pushed with two commits beyond the default branch and no open PR. Command:
+     `/ccl:run #1 --no-codex --continue t116`. Expected: the PR opens against the default
+     branch, and its body says under "Decisions for the reviewer" that the branch carries
+     2 earlier commits this run did not review. Rerun after any change to Step 7.2 or
+     `pr-body.md`.
+117. **A `--no-publish` run records pull request states instead of failing.** Setup:
+     branch `t117` pushed with two open PRs. Command: `/ccl:run #1 --no-codex --no-publish
+     --continue t117`. Expected: preflight passes, `prepared` is reached, and the report
+     names both PRs and gives no `gh pr comment` command. Repeat with only a closed PR
+     and expect the same pass. Repeat with a local `t117` that differs from the remote
+     and expect a preflight failure. Rerun after any change to Step 0.2.
+118. **The PR list covers more than 30 pull requests.** Setup: a branch with 31 closed
+     PRs and one open PR, all from this repository. Command: `/ccl:run #1 --no-codex
+     --continue t118`. Expected: the tool trace shows `gh pr list` with `--limit 100`, and
+     the run finds the open PR. Rerun after any change to Step 0.2.
 
 ## Record of runs
 

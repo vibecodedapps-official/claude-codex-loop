@@ -54,7 +54,8 @@ names, for each repository, and leaves the rest of that step as written.
   Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
   --heads <remote> refs/heads/<branch>`. A repository whose remote has the branch
   continues it as Step 0.2 says. A repository whose remote lacks it creates it in Step
-  3.7.2 as a new branch from its default branch, as without `continue`. Step 0.2's `HEAD`
+  3.7.2 as a new branch from its default branch, under the `continue` name, with the
+  collision check for that name and not the naming rule. Step 0.2's `HEAD`
   requirement applies to each repository that continues it. Different branch names per
   repository are not supported.
 - Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
@@ -66,7 +67,8 @@ names, for each repository, and leaves the rest of that step as written.
 - Step 2: name the repository of every slice. No slice spans repositories.
 - Step 3.7: 3.7.2 creates the same branch name in every repository, and the name check runs
   in every repository, except that with `continue` a repository whose remote has the
-  branch switches to it and skips the name check. 3.7.3 runs a baseline per repository.
+  branch switches to it and skips the name check, and one whose remote lacks it uses the
+  `continue` name. 3.7.3 runs a baseline per repository.
 - Step 4: each implementer prompt names the repository path of its slice as the only
   checkout it edits.
 - Step 5.2: review only repositories that have a diff from their base commit (`git -C <path>

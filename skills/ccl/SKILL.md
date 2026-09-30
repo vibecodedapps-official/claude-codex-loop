@@ -216,10 +216,11 @@ every one of them and follow Final report handling below.
   `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
   says the snapshot there is provisional), the `git push -u <remote> <branch>` command
   (`git push <remote> <branch>` with `continue`), and, on the `github` host, the `gh pr
-  create` command; with `continue` and an open PR, the `gh pr comment <n> --body-file
-  <path>` command in its place, with the absolute path of the written body file; on any
-  other host, a note that the pull request is opened with the host's own tooling,
-  which this version does not drive.
+  create` command; with `continue` and one open PR, the `gh pr comment <n> --body-file
+  <path>` command in its place, with the absolute path of the written body file; with
+  `continue`, `--no-publish`, and several open PRs, the PRs found in place of a `gh pr
+  comment` command; on any other host, a note that the pull request is opened with the
+  host's own tooling, which this version does not drive.
   `prepared` is not a failure.
 - `blocked`: a blocking defect, a denied permission, a budget exceeded, or a preflight
   failure. The report says what and what would unblock it.
@@ -292,9 +293,11 @@ Two internal working files are also written under `.ccl/<run-id>/` and never com
 `pr-body-<slug>.md` per additional repository in Multi-repo mode) and any request text
 moved into a file (see Failure rules).
 
-Every artifact path passed to a command, for example `--body-file`, is the absolute path
-of the file in the run directory under the session's original checkout, because a
-worktree run and Multi-repo mode run commands from another directory.
+Every artifact path passed as an argument to a shell command, for example `--body-file`,
+is the absolute path of the file in the run directory under the session's original
+checkout, because a worktree run and Multi-repo mode run commands from another directory.
+Request text for Codex is not a command argument: it keeps naming files relative to the
+session's checkout, as the Reviewer contract says.
 
 `run.md` is the durable record the report is compiled from, because your context may be
 summarized by then. It holds: the run start time; the base commit and the planning snapshot;
@@ -581,7 +584,7 @@ it. Step 0 creates nothing except artifacts.
    uses the session's checkout, unless Step 0.3 creates a worktree, where `worktree.md`
    makes the session's checkout a failure too, so a session on the branch blocks a
    worktree run and one detached at the base commit does not. On `github`, read the pull
-   requests of the branch with `gh pr list --head <branch> --state all --json
+   requests of the branch with `gh pr list --head <branch> --state all --limit 100 --json
    number,state,baseRefName,url,headRepositoryOwner`, and keep only the entries whose
    `headRepositoryOwner` is this repository's owner, so a fork's branch of the same name
    is ignored. On `other`, read no pull request. Then:
@@ -594,7 +597,11 @@ it. Step 0 creates nothing except artifacts.
 
    In a plan-only run, a local branch that differs from the remote, a branch checked out
    in another worktree, and the pull request failures above do not fail the run: record
-   each in `run.md` and in the report. The `HEAD` requirement above still applies.
+   each in `run.md` and in the report. The `HEAD` requirement above still applies. A
+   `--no-publish` run never publishes, so the pull request failures above (only closed or
+   merged pull requests, or several open ones) do not fail it either: record them in
+   `run.md` and in the report. The local branch and worktree failures stay for it,
+   because it still switches to the branch and commits locally.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
    (untracked files that are not ignored count as dirty) and `git diff --cached --quiet`
    passes. If either is dirty, stop with `blocked` and say what is dirty. Do not stash.
@@ -750,7 +757,10 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    With `continue`, in each repository that continues the branch, skip the naming and the
    collision check, and switch to the branch instead of creating it: `git switch <branch>`
    when it exists locally, else `git switch -c <branch> <base-commit>`. In a worktree run,
-   use `git -C <checkout> switch` for this.
+   use `git -C <checkout> switch` for this. In Multi-repo mode, a repository whose remote
+   lacks the branch does not use the naming rule: it creates the branch under the
+   `continue` value with `git switch -c <branch> <base-commit>`, after the collision check
+   for that name.
 3. Discover the repo's checks as Step 6.1 lists, record them in `run.md`, and run each once on
    the base commit. This is the baseline. A check that fails here is pre-existing and is
    reported, not fixed. Record the failing output as the baseline evidence for that check.
@@ -883,8 +893,8 @@ is listed as the Claude review contract says before 5.1 runs.
 Publish runs only when no blocking defect is open and Step 6 passes. Otherwise end in
 `blocked`, with no further publication (see Terminal states). Step 7 runs only on the
 `github` host and when `--no-publish` is not set. Otherwise the run ends in `prepared` here.
-When a run with `continue` ends `prepared` and its branch has an open PR, and Step 7.2 has
-not written the body, read `pr-body.md` and write the continued-PR body first, so the
+When a run with `continue` ends `prepared` and its branch has one open PR, and Step 7.2
+has not written the body, read `pr-body.md` and write the continued-PR body first, so the
 report can give the `gh pr comment` command. Each repository's body is written to its own
 path under `.ccl/<run-id>/`, as `multi-repo.md` gives it: `pr-body.md` for the primary
 and `pr-body-<slug>.md` for each additional repository.
@@ -926,7 +936,10 @@ anything is pushed, stop Step 7 and end in `prepared`.
      primary, `pr-body-<slug>.md` for an additional repository. Never edit that PR's body:
      it belongs to the PR's author.
    - With no PR, open one with `gh pr create --head <branch>` and the other arguments as
-     above.
+     above. When `git log --oneline <remote>/<default-branch>..<base-commit>` is not empty
+     in that repository, the body says, in "Decisions for the reviewer", that the branch
+     carries that many earlier commits this run did not review. Closing references keep
+     their rules.
 3. Watch CI:
    Read `ci-watch.md` in this skill's base directory at this step. It holds sub-items 1
    to 4; sub-item 5 below follows them.
@@ -965,9 +978,10 @@ At every terminal state:
    1. Terminal state, PR link or links, CI state, host, run budget in force with its source,
       worktree path when one exists, and for `prepared` the branch, commit state, the commit
       commands when uncommitted, the push command, and, on the `github` host, the `gh pr
-      create` command (with `continue` and an open PR, the `gh pr comment <n> --body-file
-      <path>` command instead, with the absolute path of the written body file); on any
-      other host the note that the pull request is opened with the host's own tooling.
+      create` command (with `continue` and one open PR, the `gh pr comment <n> --body-file
+      <path>` command instead, with the absolute path of the written body file; with
+      several open PRs, the PRs found instead); on any other host the note that the pull
+      request is opened with the host's own tooling.
       With `continue`, that the run continued an existing branch and which PR it commented
       on. For an additional repository, the flagged paths from the Worktree rule.
    2. Attended or unattended, and the prompts that occurred.

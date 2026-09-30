@@ -549,8 +549,9 @@ taught it where there is one.
    check queries `refs/heads/<branch>`, because `git ls-remote --heads <remote> <branch>`
    with a bare name matches any ref whose path ends in it (reproduced on 2026-09-30), and
    this covers the Step 3.7.2 new-branch collision check that predates `--continue`. The
-   flag value is rejected when it starts with `-`, contains `@{`, or fails `git
-   check-ref-format --branch`, so it cannot act as an option or a revision expression.
+   flag value is rejected when it starts with `-`, contains `@{`, has a character other
+   than letters, digits, `.`, `_`, `/`, and `-`, or fails `git check-ref-format --branch`,
+   so it cannot act as an option or a revision expression.
    Step 0.2 fails a branch that another worktree has checked out, because `git switch`
    refuses it. With `--continue`, `HEAD` of the session's checkout must be at the base
    commit, on the branch or detached at it, or Step 0.2 fails with the `git switch`
@@ -573,7 +574,17 @@ taught it where there is one.
    which a single-branch clone does not. A plan-only run needs `HEAD` at the remote head
    too, so its relaxation for a differing local branch applies only with `HEAD`
    detached there. A reverification that needs a revision with no Step 3 round left ends
-   in `blocked`. Every artifact path passed to a command is absolute. Issue #16.
+   in `blocked`. Every artifact path passed as an argument to a shell command is absolute;
+   request text for Codex keeps naming files relative to the session's checkout. A
+   further review added five rules. A repository whose remote lacks the branch creates it
+   under the `continue` name, with the collision check, because the naming rule would
+   derive a different name. A PR the run opens for a continued branch says how many
+   earlier commits of the branch the run did not review, because its body covers only
+   this run's diff. A `--no-publish` run records the closed, merged, and several-open
+   pull request cases instead of failing, because it never publishes; its local branch
+   and worktree failures stay, because it still switches and commits. The pull request
+   list takes `--limit 100`, because `gh` returns 30 by default. The flag value also
+   rejects shell metacharacters, because it is placed into many shell commands. Issue #16.
 3. **The run never adopts Multi-repo mode from prose, and an additional repository with
    skip-worktree edits continues.** A task that named other writable repositories in prose
    ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,
@@ -627,9 +638,10 @@ taught it where there is one.
    The worktree run is in `worktree.md`, Multi-repo mode in `multi-repo.md`, and the CI
    watch details (Step 7.3 items 1 to 4) in `ci-watch.md`. SKILL.md keeps a pointer at
    each place. The non-GitHub host paragraph stayed, because it is about six lines and a
-   pointer costs about as much. The commit moves text only: every removed line is in a
-   new file verbatim, and the only new text is the pointers and the cross-references that
-   named the old sections. On a default single-repository GitHub run, the lines read
+   pointer costs about as much. The move commit changes no rule: every removed line is in
+   a new file verbatim, and the only new text is the pointers and the cross-references
+   that named the old sections. Later 0.6.0 commits changed rules in these files, and
+   items 2 and 3 list them. On a default single-repository GitHub run, the lines read
    through Step 6 (SKILL.md and `tiers.md`) were 1,186 at 0.5.1, 1,309 before the move on
    this branch, and 1,115 after. In total, adding `report.md`, `pr-body.md`, and after
    the move `ci-watch.md`, they were 1,409 at 0.5.1, 1,553 before the move, and 1,431
