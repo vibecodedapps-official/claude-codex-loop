@@ -66,6 +66,7 @@ inputs:
 flags:
   effort: auto | low | medium | high | xhigh | max
   plan-only: true | false
+  confirm-plan: true | false
   no-codex: true | false
   branch: <name> | default
   continue: <branch> | none
@@ -77,11 +78,12 @@ flags:
 The run is plan-only when `mode` is `plan-only` or the `plan-only` flag is `true`. Step 0.5
 writes this block, with a timestamp, as the first section of `inputs.md`. Both modes run
 build mode. Repair mode and merging are not part of this version. The only worktree use is
-the narrow one in Step 0.3. `--no-publish` withholds Step 7. `continue` names an existing
-remote branch that the run continues instead of creating one; see Step 0.2 and Step 7.2.
-It is not repair mode: the run reads no review comments and no CI state from before the
-run. `--run-budget` sets the run budget in minutes. `repos` lists additional writable
-checkouts; see Multi-repo mode.
+the narrow one in Step 0.3. `--no-publish` withholds Step 7. `--confirm-plan` pauses once
+the plan is final and asks the user to approve it before anything is implemented; see Step
+3.5. `continue` names an existing remote branch that the run continues instead of creating
+one; see Step 0.2 and Step 7.2. It is not repair mode: the run reads no review comments
+and no CI state from before the run. `--run-budget` sets the run budget in minutes.
+`repos` lists additional writable checkouts; see Multi-repo mode.
 
 ## Tools
 
@@ -151,7 +153,8 @@ Rounds:
    only when both have finished.
 2. The orchestrator's single fix after the Step 4 cap is not a round. Step 5 has no such
    fix: a confirmed blocking finding open after its cap ends the run in `blocked`.
-3. A Step 3.7.1 plan revision is a Step 3 round.
+3. A Step 3.7.1 plan revision is a Step 3 round, and so is each change the user requests
+   in Step 3.5.
 4. Each CI repair cycle gets one Step 5 round and one full Step 6 run of its own, on top of
    what Step 5 and Step 6 used before the first push. The cycles are capped at 3 by Step 7.3.
 
@@ -166,14 +169,18 @@ state and is never replaced by a tier default. With no explicit value, 240 appli
 provisionally until Step 1.5 sets the tier, and the tier default replaces it then. An
 explicit instruction from the user in the session during the run that names a new budget
 replaces the budget from that point; record it in `run.md`. The report names the budget in
-force and its source.
+force and its source. The time from the Step 3.5 question to the user's reply does not
+count against the run budget: record both times in `run.md` with the `date` rule of
+Enforcement item 1, and leave the wait out of the elapsed time. Per-call budgets are
+unaffected. The report gives the wait.
 
 Enforcement:
 
 1. Run `date -u +%Y-%m-%dT%H:%M:%SZ` at the start of Step 0, at the start of each step
    that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
    SendMessage, each Codex call, each `code-review` pass, each check, each CI poll), and
-   at the terminal state, and nowhere else. Use that one format for the whole run. Compare
+   at the terminal state, and with `confirm-plan` just before each Step 3.5 question and
+   just after its reply, and nowhere else. Use that one format for the whole run. Compare
    the run budget at each of those points. Copy each time written to `run.md` from that
    command's output, never from memory or from arithmetic on earlier entries. Compute
    elapsed time from two recorded outputs. Record the budget in force and its source in
@@ -195,7 +202,8 @@ Every run ends in exactly one state. Read `report.md` in this skill's base direc
 every one of them and follow Final report handling below.
 
 - `done`: PR open and CI green or not applicable. Report written.
-- `plan-only`: plan final and written, nothing else run.
+- `plan-only`: plan final and written, nothing else run. It also covers a `--confirm-plan`
+  run whose plan the user did not approve in Step 3.5.
 - `prepared`: every step through Step 6 is complete with no blocking defect open, and Step 7
   was withheld before anything was pushed: by `--no-publish`, by a non-GitHub host, or by
   the user answering a Step 7 ask-first prompt with anything other than a clear yes. The
@@ -215,8 +223,9 @@ every one of them and follow Final report handling below.
 - `stopped`: the run stopped to ask the user a question it cannot decide. The question and
   both positions are in the report. A rerun with the same inputs and the answer as an extra
   ad-hoc input starts from Step 0 with a new run id. `stopped` is reached only from a Step 3
-  round, including the one Step 3.7.1 can add, before Step 3.7.2 creates or switches to a
-  branch, so no branch is created or switched and nothing collides.
+  round, including the one Step 3.7.1 can add and the one a change requested in Step 3.5
+  adds, before Step 3.7.2 creates or switches to a branch, so no branch is created or
+  switched and nothing collides.
 
 Publish runs only when no blocking defect is open and Step 6 passes. A blocked run performs
 no further publication: no push, no PR, no comment. Work already pushed by this run stays
@@ -625,8 +634,10 @@ it. Step 0 creates nothing except artifacts.
    3. Before printing, run the flagged-file check of Step 0.3 (`git ls-files -v` and `git
       cat-file --filters`, both pre-approved) so the statement can predict a worktree run:
       when one is coming, list its prompts (`git worktree add` and every command wrapped in
-      `cd <checkout> && ...`). If any will prompt, print "this run will prompt at:" with the
-      list and continue. The run is attended, and the report says so. If none will, print
+      `cd <checkout> && ...`). With `confirm-plan` and a run that is not plan-only,
+      the plan approval question of Step 3.5 counts as a prompt: list it. If any will
+      prompt, print "this run will prompt at:" with the list and continue. The run is
+      attended, and the report says so. If none will, print
       "this run is unattended" and continue.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
@@ -782,6 +793,30 @@ when the Step 1.5 floor check found a trigger, else `gpt-6.1-sol`.
 6. If the cap is hit with a blocking objection open, end in `blocked` with the objection in
    the report. List non-blocking objections left open in the plan.
 
+## Step 3.5: plan approval
+
+Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go to Step
+3.6.
+
+1. Run Step 3.7.1's reverification now. It is read-only. A revision it causes gets its
+   Step 3 round here, inside the cap of 3, so the plan is final before the user sees it.
+   Step 3.7.1 then does not repeat.
+2. Print the plan path and a short summary of the plan. Ask the user in the session to
+   reply yes to implement, or to describe a change. Take the `date` times of Budgets,
+   Enforcement item 1, just before asking and just after the reply, and record both in
+   `run.md`. End the turn and wait for the reply. The wait does not count against the run
+   budget.
+3. A clear yes continues to Step 3.6 and Step 3.7. With `continue`, before Step 3.7.2, in
+   each repository that continues the branch, run `git ls-remote --heads <remote>
+   <branch>` and compare its head with that repository's base commit. If it moved, end in
+   `blocked` naming the branch. The base commit stays the one fetched in Step 0.2: the
+   default branch moving during the wait changes nothing.
+4. A requested change is recorded in `inputs.md` as an ad-hoc input. It gets one more Step
+   3 round, inside the cap of 3 that Step 3 and Step 3.7.1 share, and then the question is
+   asked again. When no round remains, end in `stopped` with the requested change as the
+   question.
+5. Any other reply, including a no, is not approval: end in `plan-only`.
+
 ## Step 3.6: plan-only stop
 
 If the run is plan-only, stop here at every tier. Print the plan. It is already written. Nothing else runs: no branch, no checks, no comments. End in
@@ -792,7 +827,8 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
 1. If the planning snapshot was not the base commit, repeat Step 1.2's verification against the
    base commit and revise the plan where it differs. Read without changing the tree, for
    example `git show <base-commit>:<path>` and `git diff <planning-snapshot> <base-commit>`.
-   A revision gets one more Step 3 round, at every tier, inside the cap of 3.
+   A revision gets one more Step 3 round, at every tier, inside the cap of 3. With
+   `confirm-plan`, Step 3.5 already ran this verification, so it does not repeat here.
 2. Create the branch from the base commit. The name is, in order: the `--branch` value; else
    `fix/<id>-<slug>` when any source issue has a `bug` label or a title starting with "fix"
    (any case); else `feat/<id>-<slug>`. `<id>` is the issue numbers joined with `-` and
