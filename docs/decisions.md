@@ -589,8 +589,18 @@ taught it where there is one.
    this run's diff. A `--no-publish` run records the closed, merged, and several-open
    pull request cases instead of failing, because it never publishes; its local branch
    and worktree failures stay, because it still switches and commits. The pull request
-   list takes `--limit 100`, because `gh` returns 30 by default. The flag value also
-   rejects shell metacharacters, because it is placed into many shell commands. Issue #16.
+   list takes `--limit 100`, because `gh` returns 30 by default. It reads open pull
+   requests first and the rest only when none from this repository is open, because
+   `--head` also matches forks and a popular branch name can fill 100 results with
+   them; a result of 100 that does not settle the case is a failure rather than a
+   guess, and it excludes the other cases. The pull requests are read again after a
+   `--confirm-plan` yes and before the first push, and a changed base branch ends in
+   `blocked`, because CI would otherwise be judged against the old target's required
+   checks; reading them after the yes stops the run before implementation rather than
+   after it. The CI watch reads the PR at every poll and blocks on a retarget for every
+   PR, including one the run opened, since any PR can be retargeted while CI runs. The
+   flag value also rejects shell metacharacters, because it is placed into many shell
+   commands. Issue #16.
 3. **The run never adopts Multi-repo mode from prose, and an additional repository with
    skip-worktree edits continues.** A task that named other writable repositories in prose
    ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,
@@ -639,7 +649,10 @@ taught it where there is one.
    requested change. After the approval, before Step 3.7.2, the clean-tree check
    reruns, and with `--continue` so do the check that the local branch equals the base,
    the worktree check, and the `HEAD` check, because the user can change the tree or the
-   checkout during a long wait; a failure ends in `blocked`.
+   checkout during a long wait; a failure ends in `blocked`. The skip-worktree
+   comparison reruns too, because an edit hidden during the wait would pass the other
+   checks and reach local checks without review; a differing path that Step 0.3 did not
+   record fails rather than starting the worktree exception mid-run.
    Any reply that is not a clear yes ends in `plan-only`, so an unclear answer never
    starts an implementation. The flag is rejected with `--plan-only`, and `/ccl:plan`
    rejects it as not applicable. Issue #17.

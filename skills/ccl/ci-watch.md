@@ -9,15 +9,19 @@ read, which workflows apply, what passes, and how to poll. Item 5, CI repair, st
       is required".
       - Required checks: `gh api repos/{owner}/{repo}/branches/<base> --jq .protection` gives
         `required_status_checks` (`contexts`, and `checks` with `app_id`). `<base>` is the
-        PR's base branch (Step 0.2 records it with `continue`). Do not read the
+        base branch the run recorded for the PR: the default branch for a PR this run
+        opened, and the base branch Step 0.2 recorded with `continue`. Do not read the
         `/protection` endpoint, which returns 404 without admin rights.
         `gh api repos/{owner}/{repo}/rules/branches/<base>` gives the active rules, including
         organization rulesets: its `required_status_checks` rules add required checks and its
         `workflows` rules name required workflows by file path and repository. A required check
         is a name and, when set, the app that must report it.
-      - The PR: `gh pr view <n> --json headRefOid,mergeable` for the head SHA and merge state,
-        and `gh api repos/{owner}/{repo}/pulls/<n> --jq .merge_commit_sha` for the test merge
-        commit. A missing `merge_commit_sha` is read again on the next poll.
+      - The PR: `gh pr view <n> --json headRefOid,mergeable,baseRefName` for the head SHA,
+        merge state, and base branch, and `gh api repos/{owner}/{repo}/pulls/<n> --jq
+        .merge_commit_sha` for the test merge commit. Read the PR view again at every
+        poll. A missing `merge_commit_sha` is read again on the next poll. A base branch
+        other than `<base>` means the PR was retargeted, so the required checks read above
+        no longer apply: end in `blocked` at once, naming both branches.
       - Results, for the head commit and the test merge commit:
         `gh api "repos/{owner}/{repo}/commits/<sha>/check-runs?filter=latest&per_page=100"`
         (page on when `total_count` exceeds 100) and

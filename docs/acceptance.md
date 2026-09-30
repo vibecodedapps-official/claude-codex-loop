@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 124 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 127 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -538,8 +538,8 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
 
 ## M7: 0.6.0, 2026-09-30
 
-Setup for items 83 to 124: the common setup, plus the setup each item names. Items 83 to
-99 and 101 to 124 are hand runs against throwaway repos and cannot run inside a ccl run.
+Setup for items 83 to 127: the common setup, plus the setup each item names. Items 83 to
+99 and 101 to 127 are hand runs against throwaway repos and cannot run inside a ccl run.
 Item 100 is a static check of the plugin files and needs no repo. In an item that
 continues a branch, "the branch" is already pushed to the remote with one commit, "the
 remote head" is that branch's head on the remote, and the session's checkout is on the
@@ -637,8 +637,9 @@ branch or detached at the remote head unless the item says otherwise.
     equals the output of a `date -u +%Y-%m-%dT%H:%M:%SZ` call made just before the entry;
     times appear only at the start of Step 0, at the start of each step that has a
     `## Step` heading, before and after each timed call (Agent, Workflow, SendMessage,
-    Codex, `code-review`, each check, each install step, each CI poll), and at the
-    terminal state; no time is logged for an untimed `git` call or a substep; and each
+    Codex, `code-review`, each check, each install step, each CI poll, each poll of a
+    background check), right after each push returns, and at the terminal state; no time
+    is logged for any other `git` call or for a substep; and each
     elapsed figure equals the
     difference between the Step 0 start and a recorded time, less each Step 3.5 wait.
     Rerun after any change to the Budgets section.
@@ -752,9 +753,9 @@ branch or detached at the remote head unless the item says otherwise.
      Step 3.5.
 108. **A `prepared` `--continue` run in Multi-repo mode writes each body to its own
      path.** Setup: as item 90, with branch `t108` pushed to both remotes, each with an
-     open PR. Command: as item 90 with `--no-publish`. Expected: `prepared`;
-     `.ccl/<run-id>/pr-body.md` and `.ccl/<run-id>/pr-body-<slug>.md` both exist and
-     hold the continued-PR body of their repository; and the report gives one `gh pr
+     open PR. Command: as item 75 with `--continue t108 --no-publish`. Expected:
+     `prepared`; `.ccl/<run-id>/pr-body.md` and `.ccl/<run-id>/pr-body-<slug>.md` both
+     exist and hold the continued-PR body of their repository; and the report gives one `gh pr
      comment <n> --body-file <absolute path>` per repository, naming those files. Rerun
      after any change to Step 7 or `multi-repo.md`.
 109. **`--continue` naming the default branch is a preflight failure.** Setup: none
@@ -812,22 +813,31 @@ branch or detached at the remote head unless the item says otherwise.
      with only a closed PR and expect the same pass and the same report. Repeat with a
      local `t117` that differs from the remote and expect a preflight failure. Rerun after
      any change to Step 0.2.
-118. **The PR list covers more than 30 pull requests.** Setup: a branch with 31 closed
-     PRs and one open PR, all from this repository. Command: `/ccl:run #1 --no-codex
-     --continue t118`. Expected: the tool trace shows `gh pr list` with `--limit 100`, and
-     the run finds the open PR. Rerun after any change to Step 0.2.
+118. **The PR queries read open PRs first and cover more than 30 results.** Setup:
+     branch `t118` with one open PR from this repository. Command: `/ccl:run #1
+     --no-codex --continue t118`. Expected: the tool trace shows `gh pr list` with
+     `--state open` and `--limit 100`, the run finds the open PR, and no `--state all`
+     query runs. Then close that PR, and open and close 31 PRs from a fork's branch
+     `t118`, each against its own base branch in this repository, so the 30 newest
+     results are all from the fork. Expected: the `--state all` query runs with `--limit
+     100`, finds this repository's closed PR, and Step 0.2 is a preflight failure naming
+     it. Rerun after any change to Step 0.2.
 
 119. **Each push is timed.** Command: `/ccl:run #1 --no-codex`. Expected: `run.md` holds
      a `date` time taken right after the push returned, and the CI watch does not judge
      CI until 2 minutes after that time. Rerun after any change to the Budgets section or
      `ci-watch.md`.
-120. **A changed PR state before the first push ends `blocked`.** Setup: branch `t120`
-     pushed with one open PR. Command: `/ccl:run #1 --no-codex --confirm-plan
-     --continue t120`; when the plan is printed, close the PR, then reply "yes".
-     Expected: `gh pr list` runs again before the push, and the run ends `blocked` naming
-     the closed PR, with nothing pushed. Repeat with no PR at the start and a PR opened
-     during the wait, and again with a second PR opened, and expect `blocked` each time.
-     Rerun after any change to Step 7.2.
+120. **A changed PR state before implementation or the first push ends `blocked`.**
+     Setup: branch `t120` pushed with one open PR, and branch `t120-base` pushed from the
+     default branch. Command: `/ccl:run #1 --no-codex --confirm-plan --continue t120`;
+     when the plan is printed, close the PR, then reply "yes". Expected: `gh pr list`
+     runs again after the reply, and the run ends `blocked` before Step 3.7.2 naming the
+     closed PR, with nothing implemented and nothing pushed. Repeat with no PR at the
+     start and a PR opened during the wait, again with a second PR opened, and again with
+     the open PR retargeted to `t120-base` during the wait, and expect `blocked` each
+     time. Then run without `--confirm-plan` and close the PR while Step 4 runs:
+     `gh pr list` runs again before the push, and the run ends `blocked` with nothing
+     pushed. Rerun after any change to Step 3.5 or Step 7.2.
 121. **A requested change that leaves a blocking objection at the cap ends `blocked`.**
      Setup: a plan whose Step 3 review used 2 rounds; `--confirm-plan`. Command:
      `/ccl:run #1 --no-codex --confirm-plan`; reply with a change that draws a blocking
@@ -852,6 +862,27 @@ branch or detached at the remote head unless the item says otherwise.
      branch and local `t124` equal to the remote or absent: the message gives `git switch
      t124`. Then with local `t124` holding a commit that is not on the remote: the message
      gives `git switch --detach <remote>/t124`. Rerun after any change to Step 0.2.
+125. **A pull request list that may be incomplete is a preflight failure.** Setup: branch
+     `t125` pushed with no PR from this repository, and 100 open PRs from a fork's branch
+     `t125`, each against its own base branch in this repository (scripted with `git
+     push` and `gh pr create --repo`). Command: `/ccl:run #1 --no-codex --continue
+     t125`. Expected: a preflight failure in Step 0.2 saying the pull request list is
+     incomplete, nothing written, and nothing pushed. Repeat with `--no-publish`: the run
+     continues, `run.md` and the report record the incomplete list, and the report gives
+     neither a `gh pr comment` nor a `gh pr create` command. Then add one open PR from
+     this repository's `t125` and repeat with `--no-publish`: the same. Rerun after any
+     change to Step 0.2 or Step 7.
+126. **A file hidden during the `--confirm-plan` wait ends `blocked`.** Command:
+     `/ccl:run #1 --no-codex --confirm-plan`; when the plan is printed, run `git
+     update-index --skip-worktree <file>` on a tracked file, edit that file, then reply
+     "yes". Expected: `blocked` before Step 3.7.2 naming the file, and nothing
+     implemented. Rerun after any change to Step 3.5.
+127. **A PR retargeted during the CI watch ends `blocked`.** Setup: a workflow that runs
+     for at least 3 minutes on pull requests, and branch `t127-base` pushed from the
+     default branch. Command: `/ccl:run #1 --no-codex`; after the PR opens, change its
+     base branch to `t127-base`. Expected: the next poll ends
+     `blocked` naming both branches, and the report does not say CI is green. Rerun after
+     any change to `ci-watch.md`.
 
 ## Record of runs
 

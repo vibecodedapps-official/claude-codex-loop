@@ -24,8 +24,9 @@ Given an issue, a file of notes, or a short description, the loop:
    built-in `/code-review` skill reviews it too, at a level that rises with the tier.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request (one per repository in Multi-repo mode),
-   watches CI, and comments on each source issue. With `--continue` and an open PR, the
-   run comments on that PR instead of opening one. Step 7 runs only on a GitHub remote,
+   watches CI, and comments on each source issue. A PR retargeted to another base branch
+   while CI runs ends the run in `blocked`. With `--continue` and an open PR, the run
+   comments on that PR instead of opening one. Step 7 runs only on a GitHub remote,
    and not with `--no-publish`. Otherwise the run ends in `prepared`.
 
 Every run ends in one terminal state and a written report. A failure before the run
@@ -125,8 +126,8 @@ The remaining text, joined, is one ad-hoc description.
   attended.
 - `--no-codex`: use the Claude fallbacks even if Codex is installed.
 - `--no-publish` (`/ccl:run` only): withhold Step 7. The run ends in `prepared`. With
-  `--continue`, closed, merged, or several open pull requests on the branch are recorded
-  in the report instead of failing preflight.
+  `--continue`, an incomplete pull request list, or closed, merged, or several open pull
+  requests on the branch are recorded in the report instead of failing preflight.
 - `--run-budget <minutes>`: the run budget for this run, a positive integer.
 - `--repo <path>`: an additional writable checkout. Repeatable. See Multi-repo mode.
 - `--branch <name>`: the branch to work on. The default is a new branch off the
@@ -150,7 +151,11 @@ The remaining text, joined, is one ad-hoc description.
   branch needs `HEAD` detached there (`git switch --detach <remote>/<branch>`), and it
   then records the differing local branch.
   Every remote check of a branch name queries the exact ref `refs/heads/<branch>`,
-  because a bare name also matches any ref that ends in it.
+  because a bare name also matches any ref that ends in it. The branch's pull requests
+  are read open first, up to 100; because forks with the same branch name count toward
+  that cap, a list that may be incomplete fails preflight. They are read again after a
+  `--confirm-plan` yes and before the first push, and a PR closed, opened, or
+  retargeted since Step 0 ends the run in `blocked`.
 
 ### Multi-repo mode
 
@@ -307,8 +312,9 @@ Every run ends in exactly one state.
   clear yes. The report names the branch, the commit state, and the commands to
   publish. With `--continue` the push command is `git push <remote> <branch>`, and when
   the branch has one open PR the report gives `gh pr comment <n> --body-file <absolute
-  path>` in place of `gh pr create`; with several open PRs, or only closed or merged
-  ones, under `--no-publish` it names them and gives neither command. It is not a
+  path>` in place of `gh pr create`; with an incomplete pull request list, several open
+  PRs, or only closed or merged ones, under `--no-publish` it names them and gives
+  neither command. It is not a
   failure.
 - `blocked`: a blocking defect, a denied permission after the first push or in Steps 0
   to 6, a budget exceeded, or a preflight failure. The report says what and what would unblock it.

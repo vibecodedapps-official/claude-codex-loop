@@ -22,6 +22,7 @@ allowed-tools:
   - Bash(git -C * status *)
   - Bash(git -C * diff *)
   - Bash(git -C * ls-files *)
+  - Bash(git -C * cat-file *)
   - Bash(git -C * branch --list *)
   - Bash(git -C * log *)
   - Bash(git -C * show *)
@@ -221,8 +222,9 @@ every one of them and follow Final report handling below.
     of any state, the same.
   - With `continue` and one open PR, the `gh pr comment <n> --body-file <path>` command in
     its place, with the absolute path of the written body file.
-  - With `continue`, `--no-publish`, and several open PRs, or only closed or merged PRs,
-    the PRs found, and neither a `gh pr comment` nor a `gh pr create` command.
+  - With `continue`, `--no-publish`, and an incomplete pull request list, several open
+    PRs, or only closed or merged PRs, what was found, and neither a `gh pr comment` nor
+    a `gh pr create` command.
   - On any other host, a note that the pull request is opened with the host's own
     tooling, which this version does not drive.
 
@@ -591,10 +593,16 @@ it. Step 0 creates nothing except artifacts.
    refuses it. The run uses the session's checkout, unless Step 0.3 creates a worktree,
    where `worktree.md` makes the session's checkout a failure too, so a session on the
    branch blocks a worktree run and one detached at the base commit does not. On `github`,
-   read the pull requests of the branch with `gh pr list --head <branch> --state all
+   read the open pull requests of the branch with `gh pr list --head <branch> --state open
    --limit 100 --json number,state,baseRefName,url,isCrossRepository`, and keep only the
    entries whose `isCrossRepository` is false, so a fork's branch of the same name is
-   ignored. On `other`, read no pull request. Then:
+   ignored. `--head` also matches forks, so a query that returns 100 entries may be
+   incomplete. When the open query returns fewer than 100 entries and none is kept, read
+   the rest the same way with `--state all`. On `other`, read no pull request. Then
+   exactly one case holds:
+   - An incomplete list: the open query returned 100 entries, or the `--state all` query
+     returned 100 entries of which none is kept. A preflight failure saying the pull
+     request list is incomplete. The cases below apply only to a complete list.
    - One open pull request: record its number, URL, and base branch. Closed or merged pull
      requests beside it are ignored. Step 7.3 uses its base branch in place of the default
      branch.
@@ -605,10 +613,10 @@ it. Step 0 creates nothing except artifacts.
    In a plan-only run, a local branch that differs from the remote, a branch checked out
    in another worktree, and the pull request failures above do not fail the run: record
    each in `run.md` and in the report. The `HEAD` requirement above still applies. A
-   `--no-publish` run never publishes, so the pull request failures above (only closed or
-   merged pull requests, or several open ones) do not fail it either: record them in
-   `run.md` and in the report. The local branch and worktree failures stay for it,
-   because it still switches to the branch and commits locally.
+   `--no-publish` run never publishes, so the pull request failures above (an incomplete
+   list, only closed or merged pull requests, or several open ones) do not fail it
+   either: record them in `run.md` and in the report. The local branch and worktree
+   failures stay for it, because it still switches to the branch and commits locally.
 3. Require a clean working tree and an empty index: `git status --porcelain` prints nothing
    (untracked files that are not ignored count as dirty) and `git diff --cached --quiet`
    passes. If either is dirty, stop with `blocked` and say what is dirty. Do not stash.
@@ -727,14 +735,20 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
    budget.
 3. A clear yes continues to Step 3.6 and Step 3.7. Before Step 3.7.2, in each repository
    the run edits, rerun Step 0.3's clean-tree check (`git status --porcelain` and
-   `git diff --cached --quiet`, not the flagged-file detection; in a worktree run, on
-   the worktree) and, with `continue`, Step 0.2's check that a local branch of that name
+   `git diff --cached --quiet`) and its flagged-file comparison, on the worktree in a
+   worktree run. A flagged path that differs from `HEAD` and that `run.md` does not
+   already record for that checkout is a failure; it never starts the worktree exception.
+   With `continue`, also rerun Step 0.2's check that a local branch of that name
    equals the base commit, Step 0.2's worktree check, and that `HEAD` of the session's
    checkout is at the base commit. A failure ends in `blocked` naming what changed. With
    `continue`, also, in each repository that continues the branch, run `git ls-remote
    --heads <remote> refs/heads/<branch>` and compare its head with that repository's base
-   commit. If it moved, end in `blocked` naming the branch. The base commit stays the one
-   fetched in Step 0.2: the default branch moving during the wait changes nothing.
+   commit. If it moved, end in `blocked` naming the branch. With `continue` on `github`,
+   and not with `--no-publish`, also read the pull requests of the branch again as Step
+   7.2 does before the first push, with the same outcomes, so a PR closed, opened, or
+   retargeted during the wait blocks the run before anything is implemented. The base
+   commit stays the one fetched in Step 0.2: the default branch moving during the wait
+   changes nothing.
 4. A requested change is recorded in `inputs.md` as an ad-hoc input. It gets one more Step
    3 round, inside the cap of 3 that Step 3 and Step 3.7.1 share. That round follows Step
    3 items 2 to 6: an open blocking objection at the cap ends in `blocked` (Step 3 item
@@ -941,9 +955,10 @@ anything is pushed, stop Step 7 and end in `prepared`.
      with the last commit this run pushed. If the remote head differs, end `blocked`
      naming the branch. Never force push, and never rebase or reset to catch up.
    - Before the run's first push, also read the pull requests of the branch again with
-     the `gh pr list` command of Step 0.2, with the same filter. If the recorded open PR
-     is now closed or merged, a PR now exists where none did, or several are open, end
-     `blocked` naming the change. Nothing is pushed yet.
+     the `gh pr list` queries of Step 0.2, with the same filter. If the recorded open PR
+     is now closed or merged or has a different base branch, a PR now exists where none
+     did, several are open, or the list is incomplete, end `blocked` naming the change.
+     Nothing is pushed yet.
    - Push with `git push <remote> <branch>`, never forced, in place of the command above.
    - With an open PR (Step 0.2), do not run `gh pr create`. Write the body from the
      continued-PR variant in `pr-body.md` and post it as one comment with `gh pr comment
