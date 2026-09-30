@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 127 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 141 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -36,8 +36,10 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
 4. **Happy path.** Command: `/ccl:run #1 --no-codex`. Expected: terminal state `done`, a
    PR whose body has `Closes #1`, a comment on issue 1, and
    `.ccl/<run-id>/report.md` naming the tier as low with a reason, one Step 3 round by an
-   Opus subagent named as the `gpt-6.1-sol` swap, and no Step 5 review. Rerun after any
-   change to Steps 0 to 7 or the templates.
+   Opus subagent named as the `gpt-6.1-sol` swap, a Step 5 review by an Opus subagent
+   named as the `gpt-6.1-sol` swap beside a `code-review low` pass, and an implementer at
+   `sonnet`, named as the `--no-codex` fallback. Rerun after any change to Steps 0 to 7 or
+   the templates.
 5. **Dirty tree.** Setup: an uncommitted change in the working tree. Command:
    `/ccl:run #1 --no-codex`. Expected: `blocked` in Step 0, the report printed, the dirty
    state named, and nothing written under `.ccl/`. Rerun after any change to Step 0.
@@ -145,30 +147,36 @@ Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
 ## M2: medium tier
 
 Setup for items 27 to 33: a throwaway repo with two issues (#1 and #2) in one area,
-codex-lite 0.7.0 or later installed and enabled, and `codex` on PATH, unless the item
+codex-lite 0.8.0 or later installed and enabled, and `codex` on PATH, unless the item
 says otherwise.
 
 27. **Bundled issues at medium tier.** Command: `/ccl:run #1 #2`. Expected: `done`, at
-    least one Step 3 round with the thread id recorded in `run.md`, one Step 5 review with
-    a separate `gpt-6.1-sol` thread and no `code-review` call in the tool trace, rejected
+    least one Step 3 round with the thread id recorded in `run.md`, a
+    `codex-lite:implement` call at `gpt-6.1-sol` for the slice, one Step 5 review with a
+    separate `gpt-6.1-sol` thread and one `code-review medium` call per Step 5 round in
+    the tool trace, rejected
     findings listed with reasons, a PR body with a closing reference for each issue, and
     the tier medium, not high, because bundling alone does not raise it. Rerun after any
     change to Steps 3 to 5 or the tier rules.
 28. **Parallel and ordered slices.** Setup: two areas of code that share no file, one
     plan with two independent slices, and one whose order of work makes the second
     depend on the first. Command: `/ccl:run #1 #2` for each. Expected: both runs are
-    sized xhigh, because the change spans two areas that share no file; the independent
-    slices run in one Workflow or in parallel Agent calls in one message, with the choice
-    logged in `run.md`, and the dependent slices run in sequence, one Agent call each, at
-    the plan's chosen implementer models, named per slice. Rerun after any change to Step
-    4.2 or the estimate rule.
+    sized xhigh, because the change spans two areas that share no file; the slices of
+    both runs are `codex-lite:implement` calls at `gpt-6-astra`, one after another, with
+    no Workflow and no parallel Agent calls for them, and the dependent slices in order
+    of the dependency. Then make the first slice of the independent run qualify for
+    `opus` by the file criterion and rerun: its Agent call uses model `opus`, and the
+    order of the two slices is logged in `run.md`. Rerun after any change to Step 4.2 or
+    the estimate rule.
 29. **No Codex.** Command: `/ccl:run #1 #2 --no-codex`. Expected: the same path with
-    an Opus subagent for Step 3 and another for Step 5, the report names both swaps, and
-    no `code-review` call appears in the tool trace, since medium has no Claude slot.
-    Rerun after any change to the fallback table.
+    an Opus subagent for Step 3 and another for Step 5, the implementer at `sonnet`, the
+    report names all three swaps, and one `code-review medium` call per Step 5 round
+    appears in the tool trace, because `--no-codex` does not touch the Claude slot. No
+    `codex-lite:implement` call appears. Rerun after any change to the fallback table.
 30. **Codex missing from PATH.** Setup: codex-lite installed, `codex` removed from PATH.
-    Command: `/ccl:run #1 #2`. Expected: the report names the swap and the reason. Rerun
-    after any change to Step 0.6.
+    Command: `/ccl:run #1 #2`. Expected: the report names the swap and the reason for
+    each reviewer stage, the implementer is `sonnet` by the Step 0.6 fallback, and no
+    `codex-lite:implement` call appears. Rerun after any change to Step 0.6.
 31. **Undecidable objection.** Setup: an issue whose plan draws a blocking objection the
     orchestrator cannot decide. Command: `/ccl:run #1`. Expected: `stopped` with both
     positions printed in the report. Rerun after any change to Step 3.5.
@@ -195,12 +203,13 @@ unless the item says otherwise. Item 38 uses the M4 setup.
     says why the floor did not apply. Rerun after any change to the risk floor.
 36. **Re-evaluation after Step 4.** Setup: a task estimated medium whose implementation
     ends up removing an auth check. Command: `/ccl:run #1`. Expected: the tier rises to
-    high after Step 4, and the report shows a Step 5 with a `gpt-6.1-sol` thread and a
-    `code-review medium` pass, and no repeat of Step 3. Rerun after any change to the
-    re-evaluation rule.
+    high after Step 4, and the report shows a Step 5 with a `gpt-6-astra` thread and a
+    `code-review high` pass, because a run that rises to high has a trigger in the diff,
+    and no repeat of Step 3. Rerun after any change to the re-evaluation rule.
 37. **Re-evaluation does not add a round review.** Setup: as item 36. Expected: Step 4
-    has orchestrator findings only, and no Codex thread is recorded for Step 4. Rerun
-    after any change to Step 4 or the re-evaluation rule.
+    has orchestrator findings only, and no Codex reviewer thread is recorded for Step 4;
+    the only Codex calls in Step 4 are `codex-lite:implement` calls. Rerun after any
+    change to Step 4 or the re-evaluation rule.
 38. **Fable fallback.** Command: `/ccl:run #1 --effort max --no-codex`. Expected: the Step 3
     and Step 5 Codex slots are each a Fable subagent, or Opus with the Fable error
     recorded, and Step 5 still makes a `code-review xhigh` call in the tool trace. This
@@ -210,62 +219,74 @@ unless the item says otherwise. Item 38 uses the M4 setup.
 
 ## Environment checks
 
-39. **Codex model ids.** Setup: a ChatGPT account with Codex. Command: run a
-    `/codex-lite:ask --model gpt-6.1-sol --timeout 60` call, then the same with
-    `gpt-6-astra`. Expected: both return status `ok`. Rerun before each release and
-    whenever a Codex call fails with a model error.
+39. **Codex model ids.** Setup: a ChatGPT account with Codex, codex-lite 0.8.0 or later,
+    and a scratch repository. Command: run a `/codex-lite:ask --model gpt-6.1-sol
+    --timeout 60` call, then the same with `gpt-6-astra`, then a
+    `codex-lite:implement --model gpt-6-luna --timeout 60 --cwd <scratch repo>` call
+    with a one-line task to add a file. Expected: all three return status `ok`, and the
+    `implement` footer shows the new file. Rerun before each release and whenever a Codex
+    call fails with a model error.
 40. **Pre-approval of Codex calls.** Setup: default permission mode, and a command with
     `allowed-tools` limited to read-only `git` and `gh`. Command: `/ccl:run #1` at
-    medium tier. Expected: record whether the codex-lite Bash call prompts. The default
-    assumption is that it does. Rerun after any change to a command's `allowed-tools` or
-    a Claude Code upgrade.
+    medium tier. Expected: record whether the codex-lite Bash call prompts, for `ask`,
+    `review`, and `implement`. The default assumption is that it does. Rerun after any
+    change to a command's `allowed-tools` or a Claude Code upgrade.
 
 ## M4: xhigh and max tier
 
 Setup for items 41 to 54: a throwaway repo with a migration file, two areas of code that
 share no file, and two open issues (#1, the common one-line bug, and #2, a second change
-in the other area), and Codex installed unless the item says otherwise. An item that
-names an Opus-qualifying slice describes it in its setup, since the common one-line bug
-never qualifies. Where an expectation names the model of an Agent or Workflow call, read
-it from the session's tool trace, not from the plan or the report.
+in the other area), and codex-lite 0.8.0 or later installed unless the item says
+otherwise. An item that names an Opus-qualifying slice describes it in its setup, since
+the common one-line bug never qualifies. Where an expectation names the model of an Agent
+or Workflow call, or of a `codex-lite:implement` call, read it from the session's tool
+trace, not from the plan or the report.
 
 41. **Max tier reviews use `gpt-6-astra`.** Command: `/ccl:run #1 --effort max`.
     Expected: the report records a `gpt-6-astra` thread for Step 3 and another for Step
-    5, a `code-review xhigh` pass per Step 5 round, and no Codex thread for Step 4. Rerun
-    after any change to the roles table.
+    5, a `code-review xhigh` pass per Step 5 round, a `codex-lite:implement` call at
+    `gpt-6-astra` for the slice, and no Codex reviewer thread for Step 4. Rerun after any
+    change to the roles table.
 42. **A requested xhigh tier stands above the floor.** Command:
     `/ccl:run "add a column" --effort xhigh`. Expected: the run is xhigh, the report
     says the floor was applied and that the requested tier was above it, and both Step 3
-    and Step 5 use `gpt-6-astra` because the trigger exists, with a `code-review high`
-    pass at Step 5. Rerun after any change to the risk floor or the trigger rule.
+    and Step 5 use `gpt-6-astra`, as xhigh always does, with a `code-review high` pass at
+    Step 5. Rerun after any change to the risk floor or the trigger rule.
 43. **Xhigh with a single-slice plan.** Command: `/ccl:run #1 --effort xhigh` for a
-    one-line bug. Expected: the plan has one slice, Step 4 makes one Agent call, and the
-    implementer is Sonnet, with the reason that no Opus criterion applies. Rerun after
-    any change to Step 4.2 or to the Implementer choice section of `tiers.md`.
+    one-line bug. Expected: the plan has one slice, Step 4 makes one
+    `codex-lite:implement` call at `gpt-6-astra`, and the implementer is recorded as
+    "codex", with the reason that no Opus criterion applies, and no Agent call for the
+    slice. Rerun after any change to Step 4.2 or to the Implementer choice section of
+    `tiers.md`.
 44. **Re-evaluation does not raise an xhigh run.** Setup: a task sized xhigh whose
     implementation ends up removing an auth check. Command: `/ccl:run #1 #2`. Expected:
     the tier stays xhigh, the report says the floor applied at re-evaluation and the tier
-    was unchanged, Step 3 used `gpt-6-astra` (xhigh always does), and Step 5 runs with
-    `gpt-6-astra` because the diff has a trigger, beside a `code-review high` pass. Rerun
+    was unchanged, Step 3 and Step 5 used `gpt-6-astra` (xhigh always does, with or
+    without a trigger), beside a `code-review high` pass. Rerun
     after any change to the re-evaluation rule or the trigger rule.
-45. **Parallel slices at high tier.** Setup: one cross-cutting change in one deliverable
-    whose two parts touch disjoint files, each part about one subagent timeout of work.
-    Command: `/ccl:run #1 --effort high`. Expected: one Workflow, or parallel Agent calls
-    in one message, with two Sonnet agents and the choice logged in `run.md`, the tier
-    still high, and a run log showing two round counters, one per slice. Rerun
-    after any change to the Step 2 slice rule, Step 4.2, or the Budgets section.
+45. **Independent Codex slices at high tier run in series.** Setup: one cross-cutting
+    change in one deliverable whose two parts touch disjoint files, each part about one
+    subagent timeout of work, with no Opus criterion applying to either. Command:
+    `/ccl:run #1 --effort high`. Expected: two `codex-lite:implement` calls at
+    `gpt-6.1-sol`, the second not started before the first returns, no Workflow and no
+    parallel calls, the serial choice logged in `run.md`, the tier still high, and a run
+    log showing two round counters, one per slice. Rerun after any change to the Step 2
+    slice rule, Step 4.2, or the Budgets section.
 46. **Ordered slices at medium tier.** Setup: several files in one area, about two
     subagent timeouts of work in total, where the first slice creates a helper in a file
     it owns and the second slice, in files only it owns, calls that helper. Command:
-    `/ccl:run #1 #2 --effort medium`. Expected: two Agent calls in order, the second not
-    started before the first ends, both Sonnet, the tier medium, and no file in both
-    slices. Rerun after any change to the Step 2 slice rule or Step 4.2.
+    `/ccl:run #1 #2 --effort medium`. Expected: two `codex-lite:implement` calls at
+    `gpt-6.1-sol` in order, the second not started before the first returns, the tier
+    medium, and no file in both slices. Rerun after any change to the Step 2 slice rule or
+    Step 4.2.
 47. **Opus by the contract criterion at xhigh.** Setup: #1 asks for a new module in one
     area and #2 asks the other area to call it, so the plan has two slices and the first
     adds a module the second cites. Command: `/ccl:run #1 #2 --effort xhigh`. Expected:
     `opus` for the first slice in the plan and in the report, with the contract criterion
     named, and the Agent or Workflow call for that slice made with model `opus` in the
-    tool trace. Rerun after any change to the Implementer choice section of `tiers.md`.
+    tool trace, and the second slice a `codex-lite:implement` call at `gpt-6-astra`, run
+    in series with it. Rerun after any change to the Implementer choice section of
+    `tiers.md`.
 48. **Opus by the risk criterion at max.** Setup: #1 asks for an auth check in one file.
     Command: `/ccl:run #1 --effort max`. Expected: `opus` for that slice in the plan and
     in the report, with the risk criterion named, and the Agent call made with model
@@ -278,10 +299,11 @@ it from the session's tool trace, not from the plan or the report.
     erroring and the same prompt sent at `sonnet`, `run.md` has the error, the report
     names the implementer swap, and a Step 5 fix for that slice is also sent at `sonnet`.
     Rerun after any change to the Opus fallback rule.
-50. **Sonnet chosen for a small max slice.** Setup: a max run whose second slice is one
+50. **Codex chosen for a small max slice.** Setup: a max run whose second slice is one
     documentation file with no risk trigger and no new section that anything cites.
-    Command: `/ccl:run #1 #2 --effort max`. Expected: `sonnet` for that slice, with the
-    reason "none" in the plan and the report. Rerun after any change to the Implementer
+    Command: `/ccl:run #1 #2 --effort max`. Expected: a `codex-lite:implement` call at
+    `gpt-6-astra` for that slice, recorded as "codex" in the plan and the report, and no
+    Agent call for it at `sonnet` or `opus`. Rerun after any change to the Implementer
     choice section of `tiers.md`.
 51. **Denial during an Opus call.** Setup: the item 48 issue, so the slice qualifies for
     `opus`, and default permission mode; deny the implementer's first write when it
@@ -292,10 +314,10 @@ it from the session's tool trace, not from the plan or the report.
 52. **The file threshold.** Setup: #1 asks for the same one-line edit in exactly eight
     named files in one area, and #2 for the same edit in nine named files in the other
     area, with no risk trigger and no new cited section in either. Command:
-    `/ccl:run #1 #2 --effort xhigh`. Expected: the eight-file slice on `sonnet` and the
-    nine-file slice on `opus` with the file criterion named, in the plan, in the report,
-    and in the models of the two calls in the tool trace. Rerun after any change to the
-    Implementer choice section of `tiers.md`.
+    `/ccl:run #1 #2 --effort xhigh`. Expected: the eight-file slice as a
+    `codex-lite:implement` call at `gpt-6-astra` and the nine-file slice on `opus` with
+    the file criterion named, in the plan, in the report, and in the tool trace. Rerun
+    after any change to the Implementer choice section of `tiers.md`.
 53. **A timeout is not a fallback.** Setup: the item 48 issue, so the slice qualifies for
     `opus`, and `.ccl.json` set to `{"timeouts": {"subagent": 1}}` so the call runs past
     its budget. Command: `/ccl:run #1 --effort xhigh`. Expected: the tool trace shows the
@@ -303,17 +325,18 @@ it from the session's tool trace, not from the plan or the report.
     naming the subagent budget. Rerun after any change to the Budgets section or the Opus
     fallback rule.
 54. **Effective model after a Workflow.** Setup: #1 is the item 48 auth check in one
-    area, and #2 is a one-line change in the other area that shares no file with it, so
-    the plan has two independent slices and the first qualifies for `opus` by the risk
-    criterion. The session makes an `opus` call error as in item 49, and the first
+    area, and #2 is a change to a migration file in the other area that shares no file
+    with it, so the plan has two independent slices and both qualify for `opus` by the
+    risk criterion. The session makes an `opus` call error as in item 49, and the first
     slice's diff must draw a blocking finding so a Step 4.3 round needs a fresh agent.
     Command: `/ccl:run #1 #2 --effort xhigh`. Expected: with one Workflow, the tool trace
-    shows one Workflow with both slices, its `opus` call erroring, the rerun at `sonnet`,
-    and the fresh agent at `sonnet`, and the report names one swap. With parallel Agent
-    calls in one message, the choice is logged in `run.md`, the `opus` call errors and is
-    rerun at `sonnet`, and a continued agent, not a fresh one, is acceptable for the
-    review round, still at `sonnet`, with one swap in the report. Rerun after any change
-    to Step 4.2 or the Opus fallback rule.
+    shows one Workflow with both slices, its `opus` calls erroring, the reruns at
+    `sonnet`, and the fresh agent at `sonnet`, and the report names the swaps. With
+    parallel Agent calls in one message, the choice is logged in `run.md`, the `opus`
+    calls error and are rerun at `sonnet`, and a continued agent, not a fresh one, is
+    acceptable for the review round, still at `sonnet`, with the swaps in the report. No
+    `codex-lite:implement` call appears, because neither slice is a Codex slice. Rerun
+    after any change to Step 4.2 or the Opus fallback rule.
 
 ## M5: the second final reviewer
 
@@ -322,24 +345,25 @@ the session unless the item says otherwise.
 
 55. **High tier without a trigger uses `gpt-6.1-sol` and `code-review medium`.** Setup: a
     cross-cutting change inside one deliverable that touches no risk floor area. Command:
-    `/ccl:run #1 --effort high`. Expected: `gpt-6.1-sol` threads for Step 3 and Step 5, one
-    `code-review medium` call per Step 5 round in the tool trace with the level passed
-    explicitly and neither `--comment` nor `--fix`, the report's Claude review passes line
-    filled per round, and the run log showing both passes returned before any Step 5 fix.
-    Rerun after any change to Step 5, the Claude review contract, or the trigger rule.
-56. **Floored high tier uses `gpt-6-astra` for the plan review only.** Command:
+    `/ccl:run #1 --effort high`. Expected: `gpt-6.1-sol` threads for Step 3 and Step 5, a
+    `codex-lite:implement` call at `gpt-6.1-sol`, one `code-review medium` call per Step 5
+    round in the tool trace with the level passed explicitly and neither `--comment` nor
+    `--fix`, the report's Claude review passes line filled per round, and the run log
+    showing both passes returned before any Step 5 fix. Rerun after any change to Step 5,
+    the Claude review contract, or the trigger rule.
+56. **Floored high tier uses `gpt-6-astra` at both stages.** Command:
     `/ccl:run "add a column" --effort high`. Expected: a `gpt-6-astra` thread for Step 3,
-    a `gpt-6.1-sol` thread for Step 5, and a `code-review medium` pass. Rerun after any
-    change to the trigger rule.
+    a `gpt-6-astra` thread for Step 5, a `code-review high` pass, and the implementer on
+    `opus` by the risk criterion. Rerun after any change to the trigger rule.
 57. **A missing `code-review` skill blocks only where it is needed.** Setup: a session in
     which the `code-review` skill is not listed. Each run gets its own branch name, since
     the first run's default branch would otherwise exist and block the last run at Step
     3.7.2 before it reaches Step 5. Command: `/ccl:run #1 --effort medium --branch t57-a`,
-    then `/ccl:plan #1 --effort high`, then `/ccl:run #1 --effort high --branch t57-b`.
-    Expected: the first ends `done` with no mention of the skill, the second ends
-    `plan-only` with no mention of the skill, and the third ends `blocked` at the start of
-    Step 5, after implementation, naming the missing skill. Rerun after any change to the
-    Claude review contract.
+    then `/ccl:plan #1 --effort high`, then `/ccl:run #1 --effort low --branch t57-b`.
+    Expected: the first ends `blocked` at the start of Step 5, after implementation,
+    naming the missing skill; the second ends `plan-only` with no mention of the skill;
+    and the third ends `blocked` at the start of Step 5, after implementation, naming the
+    missing skill. Rerun after any change to the Claude review contract.
 58. **The Claude pass reviews the base-to-working-tree diff and nothing else.** Setup: a
     clone whose local `main` is two commits behind the remote default branch, so the
     skill's own range would include commits the task did not make; the item 14 shape, but
@@ -407,15 +431,17 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     `git log`. Expected: `prepared`, nothing under `specs/ccl/`, the tree uncommitted, no
     new commit, and the report giving the commit commands. Rerun after any change to Step
     7.1 or the `commit` field.
-66. **Codex availability without the skill list.** Setup: codex-lite 0.7.0 or later
+66. **Codex availability without the skill list.** Setup: codex-lite 0.8.0 or later
     installed and enabled, `codex` on PATH, and a session whose skill list omits
-    `codex-lite:ask`. Command: `/ccl:run #1`. Expected: Codex is treated as available,
-    `run.md` records the check as `codex --version` and the plugin version, and the Step
-    3 call is attempted. If the Skill call errors because the skill is not listed, the
-    call counts as `failed`: it is retried once with the same arguments, then the stage
-    swaps to the Claude fallback, and the report names the swap with the reason "skill
-    not listed in session". Rerun after any change to Codex availability or the Reviewer
-    contract.
+    `codex-lite:ask` and `codex-lite:implement`. Command: `/ccl:run #1`. Expected: Codex
+    is treated as available, `run.md` records the check as `codex --version` and the
+    plugin version, and the Step 3 call is attempted. If the Skill call errors because the
+    skill is not listed, the call counts as `failed`: it is retried once with the same
+    arguments, then the stage swaps to the Claude fallback, and the report names the swap
+    with the reason "skill not listed in session", and Codex is recorded unavailable for
+    the rest of the run, so the slice's implementer is `sonnet` and no
+    `codex-lite:implement` call is attempted. Rerun after any change to Codex availability
+    or the Reviewer contract.
 67. **Line endings.** Setup: a repo whose tracked files use CRLF, and an issue that asks
     for one new file. Command: `/ccl:run #1 --no-codex`. Expected: the new file has the
     ending the implementer rule defines, the `eol=` attribute first, else no comparison
@@ -428,10 +454,11 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     after any change to the Implementer prompt or Step 4.3.
 68. **Parallel Agent calls.** Setup: two independent slices in two areas that share no
     file, at medium tier, with the first slice's diff drawing a blocking finding. Command:
-    `/ccl:run #1 #2 --effort medium`. Expected: both implementers start in one message as
-    parallel Agent calls, the choice and the reason are logged in `run.md`, and the
-    review round goes to the same agent through SendMessage. Rerun after any change to
-    Step 4.2 or 4.3.
+    `/ccl:run #1 #2 --effort medium --no-codex`. Expected: both implementers, at `sonnet`
+    by the `--no-codex` fallback, start in one message as parallel Agent calls, the choice
+    and the reason are logged in `run.md`, and the review round goes to the same agent
+    through SendMessage. Without `--no-codex` the same slices are Codex slices and run in
+    series (item 45). Rerun after any change to Step 4.2 or 4.3.
 69. **Run budget flag and tier default.** Command: `/ccl:run #1 --no-codex --run-budget
     1`, then `/ccl:run #1 --no-codex --effort medium`. Expected: the first ends `blocked`
     naming the run budget, with the flag as its source in `run.md` and the report; the
@@ -456,7 +483,8 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     Expected: the run sees the clean status and the flagged file that differs from
     `HEAD`, creates a detached worktree beside the checkout, at
     `<checkout-parent>/<checkout-name>-ccl-<run-id>`, with `git worktree add --detach`,
-    records it in `run.md`, works in it, skips Step 5 at low tier, and the
+    records it in `run.md`, works in it, runs Step 5 at low tier with an Opus subagent
+    as the Claude slot and as the Codex slot, since `--no-codex` is set, and the
     report names the worktree path and `git worktree remove <path>`. The Step 0.1
     statement, printed before any worktree exists, already lists the `git worktree add`
     and `cd <checkout> && ...` prompts, and the report says the run was attended. Rerun
@@ -465,16 +493,21 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     fails on the original tree's skip-worktree state and passes at the base commit, and
     codex-lite installed, and a lockfile and an install step the instruction files name
     (for example `npm ci`). Command: `/ccl:run #1 --effort medium`. Expected: the install
-    step runs in the worktree before the baseline, the Step 5
-    diff review goes through `codex-lite:ask` with a patch file and no `codex-lite:review`
-    call appears in the tool trace; the baseline and Step 6 checks run in the worktree,
-    which the passing `test` shows; and the PR's head branch equals the branch the run
-    created in the worktree. Rerun after any change to Step 0.3, Step 5.2, `worktree.md`,
-    or the Reviewer contract.
-74. **Skip-worktree files at high tier.** Setup: as item 72. Command: `/ccl:run #1
-    --effort high`. Expected: `blocked` at Step 1.5 naming the skip-worktree files that
-    differ from `HEAD` and the tier, nothing implemented, and the report written to
-    the run directory. Rerun after any change to Step 0.3, Step 1.5, or `worktree.md`.
+    step runs in the worktree before the baseline, the Step 5 diff review goes through
+    `codex-lite:ask` with a patch file and no `codex-lite:review` call appears in the tool
+    trace; the Claude slot is an Opus subagent given the worktree's diff and no
+    `code-review` call appears; the slice is a `codex-lite:implement` call with `--cwd
+    <worktree>` as its last option and a request that names files by absolute path or
+    carries their content; the baseline and Step 6 checks run in the worktree, which the
+    passing `test` shows; and the PR's head branch equals the branch the run created in
+    the worktree. Rerun after any change to Step 0.3, Step 5.2, `worktree.md`, or the
+    Reviewer contract.
+74. **Skip-worktree files at high tier.** Setup: as item 72, and codex-lite installed.
+    Command: `/ccl:run #1 --effort high`. Expected: the run is not `blocked` at Step 1.5;
+    it works in the detached worktree, the Claude slot of Step 5 is an Opus subagent given
+    the worktree's diff, recorded in `run.md` and named in the report as a substitute and
+    not a swap, no `code-review` call appears in the tool trace, and the report names the
+    worktree path. Rerun after any change to Step 0.3, Step 1.5, or `worktree.md`.
 75. **Two-repo run at medium tier.** Setup: two throwaway GitHub repos on the same host,
     each with one open issue (#1 in each) that describes a one-line bug, the second
     checked out beside the first, and codex-lite installed. Command: run from the primary
@@ -484,10 +517,12 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     <owner>/<repo>#n` from the other, one comment per issue naming both PRs with the
     issue's own repo first, a Codex review of the primary by `codex-lite:review`, and of
     the second repo through `codex-lite:ask` with `diff-<slug>.patch`, the second repo's
-    PR opened against the second repo, its CI read from the second repo, and each PR
-    body in `.ccl/<run-id>/pr-body-<slug>.md` in the primary, with every `--body-file` of
-    a `gh` call for the second repo an absolute path. Rerun after any change to
-    `multi-repo.md` or Step 7.
+    slice a `codex-lite:implement` call with `--cwd <second repo>` as its last option and
+    a request that names files by absolute path, the second repo's PR opened against the
+    second repo, its CI read from the second repo, and each PR body in
+    `.ccl/<run-id>/pr-body-<slug>.md` in the primary, with every `--body-file` of a `gh`
+    call for the second repo an absolute path. Rerun after any change to `multi-repo.md`
+    or Step 7.
 76. **Multi-repo host and bare `#n` rules.** Setup: as item 75, plus a third checkout whose
     `origin` is on a different host, and an issue number that exists only in the
     second repo. Command: `/ccl:run "x" --repo <third checkout>`, then `/ccl:run #<n>
@@ -508,12 +543,12 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     worktree exception does not apply in Multi-repo mode, and nothing written. Rerun
     after any change to Step 0.3 or `multi-repo.md`.
 79. **A worktree run raised to high at Step 4.5.** Setup: as item 72, at medium tier, with
-    an issue whose implementation removes an auth check. Command: `/ccl:run #1 --effort
-    medium`. Expected: Step 4.5 raises the tier to high and the run ends `blocked` there
-    naming the skip-worktree files that differ from `HEAD` and the tier, with no Step 5
-    call in the tool trace and the
-    report naming the worktree path. Rerun after any change to Step 4.5, Step 0.3, or
-    `worktree.md`.
+    an issue whose implementation removes an auth check, and codex-lite installed.
+    Command: `/ccl:run #1 --effort medium`. Expected: Step 4.5 raises the tier to high and
+    the run is not `blocked` there; Step 5 uses the trigger cell, a `gpt-6-astra` review
+    through `codex-lite:ask` with a patch file, and an Opus subagent as the Claude slot,
+    with no `code-review` call in the tool trace, and the report names the worktree path.
+    Rerun after any change to Step 4.5, Step 0.3, or `worktree.md`.
 80. **A denied push with `"commit": true`.** Setup: `.ccl.json` with `{"commit": true}`,
     committed, and an ask-first rule for push. Command: `/ccl:run #1 --no-codex`,
     answering "no" to the push prompt. Expected: `prepared`, the branch carries one commit
@@ -883,6 +918,122 @@ branch or detached at the remote head unless the item says otherwise.
      base branch to `t127-base`. Expected: the next poll ends
      `blocked` naming both branches, and the report does not say CI is green. Rerun after
      any change to `ci-watch.md`.
+
+## M8: 0.7.0, 2026-09-30
+
+Setup for items 128 to 141: the common setup, plus codex-lite 0.8.0 or later installed and
+enabled, `codex` on PATH, and the built-in `code-review` skill listed, plus the setup each
+item names. They are hand runs against throwaway repos. Read the model of a
+`codex-lite:implement` call from its `--model` argument in the tool trace, not from the
+plan or the report.
+
+128. **Low tier implements with `gpt-6-luna` and reviews with both reviewers.** Command:
+     `/ccl:run #1 --effort low`. Expected: `done`; the plan records the implementer as
+     "codex"; the tool trace shows one `codex-lite:implement --model gpt-6-luna` call
+     with `--timeout` in seconds and its request text on the line after the options, and
+     no Agent call for the slice; Step 3 and Step 5 each use a `gpt-6.1-sol` thread;
+     Step 5 makes one `code-review low` call per round, with the level and the range
+     `<base-sha>...HEAD`; and the report's Step 5 reviewers line names both reviewers.
+     Rerun after any change to the tier table, Step 4.2, or Step 5.
+129. **Medium tier implements with `gpt-6.1-sol`.** Command: `/ccl:run #1 --effort
+     medium`. Expected: one `codex-lite:implement --model gpt-6.1-sol` call for the slice,
+     recorded as "codex" in the plan, a `gpt-6.1-sol` thread for Step 5, and a
+     `code-review medium` pass per round. Rerun after any change to the tier table or the
+     Implementer choice section of `tiers.md`.
+130. **High tier implements with `gpt-6.1-sol`, and Opus only by the criteria.** Setup: a
+     task that meets no Opus criterion, and then the item 48 auth check. Command:
+     `/ccl:run #1 --effort high` for each. Expected: the first is one
+     `codex-lite:implement --model gpt-6.1-sol` call and no Agent call for the slice; the
+     second has the slice on `opus` by the risk criterion, an Agent call at model `opus`
+     and no `codex-lite:implement` call for it, and its final review takes the trigger
+     cell, `gpt-6-astra` with `code-review high`. Rerun after any change to the
+     Implementer choice section of `tiers.md` or the trigger rule.
+131. **Xhigh and max implement with `gpt-6-astra`, and their final review does not depend
+     on a trigger.** Setup: a task with no risk floor trigger. Command:
+     `/ccl:run #1 --effort xhigh`, then `/ccl:run #1 --effort max --branch t131-b`.
+     Expected: each has one `codex-lite:implement --model gpt-6-astra` call, recorded as
+     "codex" in the plan; a `gpt-6-astra` thread for Step 3 and another for Step 5; and
+     `code-review high` at xhigh and `code-review xhigh` at max, although no trigger was
+     present at the estimate or in the diff. Rerun after any change to the tier table or
+     the trigger rule.
+132. **A Step 6 fix and a CI repair at low tier go through a Step 5 round.** Setup: a
+     low-tier task whose fix makes a check fail that the baseline passed, so a Step 6 fix
+     is needed, and then a change that passes locally and fails one CI job the loop can
+     fix in one edit. Command: `/ccl:run #1 --effort low` for each. Expected: the Step 6
+     fix is followed by a Step 5 round with a Codex pass and a `code-review low` pass over
+     a diff that includes it, inside Step 5's cap of 3, and the CI repair cycle uses the
+     Step 5 Codex thread, or `codex-lite:review --base <base-commit>` when none exists,
+     beside the Claude pass, with one extra review round per cycle and not the
+     orchestrator's own review. Rerun after any change to Step 6.5 or Step 7.3.5.
+133. **A fix round for a Codex slice is a fresh `implement` call.** Setup: a slice whose
+     diff must draw a blocking finding in Step 4, at medium tier, and a second run where
+     the finding comes from Step 5. Command: `/ccl:run #1 --effort medium` for each.
+     Expected: each fix is a new `codex-lite:implement` call with the findings and the
+     slice's current diff in its request, no `--resume` in any `implement` call, no
+     SendMessage to a Codex implementer, and a new thread id in `run.md` for each call.
+     Rerun after any change to Step 4.3 or Step 5.3.
+134. **Two failed Codex implementer calls fall back to `sonnet`.** Setup: a session in
+     which `codex-lite:implement` returns `status: failed` twice in a row on a POSIX
+     system, for example a Codex login that fails on the call, having left part of the
+     slice in the tree. Command: `/ccl:run #1 --effort medium`. Expected: between the
+     calls, the output of the failed call has returned and `run.md` records the tree
+     state read from its footer or `git status`; the second `implement` call carries the
+     current diff with the same slice prompt; after the second failure the same prompt
+     goes to an Agent call at `sonnet`, which also has the current diff; the slice's
+     effective model is `sonnet`; and the report names the implementer swap. Rerun after
+     any change to Approval scope item 6 or the implementer fallback rule.
+135. **A call that may still be running ends the run `blocked`.** Setup: a session in
+     which a `codex-lite:implement` call prints "codex may still be running as pid", and
+     a second in which the call's output never arrives before its budget. Command:
+     `/ccl:run #1 --effort medium` for each. Expected: the run ends `blocked`, naming the
+     running process in the first and the budget expiry in the second, and no retry, no
+     Sonnet call, and no other write to that checkout follows in the tool trace. Rerun
+     after any change to Approval scope item 6.
+136. **A `failed` or cut-off implementer call on Windows is not retried.** Setup:
+     Windows, with a `codex-lite:implement` call that returns `status: failed` and prints
+     no warning about running processes; then, in a second run, one whose output is cut
+     off with no `status:` line at all (a Bash timeout with background tasks disabled, as
+     codex-lite's acceptance item 14 sets up). Command: `/ccl:run #1 --effort medium`,
+     each time. Expected: both runs end `blocked` naming the possible surviving process;
+     there is no second `implement` call and no Agent call at `sonnet` for the slice. A
+     Skill call that errors because `codex-lite` is not listed is the one exception and
+     follows item 7 of Codex availability. Rerun after any change to Approval scope item 6.
+137. **`--no-codex` and a missing Codex give `sonnet` implementers.** Command:
+     `/ccl:run #1 --effort xhigh --no-codex`, then, with `codex` removed from PATH,
+     `/ccl:run #1 --effort low --branch t137-b`. Expected: in both runs the slice goes
+     to an Agent call at `sonnet`, the plan recorded "codex" and the report names the
+     implementer swap with its reason, and no `codex-lite:implement` call appears. Rerun
+     after any change to the fallback rules or Step 0.6.
+138. **A `refused` implementer is `blocked` and a `timeout` is a budget expiry.** Setup: a
+     session in which `codex-lite:implement` returns `status: refused`, and then a run
+     with `.ccl.json` `{"timeouts": {"subagent": 1}}` so the call returns `status:
+     timeout`. Command: `/ccl:run #1 --effort medium` for each. Expected: the first ends
+     `blocked` with the message and no retry and no swap; the second ends `blocked`
+     naming the implementer `--timeout`, with no retry and no swap. Rerun after any change
+     to the Budgets section or the implementer fallback rule.
+139. **The implementer budget is capped at 3600 seconds and logged.** Setup: `.ccl.json`
+     with `{"timeouts": {"subagent": 90, "codex": 90, "run": 300}}`. Command:
+     `/ccl:run #1 --effort medium`. Expected: the `codex-lite:implement` call passes
+     `--timeout 3600`, `run.md` records the cap and the value passed, every reviewer
+     Codex call passes `--timeout 3600` from the Codex budget capped at 60 minutes, and
+     an Opus or Sonnet Agent implementer, in a run that has one, keeps the full 90
+     minutes. Rerun after any change to the Budgets section.
+140. **The orchestrator installs a dependency the plan adds.** Setup: an issue that needs
+     a new package, a lockfile, and a slice whose check needs the network. Command:
+     `/ccl:run #1 --effort medium`. Expected: after the Step 3.7.3 baseline ran on the
+     unchanged base and after any ask-first approval, the orchestrator installs the
+     package before the first implementer starts, the manifest and lockfile edits are in
+     the Step 5 diff, the implementer makes no install attempt, and the orchestrator runs
+     the network check after the implementer returns, sending a failure back as a
+     finding. Rerun after any change to Step 3.7 or the Implementer prompt.
+141. **A worktree run uses the Opus substitute at every tier.** Setup: as item 72.
+     Command: `/ccl:run #1 --effort low`, then `/ccl:run #1 --effort max --branch t141-b`.
+     Expected: neither run is `blocked` for its tier; each Step 5 has an Opus subagent as
+     the Claude slot, recorded in `run.md` and named in the report as a substitute, with
+     no `code-review` call in the tool trace; the Codex slice is a `codex-lite:implement`
+     call whose last option is `--cwd <worktree path>` and whose request names files by
+     absolute path or carries their content. Rerun after any change to `worktree.md` or
+     the Claude review contract.
 
 ## Record of runs
 

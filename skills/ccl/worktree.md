@@ -36,17 +36,21 @@ rest of the run.
    - Every artifact path, including `diff.patch` and the `specs/ccl/<run-id>/` copy source of
      Step 7.1, is written under `<artifacts>`. Every Codex request names files by their path
      relative to the session's checkout (`.ccl/<run-id>/diff.patch`), which is where Codex
-     runs.
+     runs. This applies to reviewer calls only. A Codex implementer call runs in
+     `<checkout>` through `--cwd <checkout>`, so its request names files by absolute path
+     or carries the content inline.
    - Every implementer prompt and fallback reviewer prompt names `<checkout>` as the only
-     checkout to edit or read (`git -C <checkout> diff <base-commit>`). `diff.patch` is
+     checkout to edit or read (`git -C <checkout> diff <base-commit>`). A Codex
+     implementer call passes `--cwd <checkout>` as its last option. `diff.patch` is
      produced from `<checkout>` into `<artifacts>`.
    - Because codex-lite reviews the session's checkout, every diff review goes through
      `codex-lite:ask` with `diff.patch`, in a fresh `codex-lite:ask` thread that becomes the
      stage's thread.
-   - Because the Claude `code-review` skill also reviews only the session's checkout, a
-     worktree run is allowed only below high tier. When Step 1.5 sets high or above, or Step
-     4.5 raises the run to high, the run ends in `blocked` naming the skip-worktree
-     state and the tier, before anything is implemented in the first case and before Step 5
-     in the second.
+   - Because the Claude `code-review` skill also reviews only the session's checkout, the
+     Claude slot of every Step 5 round, at every tier, is the Opus subagent substitute
+     that `multi-repo.md` defines for additional repositories, as Claude review contract
+     item 7 in `SKILL.md` says. It reads `<artifacts>/diff.patch`, produced from
+     `<checkout>`, and is continued with SendMessage in later rounds. There is no tier
+     limit on a worktree run.
    - At the terminal state the worktree is kept. The report names its path and how to remove
      it (`git worktree remove <path>`).

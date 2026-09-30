@@ -106,15 +106,17 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
 8. **Continuing or replacing an implementer.** Findings go back to the same agent when
    it can be continued. Agents run inside a Workflow do not persist, so a fresh agent
    gets the findings and the slice's current diff. Qualified by Part 8 item 6: parallel
-   Agent calls are allowed too, and they can be continued.
+   Agent calls are allowed too, and they can be continued. Qualified by Part 10 item 7:
+   a Codex implementer is never continued; its fix round is a fresh call.
 9. **Low and medium tier skip all of Step 5, including 5.1.** Step 6 then runs the full
-   set, so the full check run still happens once. Superseded by Part 7 item 2: only low
-   tier skips Step 5.
+   set, so the full check run still happens once. Superseded by Part 7 item 2, then by
+   Part 10 item 3: every tier has a Step 5.
 10. **The Step 6 fix loop.** A failing check that is not a baseline match is fixed, and
     the fix goes through the tier's review. Step 6 runs at most 3 times.
 11. **Low and medium tier CI repair.** A CI failure at low or medium tier goes to the
     orchestrator's review rather than a Step 5 round, since those tiers have no Step 5.
-    Superseded by Part 7 item 2: only low tier has no Step 5.
+    Superseded by Part 7 item 2, then by Part 10 items 3 and 6: every tier has a Step 5,
+    and a CI repair at every tier goes through a Step 5 round.
 12. **The required checks are read with read access, and a failed read blocks.** They
     come from the branch endpoint and the branch rules endpoint, which need only read
     access. The protection endpoint needs admin rights and returns 404 otherwise. If a
@@ -137,7 +139,8 @@ Gaps closed before the 0.1.0 build. Each has a reason and no recorded incident.
     report updates to a comment on the run's own PR, so the scope lists it and Step 0.1
     reports whether it will prompt.
 18. **Codex review needs `codex-lite` 0.7.0 or later.** `--timeout`, the status line,
-    and base reviews that include uncommitted work need 0.7.0.
+    and base reviews that include uncommitted work need 0.7.0. Superseded by Part 10
+    item 13: the minimum is 0.8.0.
 19. **The permissions statement comes at the end of Step 0.1, before any other action.**
     An attended run could prompt or stop before the statement, as in a Step 0.5 write
     refusal, so the statement must come before the first action that can prompt. It
@@ -221,7 +224,7 @@ and the acceptance item is named.
 3. **codex-lite 0.7.0 or later is required.** It provides `--timeout`, the status line,
    and base reviews that include uncommitted work. Whether Codex reviews a file marked
    with `git add -N`, and not only the pre-check, is unverified at 0.1.0. Acceptance
-   item 32 checks it.
+   item 32 checks it. Superseded by Part 10 item 13: the minimum is 0.8.0.
 4. **Default permission mode prompts at every Codex call.** codex-lite writes a request
    file under `~/.claude`, and that prompt persists. Unattended runs need auto mode or
    `--no-codex`. The README says so, and Step 0.1 says so at run time.
@@ -247,6 +250,7 @@ and the acceptance item is named.
    uses Opus on an error.** There is no session model detection. This is unverified at
    0.1.0. Acceptance item 38 checks it. Since Part 7 the fallback follows the Codex model,
    not the tier: every `gpt-6-astra` stage falls back to Fable then Opus, at any tier.
+   Qualified by Part 10 item 10: this is for reviewer calls only.
 10. **A CI job that cannot be mapped to a local command is deferred, not guessed.** A
     wrong guess would either run something unrelated or report false confidence. The job
     is named in the report and left to the CI gate.
@@ -267,7 +271,7 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    cost of the top tiers. A floored task that is xhigh-shaped is max by the estimate
    rule. A requested xhigh or max stands, because it is above the floor. Qualified by
    Part 7 item 3: a floored high run now gets a `gpt-6-astra` plan review; its diff review
-   stays `gpt-6-sol`.
+   stays `gpt-6-sol`. Qualified by Part 10 item 4: its diff review is `gpt-6-astra` too.
 4. **One slice below xhigh.** Concurrency is now a tier property, so the tier sets both
    review depth and slice count. The cost is accepted: work that 0.1.0 could split into
    two parallel agents now runs as one agent under one subagent budget (20 minutes by
@@ -296,7 +300,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    below high rise, and only to high. One rule, the floor, removes the conflict.
    Qualified by Part 7 item 3: the tier still never rises above high, but the Step 5
    reviewers are resolved from the diff at every tier, so that xhigh run now gets
-   `gpt-6-astra` at Step 5 while staying xhigh.
+   `gpt-6-astra` at Step 5 while staying xhigh. Qualified by Part 10 item 4: the xhigh
+   and max cells are fixed and do not depend on the diff.
 
 ## Part 6: Slices at every tier and Opus implementers, 2026-09-28
 
@@ -316,6 +321,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    module, type, interface, or rule section that another file cites. A prompt-only loop
    with open judgment gives different runs under different orchestrator models, so the
    criteria are written down and the choice is recorded in the plan with the criterion.
+   Superseded by Part 10 items 1 and 2: Codex is the default, Opus applies at high,
+   xhigh, and max by these criteria, and Sonnet is only a fallback.
 4. **An Opus implementer call that errors falls back to Sonnet.** This mirrors the fable
    to opus reviewer fallback. An implementer swap never removes a stage, and the swap is
    recorded in the log and the report.
@@ -334,7 +341,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    `--no-codex`, on every run.
 2. **Only low tier skips Step 5.** Medium now gets a `gpt-6-sol` diff review. This
    supersedes Part 3 items 9 and 11 and Part 5 item 5. Step 6's checks cover behavior the
-   tests know about; a diff review covers what they do not.
+   tests know about; a diff review covers what they do not. Superseded by Part 10 item 3:
+   low tier has a Step 5 too.
 3. **Two cells follow the risk trigger, not only the tier.** The high tier plan review
    uses `gpt-6-astra` when the change has a risk floor trigger, judged at the Step 1.5
    floor check, and `gpt-6-sol` otherwise. The xhigh final review uses `gpt-6-astra` when a
@@ -343,7 +351,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    by the tier. This qualifies Part 5 items 3 and 7: the tier still never rises above high
    after Step 4, but the xhigh Step 5 model is resolved from the diff. The rule is written
    down because an "or" cell in the table with no rule would let two runs of the same task
-   pick differently, and the run log could not say why.
+   pick differently, and the run log could not say why. Superseded by Part 10 item 4: the
+   xhigh cell is fixed, and the final review cell at high follows the trigger.
 4. **At high tier and above, the built-in `code-review` skill reviews the diff beside
    Codex.** Its level is medium at high, high at xhigh, and xhigh at max. It is a fixed
    slot: not a fallback, never swapped, and untouched by `--no-codex`. A required pass
@@ -354,7 +363,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    Its availability is checked only when a stage needs it, so low, medium, and plan-only
    runs gain no prerequisite. Qualified by Part 8 item 2: in Multi-repo mode the skill
    covers the primary only, and an Opus subagent fills the Claude slot for each
-   additional repository.
+   additional repository. Superseded by Part 10 item 3: it runs at every tier, at the
+   levels that item gives, and low and medium runs need it when Step 5 starts.
 5. **A Step 5 round at high tier and above is both passes over the same diff, under one
    shared cap of 3.** This qualifies Part 2 item 10. The Codex thread keeps `--resume`;
    the Claude pass is fresh each round, since the skill keeps no thread, and a finding it
@@ -362,7 +372,8 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    of Part 8 item 2 is the one Claude pass that is continued. Findings from both
    are merged into one list, with the source kept, and fixed in one batch, so a round
    costs one implementer pass, not two. Both passes must return before the round ends;
-   otherwise "cap of 3" could mean three rounds per reviewer.
+   otherwise "cap of 3" could mean three rounds per reviewer. Superseded by Part 10
+   item 3 for the tier scope: a round is both passes at every tier.
 6. **Step 5 has no post-cap orchestrator fix.** Step 5.3 used to allow one, while Step 5.4
    required every Step 5 fix to be seen by a later round. The two rules conflicted. The
    post-cap fix stays in Step 4 only; a Step 5 blocking finding open after the cap ends the
@@ -370,13 +381,15 @@ The tiers grew from three to five: `low`, `medium`, `high`, `xhigh`, `max`.
    round would have no round to review it, so the third round fixes nothing. A blocking
    finding there ends the run in `blocked`, and a non-blocking one is deferred. Two rounds
    fix, the third confirms.
-7. **CI repair and Step 6 repair use the paired round at medium tier and above.** Medium
-   enters the Codex slot; high and above also rerun the Claude pass fresh. Each CI cycle
-   keeps its one extra Step 5 round, which now holds both passes. Low tier keeps the
-   orchestrator's own review.
+7. **CI repair and Step 6 repair use the paired round at medium tier and above.**
+   Medium enters the Codex slot; high and above also rerun the Claude pass fresh. Each CI
+   cycle keeps its one extra Step 5 round, which now holds both passes. Low tier keeps the
+   orchestrator's own review. Superseded by Part 10 item 6: every tier uses the paired
+   round.
 8. **The fallback follows the Codex model.** `gpt-6-sol` falls back to Opus, and
    `gpt-6-astra` to Fable then Opus, at any tier. This qualifies Part 4 item 9, which
-   named the max tier because only max used `gpt-6-astra` then.
+   named the max tier because only max used `gpt-6-astra` then. Qualified by Part 10
+   item 10: for reviewer calls only.
 9. **Every Claude pass targets the base commit.** Read from the installed Claude Code
    2.1.284 prompt: with no target the skill diffs `@{upstream}...HEAD`, else
    `main...HEAD`, else `HEAD~1`, and adds `git diff HEAD` for uncommitted work. The work
@@ -432,12 +445,13 @@ run that taught it.
    unpublished work. The report gives the branch, the commit state, and the commands to
    publish. Observed on a live run of 2026-09-29 (#6).
 4. **Codex availability does not depend on the session's skill list.** It is decided from
-   `codex --version` and the installed codex-lite version, 0.7.0 or later. A Skill call
-   that errors because the skill is not listed counts as a `failed` call: retry once,
-   then swap, recording "skill not listed in session", and Codex is recorded unavailable
-   for the rest of the run so later stages do not repeat the failed calls. The host, not the plugin,
-   controls which skills a session lists, and with the CLI ban a listing gap left no route
-   to Codex. Observed on a live run of 2026-09-29 (#7).
+   `codex --version` and the installed codex-lite version, 0.7.0 or later (0.8.0 since
+   Part 10 item 13). A Skill call that errors because the skill is not listed counts as a
+   `failed` call: retry once, then swap, recording "skill not listed in session", and
+   Codex is recorded unavailable for the rest of the run so later stages do not repeat the
+   failed calls. The host, not the plugin, controls which skills a session lists, and with
+   the CLI ban a listing gap left no route to Codex. Observed on a live run of 2026-09-29
+   (#7).
 5. **Implementers match the repository's line endings, and Step 4.3 checks them.** A new
    file takes the `eol=` attribute when one applies; under `text` or `text=auto` with no
    `eol=`, git normalizes on commit and no ending is enforced; else the majority of files
@@ -447,7 +461,8 @@ run that taught it.
 6. **Independent slices run as one Workflow or as parallel Agent calls.** The orchestrator
    chooses, defaults to Agent calls when review rounds are expected, and logs the choice
    in `run.md`. Workflow agents cannot be continued for review rounds, and continuation
-   was the more useful property. The issue cited `docs/decisions.md` items 97 to 99,
+   was the more useful property. Qualified by Part 10 item 8: Codex slices run in series
+   and never inside a Workflow. The issue cited `docs/decisions.md` items 97 to 99,
    which do not exist; the rule it means is Part 3 item 8. Observed on a live run of
    2026-09-29 (#9).
 7. **The run budget default is by tier, and it can be extended per run.** Low and medium
@@ -481,7 +496,8 @@ Composition rules, each with its reason:
 - **A worktree run is not allowed at high tier or above.** The `code-review` skill reviews
   only the session's checkout, so it cannot review the worktree. A run that reaches high
   at Step 1.5, or is raised to high at Step 4.5, ends in `blocked` naming the skip-worktree
-  files that differ from `HEAD` and the tier.
+  files that differ from `HEAD` and the tier. Superseded by Part 10 item 5: a worktree
+  run is allowed at every tier, with the Opus subagent as its Claude slot.
 - **A worktree run and Multi-repo mode do not combine.** The primary's `codex-lite:review`
   and `code-review` read the session's checkout, so a primary in a worktree would be
   reviewed wrongly. A primary that would qualify ends in `blocked`, naming the
@@ -492,10 +508,11 @@ Composition rules, each with its reason:
   Enterprise checkout beside a github.com primary is a different host. It is a preflight
   failure, and on `other` all repositories end in
   `prepared` together.
-- **An additional repository's Claude slot is an Opus subagent.** The `code-review` skill
-  cannot target a checkout other than the session's. The subagent is a defined
-  substitute, recorded in `run.md` and named in the report. It is not a swap, and it is
-  continued, not fresh, so that its follow-up rounds keep their context.
+- **An additional repository's Claude slot is an Opus subagent.** Part 10 item 5 uses
+  the same substitute for a worktree run. The `code-review` skill cannot target a checkout
+  other than the session's. The subagent is a defined substitute, recorded in `run.md` and
+  named in the report. It is not a swap, and it is continued, not fresh, so that its
+  follow-up rounds keep their context.
 - **Multi-repo mode with `"commit": true` commits the snapshot in one repository.** It
   goes to the first repository, the primary first and then the `--repo` order, that has a
   diff. A repository with no diff never receives it and gets no PR.
@@ -670,18 +687,145 @@ taught it where there is one.
    after. Later edits change these counts; acceptance item 100 pins them to the move
    commit. Issue #20.
 
+## Part 10: 0.7.0, Codex implementers and review at every tier, 2026-09-30
+
+Two goals: spend Claude weekly usage on orchestration and review rather than on
+implementation, with Codex staying the primary adversarial reviewer, and give every tier,
+low included, a final review by both a Codex reviewer and the Claude `code-review` skill.
+ccl 0.7.0 needs codex-lite 0.8.0 for the `implement` command. No incident is recorded for
+these rules; each has its reason.
+
+1. **Codex implements every slice by default, one model per tier.** The model is
+   `gpt-6-luna` at low, `gpt-6.1-sol` at medium and high, and `gpt-6-astra` at xhigh and
+   max, called through `codex-lite:implement`. The orchestrator still reviews each slice
+   in Step 4. This supersedes Part 6 item 3, which had Sonnet as the default. Claude usage
+   then goes to orchestration and review, and a cheaper model implements where a slice
+   does not need Opus. The implementer is recorded in the plan per slice at every tier,
+   as "codex" or the Opus criterion, and the slice's effective model is recorded as
+   before.
+2. **Opus replaces the Codex implementer at high, xhigh, and max only by the existing
+   criteria.** The criteria are a risk floor trigger, more than eight files, or a new
+   module, type, interface, or rule section that another file cites (Part 6 item 3). They
+   do not apply at low and medium. Sonnet is never chosen at the plan. It is the
+   fallback: under `--no-codex`, when Codex was found unavailable at Step 0.6, when a
+   Codex implementer call returns `failed` or no status line twice in a row, and when an
+   `opus` call errors (Part 6 item 4). Choosing Sonnet at the plan would put a third
+   default beside the Codex one, and the criteria already say when a slice is hard.
+3. **The Claude `code-review` skill runs at every tier, and low tier has a final review.**
+   The levels are `low` at low, `medium` at medium, `high` at high with a trigger and
+   `medium` at high without one, `high` at xhigh, and `xhigh` at max. This supersedes Part
+   7 item 2, which let low skip Step 5, and Part 7 items 4 and 5, which limited the Claude
+   pass and the paired round to high tier and above. Low was the only tier with no diff
+   review. It also ends Part 7 item 4's claim that low, medium, and plan-only runs gain no
+   prerequisite: low and medium runs now need the skill when Step 5 starts, and a missing
+   skill ends them in `blocked` there. A plan-only run still needs nothing. The low and
+   medium run budgets of 120 minutes now include Step 5.
+4. **Only the high cell follows the trigger.** The plan review at high uses `gpt-6-astra`
+   with a trigger, judged at the Step 1.5 floor check, and `gpt-6.1-sol` otherwise, as
+   before. The final review at high uses `gpt-6-astra` and `code-review high` when a
+   trigger was present at the estimate or is in the diff after Step 4, and `gpt-6.1-sol`
+   and `code-review medium` otherwise. A medium run that rises to high always has a
+   trigger in the diff, so it gets the trigger cell. The xhigh and max cells are fixed.
+   This supersedes Part 7 item 3, whose xhigh final review followed the trigger, and
+   qualifies Part 5 items 3 and 7, whose floored high run kept a `gpt-6.1-sol` diff review
+   and whose resolved Step 5 model made xhigh follow the diff. Each cell that follows a
+   rule has the rule written down, for the reason in Part 7 item 3.
+5. **A worktree run is allowed at every tier.** A worktree run at any tier uses the Opus
+   subagent substitute that `multi-repo.md` defines for additional repositories as its
+   Claude slot, because the skill reviews only the session's checkout. This supersedes the
+   Part 8 composition rule that refused a worktree run at high tier and above, and the
+   gates at Step 0.3, Step 1.5, and Step 4.5 that enforced it. The substitute is a
+   defined one, recorded in `run.md` and named in the report, not a swap. The rule that
+   a worktree run and Multi-repo mode do not combine stands.
+6. **A Step 6 check-failure fix and a CI repair go through a Step 5 round at every tier.**
+   Every reviewer the stage has reads the fix, within Step 5's cap. A CI repair uses the
+   Step 5 Codex thread when one exists, else `codex-lite:review --base <base-commit>`,
+   plus the Claude reviewer, and each cycle keeps its one extra review round. This
+   supersedes Part 7 item 7 and the low-tier part of Part 3 item 11, which left low with
+   the orchestrator's own review. Low now has a Step 5, so nothing is left to bypass. An
+   ordinary Step 6 repair stays inside Step 5's cap and ends in `blocked` when that cap is
+   exhausted.
+7. **A Codex implementer thread is not resumed, so every fix round is a fresh call.**
+   Resume is read-only in codex-lite, and `implement` has no `--resume`. Each Step 4.3 or
+   Step 5.3 fix round for a Codex slice is a new `implement` call given the findings and
+   the slice's current diff, as a replaced agent is today. The thread of an earlier call
+   can be questioned read-only with `ask --resume`, but it is not used to write. This
+   qualifies Part 3 item 8 for Codex slices. `SendMessage` continues Opus and Sonnet
+   implementers only.
+8. **Codex slices run in series, never inside a Workflow.** codex-lite has one request
+   file and one thread file per session, so Codex calls stay one at a time, and that now
+   includes implementers. Independent Codex slices therefore run one after another. Opus
+   slices and Sonnet fallbacks may still run in parallel with each other. This qualifies
+   Part 8 item 6.
+9. **The orchestrator installs dependencies, because Codex has no network.** A dependency
+   the plan adds is installed in Step 3.7, after the baseline checks of Step 3.7.3 ran on
+   the unchanged base and after the ask-first rule, before any implementer starts. The
+   manifest and lockfile edits are part of the run's diff and are reviewed in Step 5 like
+   any other change. A slice's checks that need the network are run by the orchestrator
+   after the implementer returns, and a failure goes back to the implementer as a finding.
+   The implementer choice does not change because of this.
+10. **Two budgets and two fallback chains, keyed by role.** Reviewer Codex calls keep the
+    Codex budget, capped at 60 minutes, and the reviewer fallbacks, `opus` for
+    `gpt-6.1-sol` and `fable` then `opus` for `gpt-6-astra`. A Codex implementer call
+    takes the smaller of the subagent budget and the remaining run budget, capped at 3600
+    seconds because codex-lite refuses a larger `--timeout`, and falls back to `sonnet`
+    only. The cap and the value passed are logged in `run.md`; a `timeouts.subagent`
+    above 60 minutes is passed as 3600. Opus and Sonnet Agent implementers keep the full
+    subagent budget. This qualifies Part 4 item 9 and Part 7 item 8, whose fallback
+    followed the Codex model without regard to the role. The rules that said "every Codex
+    call" carries the Codex budget, and "a `gpt-6-astra` stage" falls back to `fable`, now
+    apply to reviewer calls only. A `refused` status from an implementer ends the run in
+    `blocked`, as for a reviewer, and a `timeout` status is a budget expiry.
+11. **A failed Codex implementer call may have written part of the slice, so the retry
+    waits for the process to end.** Before a retry or the Sonnet fallback, the previous
+    call must have returned its output, in the foreground or as a background completion
+    notification, because codex-lite ends the Codex process when its turn ends or the Bash
+    call times out. A call whose output never arrives is a budget expiry: the run ends in
+    `blocked` and no other writer starts on that checkout. Output that says Codex may
+    still be running has the same result: codex-lite prints "codex may still be running as
+    pid" when the process outlived its hard end, and on Windows warns that child
+    processes may still be running after a timeout. A `failed` result on Windows carries
+    no such warning even though a command Codex started may outlive it, and nothing the
+    orchestrator can read proves the process tree is gone, and a result with no status
+    line was cut off before the runner could warn at all. On Windows a Codex implementer
+    call that returns `failed` or no status line is therefore not retried and gets no
+    Sonnet fallback: the run ends in `blocked` naming the possible surviving process. On POSIX the runner stops the process
+    group, so the returned output is the evidence. The orchestrator then reads the tree
+    state from the footer or `git status`, and gives the next call the current diff with
+    the same slice prompt. This applies the dropped-write rule (Part 8 item 8, Approval
+    scope item 6) to implementers, and the threshold stays two failures in a row.
+12. **The `implement` command weakens one codex-lite guarantee, and the loop accepts
+    it.** Claude can invoke `implement`, so writes are no longer gated on a typed
+    command. The codex-lite README documents the tradeoff, and the command's description
+    says when Claude may invoke it: only when the user, or a skill the user invoked,
+    delegates a change to Codex. In a session in default permission mode the Skill call
+    still prompts. ccl invokes it only for a slice of a run the user started.
+13. **ccl requires codex-lite 0.8.0 or later.** This supersedes the 0.7.0 minimum of Part
+    3 item 18, Part 4 item 3, and Part 8 item 4, because 0.7.0 has no `implement`. The
+    call is `codex-lite:implement` with `--model`, `--timeout` (1 to 3600), and `--cwd`
+    last, since its value is the rest of its line and the request text starts on the next
+    line. Its output lines are those of `do`, including the `status:` line and the tree
+    footer. A worktree run, or an additional repository in Multi-repo mode, passes
+    `--cwd <checkout>`, and its request names files by absolute path or carries the
+    content inline, because Codex runs in that checkout and the rule that requests name
+    files relative to the session's checkout applies to reviewer calls only. A Skill
+    call for `implement` that errors because the skill is not listed follows Part 8
+    item 4.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.
 
 - **Codex model ids are always the full id.** Bare `sol` fails on a ChatGPT account.
-- **Every Codex call carries `--timeout`, and follow-ups pass `--resume <id>`, never
-  bare.** Step 3 and Step 5 are separate threads. A bare `--resume` after a plan review
-  would continue the wrong one.
+- **Every Codex reviewer call carries `--timeout`, and follow-ups pass `--resume <id>`,
+  never bare.** Step 3 and Step 5 are separate threads. A bare `--resume` after a plan
+  review would continue the wrong one. An implementer call carries `--timeout` from the
+  subagent budget and has no `--resume` (Part 10 items 7 and 10).
 - **Only the orchestrator calls Codex, one call at a time.** codex-lite supports one
-  call at a time per Claude session.
-- **A fallback swaps one reviewer and never removes a stage.** The tier is set by the
-  task's risk and does not change because a reviewer is unavailable.
+  call at a time per Claude session, so Codex implementer slices run in series too
+  (Part 10 item 8).
+- **A fallback swaps one reviewer or one implementer and never removes a stage.** The
+  tier is set by the task's risk and does not change because a reviewer is unavailable.
 - **A shell quoting failure is fixed by moving the text into a file, not by
   requoting.**
 - **A subagent report is model output, not user approval.** It cannot grant anything.

@@ -1,7 +1,7 @@
 {
   "name": "ccl",
-  "version": "0.6.0",
-  "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex and Claude reviewing, and Claude subagents implementing.",
+  "version": "0.7.0",
+  "description": "Run a tiered plan, review, implement, review, publish loop for one unit of work, with Claude orchestrating, Codex implementing, and Codex and Claude reviewing.",
   "license": "Apache-2.0",
   "author": {
     "name": "vibecodedapps.net"

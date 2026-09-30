@@ -2,8 +2,9 @@
 
 `ccl` is a Claude Code plugin that runs a tiered plan, review, implement, review,
 publish loop for one unit of work. Claude orchestrates and reviews. Codex gives a second
-opinion. Claude subagents implement: Sonnet below xhigh, Sonnet or Opus per slice at
-xhigh and max. You type one command instead of a hand-written workflow prompt.
+opinion and implements the slices. Claude subagents implement a slice at high, xhigh,
+and max when the criteria say so, and when Codex is unavailable. You type one command
+instead of a hand-written workflow prompt.
 
 The plugin is prompt-only. It is markdown and one JSON manifest. It has no hooks, no
 scripts, and no code that runs outside a Claude Code session.
@@ -16,12 +17,14 @@ Given an issue, a file of notes, or a short description, the loop:
 2. Verifies the claims in the inputs against the code and sizes the effort.
 3. Writes a plan and has Codex review it until no blocking objection remains, at every
    tier.
-4. Creates a branch, runs the repo's checks once as a baseline, and has Claude
-   subagents implement the plan, one agent per slice. Independent slices run in parallel
-   and dependent ones in order, at every tier. Below xhigh the implementer is Sonnet; at
-   xhigh and max the plan picks Sonnet or Opus per slice. Claude reviews each slice.
-5. At medium effort and above, has Codex review the whole diff. At high and above, the
-   built-in `/code-review` skill reviews it too, at a level that rises with the tier.
+4. Creates a branch, runs the repo's checks once as a baseline, and has an implementer
+   build each slice of the plan. Codex is the default at every tier, at a model that
+   rises with the tier. At high, xhigh, and max the plan picks Opus for a slice that
+   carries a risk trigger, owns more than eight files, or adds a new module or interface.
+   Sonnet is only the fallback. Codex slices run one at a time; Opus and Sonnet slices
+   may run in parallel. Claude reviews each slice.
+5. At every tier, has Codex review the whole diff, and the built-in `/code-review` skill
+   reviews it too, at a level that rises with the tier.
 6. Runs every check the repo has that can run locally.
 7. Commits, pushes, opens one pull request (one per repository in Multi-repo mode),
    watches CI, and comments on each source issue. A PR retargeted to another base branch
@@ -44,10 +47,10 @@ directory exists prints the report and writes nothing.
   and ends in `prepared` with a handoff to the host's own tooling. A GitHub Enterprise
   checkout therefore needs a `gh` login for that host to be treated as GitHub. Only
   GitHub is supported for publishing.
-- Optional but preferred: the Codex CLI and the `codex-lite` plugin, version 0.7.0 or
-  later. All Codex calls go through `/codex-lite:ask` and `/codex-lite:review`. Codex
-  needs a git repository as its working directory and has no network access. An older
-  `codex-lite` is treated as unavailable.
+- Optional but preferred: the Codex CLI and the `codex-lite` plugin, version 0.8.0 or
+  later. All Codex calls go through `/codex-lite:ask`, `/codex-lite:review`, and
+  `/codex-lite:implement`. Codex needs a git repository as its working directory and has
+  no network access. An older `codex-lite` is treated as unavailable.
 
   [`codex-lite`](https://github.com/vibecodedapps-official/codex-lite-cc) is a small
   Claude Code plugin that hands a task to the Codex CLI in a fixed sandbox and prints the
@@ -58,13 +61,13 @@ directory exists prints the report and writes nothing.
   /plugin install codex-lite@vibecodedapps-codex-lite
   ```
 
-- The built-in `/code-review` skill, for runs at high effort and above. It is the second
-  final reviewer beside Codex at those tiers. A run that needs it and cannot find it ends
-  in `blocked`. Low and medium runs and plan-only runs do not need it.
+- The built-in `/code-review` skill, for every run that reaches the final review. It is
+  the second final reviewer beside Codex at every tier. A run that needs it and cannot
+  find it ends in `blocked`. Plan-only runs do not need it.
 
 Without Codex, use `--no-codex`. The loop then uses Claude subagents in place of the Codex
-reviewers and names every swap in the report. `--no-codex` does not remove the
-`/code-review` pass.
+reviewers and Sonnet subagents in place of the Codex implementers, and names every swap
+in the report. `--no-codex` does not remove the `/code-review` pass.
 
 ## Install
 
@@ -179,9 +182,10 @@ directly. In this mode:
   subcommand accepts it (`gh api` does not; its endpoint is spelled out), and every `git`
   call with `git -C <path>`.
 - Codex `review` covers the primary. Each additional repository with a diff is reviewed
-  through `codex-lite:ask` with a patch file. At high tier and above, `/code-review`
-  covers the primary, and a Claude Opus subagent fills the Claude slot for each
-  additional repository with a diff. That substitute is recorded and is not a swap.
+  through `codex-lite:ask` with a patch file. `/code-review` covers the primary, and a
+  Claude Opus subagent fills the Claude slot for each additional repository with a
+  diff. That substitute is recorded and is not a swap. A Codex implementer call for a
+  slice in an additional repository passes that checkout as `--cwd`.
 - Step 7 opens one PR per repository that has a diff, each with a "Related pull
   requests" section that links the siblings. `Closes #n` comes only from the PR in the
   issue's own repository. Every other PR of the run cites it as `Refs <owner>/<repo>#n`.
@@ -226,8 +230,10 @@ to the high default. An explicit instruction from you in the
 session that names a new budget replaces it from that point. The report names the budget
 in force and its source. The `run` budget bounds the whole run from Step 0 to the
 terminal state, less each Step 3.5 wait. The `codex` value is passed to codex-lite in
-seconds, which accepts 1 to 3600, so a value above 60 minutes is capped at 60. An unknown
-field is reported and ignored.
+seconds, which accepts 1 to 3600, so a value above 60 minutes is capped at 60. That cap is
+for Codex reviewer calls. A Codex implementer call gets the smaller of the `subagent`
+value and the remaining run budget, capped at 3600 seconds, and the run log records the
+cap and the value passed. An unknown field is reported and ignored.
 
 Example:
 
@@ -276,26 +282,37 @@ model output, not approval.
 
 | Step | Low | Medium | High | xhigh | Max |
 |---|---|---|---|---|---|
-| Plan review | Codex `gpt-6.1-sol` | Codex `gpt-6.1-sol` | Codex `gpt-6.1-sol`, or `gpt-6-astra` with a risk trigger | Codex `gpt-6-astra` | Codex `gpt-6-astra` |
-| Implement | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet, one per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews | Sonnet or Opus per slice, Claude reviews |
-| Final review | skipped | Codex `gpt-6.1-sol` | Codex `gpt-6.1-sol` and Claude `/code-review medium` | Codex `gpt-6.1-sol`, or `gpt-6-astra` with a risk trigger, and Claude `/code-review high` | Codex `gpt-6-astra` and Claude `/code-review xhigh` |
+| Plan review | Codex `gpt-6.1-sol` | Codex `gpt-6.1-sol` | Codex `gpt-6-astra` with a trigger, else `gpt-6.1-sol` | Codex `gpt-6-astra` | Codex `gpt-6-astra` |
+| Implement | Codex `gpt-6-luna` per slice, orchestrator reviews | Codex `gpt-6.1-sol` per slice, orchestrator reviews | Codex `gpt-6.1-sol`, or Opus by criteria, per slice | Codex `gpt-6-astra`, or Opus by criteria, per slice | Codex `gpt-6-astra`, or Opus by criteria, per slice |
+| Final review | Codex `gpt-6.1-sol` and Claude `code-review low` | Codex `gpt-6.1-sol` and Claude `code-review medium` | Codex `gpt-6-astra` and Claude `code-review high` with a trigger, else `gpt-6.1-sol` and `code-review medium` | Codex `gpt-6-astra` and Claude `code-review high` | Codex `gpt-6-astra` and Claude `code-review xhigh` |
 
 Review of the inputs, checks, and publish run at every tier. The tier is sized from
 behavioral risk, and xhigh and max from how many areas that share no file the change
 spans. Bundling issues does not raise it. A change that adds, alters, or removes an auth
 check, a permission rule, a schema or migration, a row-level security policy, a data
 access path, or a public API's signature or behavior is at least high tier, and
-`--effort` cannot lower that. xhigh and max are above the floor. "With a risk trigger"
+`--effort` cannot lower that. xhigh and max are above the floor. "With a trigger"
 means the change has one of those triggers, whether or not the floor raised the tier. It
-decides two cells: the high plan review, judged at the estimate, so a floored high run
-gets `gpt-6-astra` and a high run that is only cross-cutting gets `gpt-6.1-sol`; and the
-xhigh final review, judged from the estimate or the diff after implementation, so an
-xhigh run forced on a floored task, or whose diff gained a trigger, gets `gpt-6-astra`
-while staying xhigh. After implementation the floor is applied to the diff again; the
-estimate is not repeated, so a run never rises above high. At high tier and above a final
-review round is both reviewers over the same diff, with one shared cap of 3 rounds. When
-Codex is unavailable, a Claude subagent replaces the Codex reviewer and the stage still
-runs; the `/code-review` pass is never swapped.
+is judged at high tier only, and decides two cells: the plan review, judged from the
+Step 1.5 floor check, so a floored high run gets `gpt-6-astra` and a high run that is
+only cross-cutting gets `gpt-6.1-sol`; and the final review, judged from a trigger at
+the estimate or in the diff after implementation. A medium run that rises to high always
+has a trigger in the diff, so it gets the trigger cell. xhigh and max do not depend on
+the trigger. After implementation the floor is applied to the diff again; the estimate
+is not repeated, so a run never rises above high. At every tier a final review round is
+both reviewers over the same diff, with one shared cap of 3 rounds. When Codex is
+unavailable, a Claude subagent replaces the Codex reviewer and the stage still runs; the
+`code-review` pass is never swapped. `gpt-6-luna` is never a reviewer.
+
+The implementer is Codex at the tier's model, one default per tier. At high, xhigh, and
+max, Opus replaces it for a slice that carries a risk trigger, owns more than eight
+files, or adds a new module or interface. The plan never chooses Sonnet. Sonnet is the
+fallback when `--no-codex` is set, when Codex is unavailable at Step 0.6, when a Codex
+implementer call returns `failed` or no status line twice in a row, and on an Opus tool
+error. Codex has no network, so the orchestrator installs any dependency the plan adds
+before an implementer starts, and runs any slice check that needs the network after the
+implementer returns. A worktree run at any tier uses the Opus substitute for the Claude
+slot, because the `code-review` skill reviews only the session's checkout.
 
 Every step that repeats is capped at 3 rounds. Time is bounded per call and per run.
 
