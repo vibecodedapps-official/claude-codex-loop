@@ -39,16 +39,21 @@ names, for each repository, and leaves the rest of that step as written.
   not accept `-R`: run it from the checkout, or spell the endpoint out as
   `repos/<owner>/<repo>/...` instead of `repos/{owner}/{repo}/...`. Every `git` call for it
   runs as `git -C <path>`.
+- PR body files: each repository's body is written to `.ccl/<run-id>/pr-body-<slug>.md` in
+  the primary (the primary's own may stay `pr-body.md`). Every `--body-file` for an
+  additional repository, in `gh pr create`, `gh pr edit`, and the continued-PR `gh pr
+  comment`, is an absolute path, because the call runs inside that repository's checkout,
+  where `.ccl/<run-id>/` does not exist.
 - Step 0.1: read the instruction files and ask-first rules in every repository and union
   them. The permission statement lists each repository's push and PR.
 - Steps 0.2 to 0.4 run per repository. Record a base commit and a planning snapshot for
   each.
 - `continue`: the branch must exist on the primary's remote, which the command checks.
   Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
-  --heads <remote> <branch>`. A repository whose remote has the branch continues it as
-  Step 0.2 says. A repository whose remote lacks it creates it in Step 3.7.2 as a new
-  branch from its default branch, as without `continue`. Different branch names per
-  repository are not supported.
+  --heads <remote> refs/heads/<branch>`. A repository whose remote has the branch
+  continues it as Step 0.2 says. A repository whose remote lacks it creates it in Step
+  3.7.2 as a new branch from its default branch, as without `continue`. Different branch
+  names per repository are not supported.
 - Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
   primary's `.ccl/<run-id>/`, with a section per repository in `inputs.md` and `run.md`.
 - Input guard: an issue may belong to any listed repository. Compare the issue URL's owner

@@ -117,7 +117,8 @@ non-blocking and anything out of scope. No issues were opened.
 - If work was already pushed: <PR link; nothing further was published>
 - Prepared: <branch, commit state, the commit commands when uncommitted, the push command
   (`git push <remote> <branch>` with `continue`), and the `gh pr create` command on the
-  `github` host, omitted with `continue` when the branch has an open PR, or the host
+  `github` host, or with `continue` and an open PR the `gh pr comment <n> --body-file
+  <path>` command instead, with the absolute path of the written body file, or the host
   handoff note otherwise;
   with `"commit": true` and a commit made, that the commit carries the `publishing`
   snapshot; or "not prepared">

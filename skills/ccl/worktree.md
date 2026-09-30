@@ -5,9 +5,10 @@ created. It holds the rules for a run in the detached worktree, and they apply f
 rest of the run.
 
    - With `continue`, a branch that is checked out in the session's checkout (`git
-     worktree list`) cannot be checked out in the worktree: end `blocked` naming the
-     branch, before the worktree is created. Otherwise Step 3.7.2 switches to it inside
-     the worktree.
+     worktree list --porcelain`) cannot be checked out in the worktree: end `blocked`
+     naming the branch and that checkout, before the worktree is created. Step 0.2 already
+     fails a branch checked out in any other worktree. Otherwise Step 3.7.2 switches to
+     it inside the worktree.
    - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
      itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
      before its statement. Record each prompt in `run.md`.
