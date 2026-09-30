@@ -11,8 +11,11 @@
   starts with `-`, contains `@{`, or fails `git check-ref-format --branch`. A branch
   checked out in another worktree fails preflight. `HEAD` of the session's checkout must
   be at the base commit, on the branch or detached at it, or preflight fails with the
-  `git switch` command to run. A plan-only run records a differing local branch, a
-  branch checked out in another worktree, and the pull request cases instead of failing.
+  `git switch` command to run. The default branch is rejected as the value. A plan-only
+  run records a differing local branch, a branch checked out in another worktree, and the
+  pull request cases instead of failing, but it still needs `HEAD` at the remote head, for
+  example detached with `git switch --detach <remote>/<branch>`, and then records the
+  differing local branch.
   A `prepared` run with an open PR gives `gh pr comment <n> --body-file <absolute path>`
   in place of `gh pr create`. (#16)
 - `--confirm-plan` and Step 3.5. Once the plan is final and reverified, the run asks

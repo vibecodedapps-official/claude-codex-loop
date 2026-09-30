@@ -33,8 +33,8 @@ read, which workflows apply, what passes, and how to poll. Item 5, CI repair, st
       `branches-ignore`, `paths`, and `paths-ignore` filters match the PR's base branch and
       changed files, and its `types` filter, when present, includes the event the watched head
       commit produced: `opened` for the first watch after the PR is created, `synchronize`
-      for the first watch when the PR already existed (`continue`) and after a CI repair
-      push to the open PR. A filter that cannot be evaluated with
+      for the first watch when the run continued a branch whose PR was already open, and
+      after a CI repair push to the open PR. A filter that cannot be evaluated with
       confidence counts as a match. A workflow triggered by `pull_request` (not
       `pull_request_target`) does not apply when the PR head commit's message carries a skip
       instruction: `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]`, `[actions skip]`, or

@@ -292,6 +292,10 @@ Two internal working files are also written under `.ccl/<run-id>/` and never com
 `pr-body-<slug>.md` per additional repository in Multi-repo mode) and any request text
 moved into a file (see Failure rules).
 
+Every artifact path passed to a command, for example `--body-file`, is the absolute path
+of the file in the run directory under the session's original checkout, because a
+worktree run and Multi-repo mode run commands from another directory.
+
 `run.md` is the durable record the report is compiled from, because your context may be
 summarized by then. It holds: the run start time; the base commit and the planning snapshot;
 the ask-first rules found; the Codex availability result; each permission prompt that
@@ -559,9 +563,13 @@ it. Step 0 creates nothing except artifacts.
       "this run is unattended" and continue.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
-   With `continue`, also fetch `<remote> <branch>`, and record `<remote>/<branch>` after
-   that fetch as the base commit, in place of the default branch head. Still record the
-   default branch. A local branch of that name that does not equal `<remote>/<branch>` is
+   With `continue`, also fetch the branch with the explicit refspec
+   `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because `git fetch <remote>
+   <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it, and
+   record `<remote>/<branch>` after that fetch as the base commit, in place of the
+   default branch head. Still record the default branch. A branch equal to the default
+   branch is a preflight failure, also in a plan-only run, because the run would push
+   straight to it. A local branch of that name that does not equal `<remote>/<branch>` is
    a preflight failure; never reset local work. With `continue`, `HEAD` of the session's
    checkout must also be at the base commit, either on the branch or detached at it, so
    that the plan review and the Step 1.2 reproduction read the branch's own code.
@@ -634,7 +642,9 @@ changes the tree.
    Partial and blocked inputs stay in the run and are reported per input.
    When the work would need edits in a writable checkout that is neither the primary nor
    listed in `repos` (an input names another writable repository, or a path inside another
-   git checkout), the run ends in `blocked` here, before item 5 and Step 2. The report
+   git checkout that is not a submodule of the primary, as `.gitmodules` or `git submodule
+   status` lists them, because a submodule change is a gitlink update in the primary), the
+   run ends in `blocked` here, before item 5 and Step 2. The report
    gives the rerun command: the same inputs and flags plus one `--repo <path>` for each
    missing checkout, with the path when an input names it and `<path-to-owner/repo>`
    otherwise. A repository
@@ -691,7 +701,9 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
 
 1. Run Step 3.7.1's reverification now. It is read-only. A revision it causes gets its
    Step 3 round here, inside the cap of 3, so the plan is final before the user sees it.
-   Step 3.7.1 then does not repeat.
+   Step 3.7.1 then does not repeat. When the reverification needs a revision and no Step 3
+   round remains, the run ends in `blocked` naming the unreviewed revision, the same as a
+   Step 3 cap with an open blocking objection.
 2. Print the plan path and a short summary of the plan. Ask the user in the session to
    reply yes to implement, or to describe a change. Take the `date` times of Budgets,
    Enforcement item 1, just before asking and just after the reply, and record both in
@@ -723,7 +735,8 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
 1. If the planning snapshot was not the base commit, repeat Step 1.2's verification against the
    base commit and revise the plan where it differs. Read without changing the tree, for
    example `git show <base-commit>:<path>` and `git diff <planning-snapshot> <base-commit>`.
-   A revision gets one more Step 3 round, at every tier, inside the cap of 3. With
+   A revision gets one more Step 3 round, at every tier, inside the cap of 3; with no
+   round left, the run ends in `blocked` naming the unreviewed revision. With
    `confirm-plan`, Step 3.5 already ran this verification, so it does not repeat here.
 2. Create the branch from the base commit. The name is, in order: the `--branch` value; else
    `fix/<id>-<slug>` when any source issue has a `bug` label or a title starting with "fix"
@@ -899,9 +912,8 @@ anything is pushed, stop Step 7 and end in `prepared`.
    corrections, checks not run, and a closing reference per input. Decide completion per input
    after implementation, the tier's required reviews, and Step 6: `Closes #n` when every
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
-   otherwise. Pass every `--body-file`, in `gh pr create` and in `gh pr comment`, as an
-   absolute path, the run directory under the original checkout, because in a worktree run
-   the `gh` call runs as `cd <checkout> && ...`, where `.ccl/<run-id>/` does not exist.
+   otherwise. Pass every `--body-file` as an absolute path, as Mechanics, Artifacts,
+   requires.
    In each repository that continues the branch (`continue`):
    - Before the run's first push, run `git ls-remote --heads <remote> refs/heads/<branch>`
      and compare the head with the base commit. Before each CI repair push, compare it
@@ -910,8 +922,9 @@ anything is pushed, stop Step 7 and end in `prepared`.
    - Push with `git push <remote> <branch>`, never forced, in place of the command above.
    - With an open PR (Step 0.2), do not run `gh pr create`. Write the body from the
      continued-PR variant in `pr-body.md` and post it as one comment with `gh pr comment
-     <n> --body-file .ccl/<run-id>/pr-body.md`. Never edit that PR's body: it belongs to
-     the PR's author.
+     <n> --body-file <absolute path of the repository's body file>`: `pr-body.md` for the
+     primary, `pr-body-<slug>.md` for an additional repository. Never edit that PR's body:
+     it belongs to the PR's author.
    - With no PR, open one with `gh pr create --head <branch>` and the other arguments as
      above.
 3. Watch CI:

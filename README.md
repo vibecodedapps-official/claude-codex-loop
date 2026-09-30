@@ -139,8 +139,12 @@ The remaining text, joined, is one ad-hoc description.
   check-ref-format --branch` is rejected. A branch checked out in a worktree the run will
   not use fails preflight. `HEAD` of the checkout must be at the branch's remote head, on
   the branch or detached at it (`git switch --detach <remote>/<branch>`), or preflight
-  fails. With `/ccl:plan` or `--plan-only`, a differing local branch, a branch checked out
+  fails. The branch must not be the default branch, because the run would push to it.
+  With `/ccl:plan` or `--plan-only`, a differing local branch, a branch checked out
   elsewhere, and the pull request cases are recorded in the report instead of failing.
+  `HEAD` must still be at the remote head, so a plan-only run on a differing local
+  branch needs `HEAD` detached there (`git switch --detach <remote>/<branch>`), and it
+  then records the differing local branch.
   Every remote check of a branch name queries the exact ref `refs/heads/<branch>`,
   because a bare name also matches any ref that ends in it.
 

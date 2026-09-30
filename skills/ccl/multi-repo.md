@@ -4,8 +4,6 @@ Read this file at the start of Step 0, before host detection, when `repos` is no
 `none`. It holds the rules for a run that writes to additional checkouts, and they
 apply for the rest of the run.
 
-### Multi-repo mode
-
 `repos` names additional writable checkouts. The current checkout is the primary. Read-only
 repositories are not named; agents read them directly. Every rule below changes the step it
 names, for each repository, and leaves the rest of that step as written.

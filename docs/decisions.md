@@ -565,7 +565,15 @@ taught it where there is one.
    comment` command with the absolute path of a body file, written at that point if Step
    7.2 did not, one per repository at its own path in Multi-repo mode, so the user can
    finish the run by hand. Every `--body-file` is an absolute path, because in a worktree
-   run the `gh` call runs inside the checkout. Issue #16.
+   run the `gh` call runs inside the checkout. A later review added four rules. The
+   default branch is rejected as the value, because the run would push straight to it.
+   The branch is fetched with the explicit refspec
+   `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because a plain `git fetch
+   <remote> <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it,
+   which a single-branch clone does not. A plan-only run needs `HEAD` at the remote head
+   too, so its relaxation for a differing local branch applies only with `HEAD`
+   detached there. A reverification that needs a revision with no Step 3 round left ends
+   in `blocked`. Every artifact path passed to a command is absolute. Issue #16.
 3. **The run never adopts Multi-repo mode from prose, and an additional repository with
    skip-worktree edits continues.** A task that named other writable repositories in prose
    ran with `repos` set to `none` and no rule. Step 1 now ends in `blocked` before Step 2,

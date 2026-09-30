@@ -4,7 +4,7 @@ The plugin is prompt-only and has no automated test surface in 0.1.0, so these c
 are run by hand against a throwaway repo. Each item gives the setup, the command, the
 expected result, and when to rerun it. The record of runs is at the end.
 
-Common setup for items 4 to 108 unless an item says otherwise: a throwaway GitHub repo
+Common setup for items 4 to 114 unless an item says otherwise: a throwaway GitHub repo
 you own, cloned locally, with a clean working tree, `gh` authenticated, one open issue
 (#1) that describes a one-line bug, and a `package.json` with a passing `test` script.
 Start Claude Code with `claude --plugin-dir <path-to-plugin>`.
@@ -538,8 +538,8 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
 
 ## M7: 0.6.0, 2026-09-30
 
-Setup for items 83 to 108: the common setup, plus the setup each item names. Items 83 to
-99 and 101 to 108 are hand runs against throwaway repos and cannot run inside a ccl run.
+Setup for items 83 to 114: the common setup, plus the setup each item names. Items 83 to
+99 and 101 to 114 are hand runs against throwaway repos and cannot run inside a ccl run.
 Item 100 is a static check of the plugin files and needs no repo. In an item that
 continues a branch, "the branch" is already pushed to the remote with one commit, "the
 remote head" is that branch's head on the remote, and the session's checkout is on the
@@ -756,6 +756,42 @@ branch or detached at the remote head unless the item says otherwise.
      hold the continued-PR body of their repository; and the report gives one `gh pr
      comment <n> --body-file <absolute path>` per repository, naming those files. Rerun
      after any change to Step 7 or `multi-repo.md`.
+109. **`--continue` naming the default branch is a preflight failure.** Setup: none
+     beyond the common setup. Command: `/ccl:run #1 --no-codex --continue main`, then
+     `/ccl:plan #1 --continue main`, with `main` the default branch. Expected: each is a
+     preflight failure in Step 0.2 naming the default branch, the report printed, nothing
+     written, and nothing pushed. Rerun after any change to Step 0.2.
+110. **The continued branch is fetched with an explicit refspec.** Setup: a single-branch
+     clone of the default branch, with branch `t110` pushed to the remote. Command:
+     `/ccl:run #1 --no-codex --plan-only --continue t110`. Expected: `git rev-parse
+     <remote>/t110` succeeds after Step 0.2, and `run.md` records it as the base commit.
+     Rerun after any change to Step 0.2.
+111. **A plan-only `--continue` with a differing local branch needs a detached `HEAD`.**
+     Setup: branch `t111` pushed, and a local `t111` with one commit that is not on the
+     remote. Command: `/ccl:plan #1 --no-codex --continue t111` with the session on local
+     `t111`. Expected: a preflight failure for `HEAD`, whose message gives `git switch
+     --detach <remote>/t111`. Then run that command and rerun: the run ends `plan-only`
+     and `run.md` and the report record the differing local branch. Rerun after any
+     change to Step 0.2.
+112. **A submodule of the primary is not another writable checkout.** Setup: the primary
+     has a submodule at `sub/`, and an issue whose fix edits a file under `sub/`.
+     Command: `/ccl:run #1 --no-codex --plan-only`. Expected: Step 1 does not end in
+     `blocked` for a writable checkout not listed in `repos`. Then with an issue that
+     edits a path in an unrelated git checkout: `blocked` with the rerun command. Rerun
+     after any change to Step 1.4.
+113. **A reverification revision with no round left ends `blocked`.** Setup: a plan whose
+     Step 3 review used all 3 rounds and whose planning snapshot is not the base commit
+     in a way that changes the plan; `--confirm-plan`. Command: `/ccl:run #1 --no-codex
+     --confirm-plan`. Expected: `blocked` naming the unreviewed revision, with no
+     question asked and no branch created. Repeat without `--confirm-plan` and expect the
+     same at Step 3.7.1. Rerun after any change to Step 3.5 or Step 3.7.1.
+114. **A worktree run posts the continued-PR comment with an absolute body path.** Setup:
+     branch `t114` pushed with an open PR, a `skip-worktree` edit that differs from
+     `HEAD`, and the session detached at `<remote>/t114`. Command: `/ccl:run #1
+     --no-codex --continue t114`. Expected: the `gh pr comment` call runs inside the
+     checkout with `--body-file` set to an absolute path under the original checkout's
+     `.ccl/<run-id>/`, and the comment posts. Rerun after any change to Step 7.2 or
+     `worktree.md`.
 
 ## Record of runs
 
