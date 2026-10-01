@@ -7,13 +7,14 @@ rest of the run.
    - With `continue`, a branch that is checked out in the session's checkout (`git
      worktree list --porcelain`) cannot be checked out in the worktree: end `blocked`
      naming the branch and that checkout, before the worktree is created. In a plan-only
-     run, record it in `run.md` and the report instead. When Step 0.2 switched the
-     session's checkout for this run, it ran the flagged-file check first, predicted this
-     worktree run, and detached the session's checkout at `<remote>/<branch>`
-     (fast-forwarding a behind local branch without checking it out), so this check
-     passes. A session on the branch at its tip, which Step 0.2 does not move, still
-     ends here. Step 0.2 already fails a branch checked out in any other worktree.
-     Otherwise Step 3.7.2 switches to it inside the worktree.
+     run, record it in `run.md` and the report instead. Step 0.2 ran the flagged-file
+     check first, predicted this worktree run, left the session's files alone, and with
+     consent detached the session in place when it was on the branch and fast-forwarded a
+     behind local branch without checking it out, so this check passes whenever that
+     consent was given; it ends here only when the branch is still checked out in the
+     session, which means the question was not asked, for example in Multi-repo mode.
+     Step 0.2 already fails a branch checked out in any other worktree. Otherwise Step
+     3.7.2 switches to it inside the worktree.
    - Commands wrapped in `cd <checkout> && ...` are not pre-approved, and `git worktree add`
      itself may prompt. Step 0.1 already listed them, because it ran the flagged-file check
      before its statement. Record each prompt in `run.md`.

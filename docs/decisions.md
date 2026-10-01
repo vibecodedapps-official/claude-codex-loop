@@ -914,13 +914,18 @@ reason.
    back. The switch applies in plan-only too, since the plan must read the branch's code.
    The switch ran before Step 0.3 decided on a worktree, and `worktree.md` then blocked
    on the branch the session held, so Step 0.2 now runs Step 0.3's flagged-file
-   check before switching the primary outside Multi-repo mode. When it predicts a worktree
-   run, the switch is `git switch --detach <remote>/<branch>`, and then a behind local
-   branch is fast-forwarded with
+   check before asking the primary's switch question outside Multi-repo mode. When it
+   predicts a worktree run, the session's files are not touched at all: a reproduction
+   showed that `git switch --detach <remote>/<branch>` is refused with "Your local
+   changes to the following files would be overwritten by checkout" when a skip-worktree
+   file differs between the commits, even with a clean status and index. The `HEAD`
+   requirement is met by the worktree, created at the base commit, which the plan reads.
+   The run asks once, with consent, to detach the session in place when it is on the
+   branch, which changes no file, and to fast-forward a behind local branch with
    `git fetch . refs/remotes/<remote>/<branch>:refs/heads/<branch>`
-   without being checked out, so the branch stays free for the worktree, also from a
-   `HEAD` already on a behind local branch. A session on the branch at its tip is asked
-   nothing, is not moved, and still blocks. The reply can come after a long
+   without checking it out, so Step 3.7.2 can switch to the branch inside the worktree.
+   The previous `HEAD` is held in memory until Step 0.5 writes `run.md`, so a report
+   printed by an earlier stop can give it. The reply can come after a long
    wait, so after it and before any switch the run reruns that repository's clean-tree
    check, the local-branch comparison, the `HEAD` check, and the worktree list check, and
    a change ends in `blocked`. For a question asked before Step 0.3 the clean-tree check

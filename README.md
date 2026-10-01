@@ -170,11 +170,12 @@ common shapes, not a guarantee.
   <remote>/<branch>` when the local branch is absent, with `git merge --ff-only
   <remote>/<branch>` when it is behind the remote, also from a `HEAD` detached at the
   remote head, so that Step 3.7.2 never switches to a stale local branch. When the run
-  will use a worktree (skip-worktree or assume-unchanged edits), the switch is
-  `git switch --detach <remote>/<branch>` instead, and a behind local branch is
-  fast-forwarded without being checked out, so the worktree can take the branch. After
-  the `yes`, the clean-tree and branch checks rerun before anything is switched, and a
-  change ends the run in `blocked`. Any other reply ends the run in
+  will use a worktree (skip-worktree or assume-unchanged edits), the session's files are
+  not touched: the worktree is created at the branch's remote head and the plan reads it.
+  The run then asks only to detach the session in place when it is on the branch, and to
+  fast-forward a behind local branch without checking it out, so the worktree can take
+  the branch. After the `yes`, the clean-tree and branch checks rerun before anything is
+  switched, and a change ends the run in `blocked`. Any other reply ends the run in
   `stopped`. A divergent local branch, a dirty tree, and a branch checked out in another
   worktree still fail preflight. The previous `HEAD` is recorded in `run.md` and the
   report lists the switch; the run does not switch back. The branch must not be the

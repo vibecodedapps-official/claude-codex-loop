@@ -759,29 +759,37 @@ it. Step 0 creates nothing except artifacts.
    that repository the clean-tree check (`git status --porcelain`, `git diff --cached
    --quiet`), the comparison of the local branch with `<remote>/<branch>`, the `HEAD`
    check (`HEAD` is still where the question said), and the `git worktree list
-   --porcelain` check. A change ends in `blocked` naming it. Before switching the primary
-   outside Multi-repo mode, run Step 0.3's flagged-file check (`git ls-files -v` and `git
-   cat-file --filters`, both pre-approved). When it predicts a worktree run, every case
-   above, a `HEAD` already on a behind local branch included, switches with `git -C
-   <path> switch --detach <remote>/<branch>` instead, so the branch stays free for the
-   worktree, and then a local branch that is behind is fast-forwarded without being
-   checked out by
-   `git -C <path> fetch . refs/remotes/<remote>/<branch>:refs/heads/<branch>`,
-   which refuses anything but a fast-forward. Record the detached switch in `run.md`. A
-   session on the branch at its tip is asked nothing and not moved, and `worktree.md`
-   decides the outcome. Step 0.1 item 3 predicts this question, so Step 0.7 records it as
-   predicted. Record each repository's previous `HEAD` in `run.md`; the report lists each
-   switch under "Where the work is", a detached one as detached. The run does not switch
-   back: it leaves each repository on the branch it pushed or prepared, or, after a
-   detached switch, the session's checkout detached at the base commit. This applies in a
-   plan-only run too, because the plan must read the branch's code. When `HEAD` is not
-   at the base commit and the switch does not apply (the tree is dirty, the local branch
+   --porcelain` check. A change ends in `blocked` naming it. Before asking the primary's
+   switch question outside Multi-repo mode, run Step 0.3's flagged-file check (`git
+   ls-files -v` and `git cat-file --filters`, both pre-approved). When it predicts a
+   worktree run, the session's files are not touched: no switch is asked or run, because
+   a checkout to another commit would be refused when a flagged file differs between the
+   commits, and the `HEAD` requirement above is met by the worktree, which Step 0.3
+   creates at the base commit and which the plan reads. Two ref changes may still be
+   needed so that Step 3.7.2 can switch to the branch inside the worktree: when the
+   session is on the continued branch, `git -C <path> switch --detach` at its current
+   commit, which changes no file and frees the branch; and when a local branch of that
+   name is behind the remote, `git -C <path> fetch .
+   refs/remotes/<remote>/<branch>:refs/heads/<branch>`, which moves the ref without a
+   checkout and refuses anything but a fast-forward. Ask once for whichever apply:
+   "<path> will run in a worktree. Detach the session from <branch> at <short sha>, and
+   fast-forward local <branch> to <remote>/<branch>?", answered `yes`, else `stopped`.
+   Neither is needed when the session is elsewhere and the local branch is absent or at
+   the tip. Step 0.1 item 3 predicts this question, so Step 0.7 records it as predicted.
+   Hold each repository's previous `HEAD` in memory and write it to `run.md` at Step 0.5,
+   as the question times are, so a report printed by an earlier stop can still give it;
+   the report lists each switch under "Where the work is", a detach as detached. The run
+   does not switch back: it leaves each repository on the branch it pushed or prepared,
+   or, after a detach, the session's checkout detached at its previous commit. This
+   applies in a plan-only run too, because the plan must read the branch's code. When
+   `HEAD` is not at the base commit and the switch does not apply (the tree is dirty,
+   the local branch
    is ahead or divergent, or the branch is checked out in another worktree, below), it is
    a preflight failure whose message gives `git merge --ff-only <remote>/<branch>` when
    the session is on that branch and the local branch is behind the remote, `git switch
    <branch>` when the session is elsewhere and the local branch equals the remote or is
-   absent, and `git switch --detach <remote>/<branch>` otherwise or when a worktree run
-   is predicted, and says a dirty tree must be cleaned first. A switch would not repair
+   absent, and `git switch --detach <remote>/<branch>` otherwise, and says a dirty tree
+   must be cleaned first. A switch would not repair
    these cases.
    In Multi-repo mode the same holds for each repository that continues a branch. With
    `continue`, also run
@@ -789,8 +797,8 @@ it. Step 0 creates nothing except artifacts.
    the run will use is a preflight failure naming that worktree, because `git switch`
    refuses it. The run uses the session's checkout, unless Step 0.3 creates a worktree,
    where `worktree.md` makes the session's checkout a failure too, so a session on the
-   branch blocks a worktree run and one detached at the base commit does not, which is why
-   the consented switch detaches when a worktree run is predicted. On `github`,
+   branch blocks a worktree run and one detached does not, which is why Step 0.2 detaches
+   the session in place, with consent, when it predicts a worktree run. On `github`,
    read the open pull requests of the branch with `gh pr list --head <branch> --state open
    --limit 100 --json number,state,baseRefName,url,isCrossRepository`, and keep only the
    entries whose `isCrossRepository` is false, so a fork's branch of the same name is
@@ -843,8 +851,8 @@ it. Step 0 creates nothing except artifacts.
    (Step 0.3); on the `other` host fetch nothing. Start `run.md` with the records from 0.1 to
    0.4, the run start time, and the run budget in force with its source. Also write the
    question and reply times held in memory (Step 0.1a, Step 0.2), the credentials
-   decision, and each repository's previous `HEAD` when Step 0.2 switched it, and whether
-   that switch was detached. With `drop`, write `inputs.md` and every later artifact with
+   decision, and each repository's previous `HEAD` when Step 0.2 switched or detached
+   it. With `drop`, write `inputs.md` and every later artifact with
    each credential value replaced by `<redacted: key>`.
 6. Check Codex availability as described in Mechanics, including the codex-lite version of
    0.8.0 or later. Record the result and any reason, and the codex-lite version actually
@@ -1292,7 +1300,9 @@ At every terminal state:
 
 1. Read `report.md` in this skill's base directory and fill it from `run.md`, not from memory.
 2. A failure before Step 0.5, when the run directory does not exist, prints the report and
-   writes nothing: the tree may be dirty and `.ccl/` may not be ignored yet.
+   writes nothing: the tree may be dirty and `.ccl/` may not be ignored yet. Fill it from
+   what Steps 0.1 to 0.4 hold in memory, the question times and each previous `HEAD`
+   included.
 3. From Step 0.5 on, write the terminal report to `.ccl/<run-id>/report.md`, which is always
    git-ignored, then print it. With `"commit": false` that is the only report file. With
    `"commit": true` the committed snapshot from Step 7.1 stays as it was committed.

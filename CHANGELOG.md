@@ -25,9 +25,11 @@ repositories need codex-lite 0.9.0 or later; below it the 0.7.0 patch rule stays
   branch becomes a switch question instead of a preflight failure. With consent the run
   runs `git switch`, or a fast-forward when the local branch is behind the remote, also
   from a `HEAD` detached at the remote head, and records the previous `HEAD` per
-  repository in `run.md`. When a worktree run is predicted, the switch is `git switch
-  --detach <remote>/<branch>` and a behind local branch is fast-forwarded without being
-  checked out, so the worktree can check out the branch. The checks rerun after the
+  repository in `run.md`. When a worktree run is predicted, the session's files are not
+  touched, because a checkout would be refused when a flagged file differs between the
+  commits; the run asks only to detach the session in place when it is on the branch
+  and to fast-forward a behind local branch without checking it out, and the worktree,
+  created at the base commit, is what the plan reads. The checks rerun after the
   reply, before any switch, and a change ends in `blocked`. A divergent local branch, a
   dirty tree, and a branch checked out in another worktree still fail preflight.
 - Breaking: up to three new in-session questions make a run attended: credentials,

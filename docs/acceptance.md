@@ -1236,19 +1236,21 @@ clear answers, for example "what does that mean?".
      `merge` in the tool trace. A second run that instead commits on local `t155` during
      the wait, so it is ahead or divergent, ends `blocked` naming the local branch. Rerun
      after any change to Step 0.2 or the Questions mechanic.
-166. **A predicted worktree run gets a detached switch.** Setup: a single repository with
-     branch `t166` pushed and a local `t166` one commit behind it, the session on the
-     default branch with a clean status and index, and a skip-worktree file that differs
-     from `HEAD` and is the same in `t166` and the default branch. Command: `/ccl:run #1
-     --no-codex --continue t166`, reply `yes`. Expected: the trace has `git switch
-     --detach <remote>/t166` and `git fetch . refs/remotes/<remote>/t166:refs/heads/t166`
-     and no `git switch t166` in the session's checkout; `run.md` records the detached
-     switch and the previous `HEAD`; Step 0.3 creates the worktree; the `worktree.md`
-     branch check passes; and Step 3.7.2 switches to `t166` inside the worktree. A
-     second run with the session on the behind local `t166` also asks, and after `yes`
-     detaches and fast-forwards the same way. A third run with the session on `t166` at
-     its remote tip asks nothing and ends `blocked` as `worktree.md` says, with no
-     switch. Rerun after any change to Step 0.2, Step 0.3, or `worktree.md`.
+166. **A predicted worktree run leaves the session's files alone.** Setup: a single
+     repository with branch `t166` pushed and a local `t166` one commit behind it, the
+     session on the default branch with a clean status and index, and a skip-worktree
+     file with a local edit whose committed content differs between `t166` and the
+     default branch. Command: `/ccl:run #1 --no-codex --continue t166`, reply `yes`.
+     Expected: the question asks only to fast-forward local `t166`; the trace has
+     `git fetch . refs/remotes/<remote>/t166:refs/heads/t166` and no `git switch` of any
+     form in the session's checkout; the skip-worktree file keeps its local edit; Step
+     0.3 creates the worktree at `<remote>/t166`; the `worktree.md` branch check passes;
+     and Step 3.7.2 switches to `t166` inside the worktree. A second run with the session
+     on the behind local `t166` asks to detach and fast-forward, and after `yes` the
+     trace has `git switch --detach` with no commit argument, then the fetch, and the
+     session is left detached at its previous commit. A third run with the session on
+     `t166` at its remote tip asks only to detach and continues the same way. Rerun
+     after any change to Step 0.2, Step 0.3, or `worktree.md`.
 
 ## Record of runs
 
