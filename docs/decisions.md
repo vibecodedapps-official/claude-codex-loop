@@ -893,7 +893,8 @@ reason.
    state, because a checkout's `HEAD` says where the person last worked and not what this
    task continues. The reply decides, `yes` takes the single suggestions, a line
    `<path>@<branch>` or `<path>@new` covers each other repository, and every chosen
-   branch is validated against its remote. Anything else ends in `stopped`.
+   branch is validated against its remote. Anything else ends in `stopped`. Part 12
+   item 1 replaces the prefix rule for remote branches with a shared-stem rule.
 4. **A clean checkout that is not at its branch tip is switched with consent.** When a
    repository continues a branch, `HEAD` is not at the base commit or the local branch
    is behind the remote with `HEAD` detached at the tip, the tree is clean, and the
@@ -989,6 +990,44 @@ Supersessions and qualifications:
   version-gated by item 8.
 - Part 8 item 1, `other` never runs Step 7: kept. Only the `prepared` command text under
   Terminal states changes, to each repository's own branch.
+
+## Part 12: 0.8.1, 2026-10-01
+
+Goal: the branch question suggests the sibling branches of one task across repositories,
+so a plain `yes` does not continue an unrelated branch.
+
+1. **A remote branch is suggested when its name shares a stem with another repository's
+   branch, not only a prefix.** In a live run of 0.8.0 the repositories held
+   `feature/user/2026.09-migration-fixes`, `feature/user/2026.09-migration-heart`, and
+   `feature/user/2026.09-migration-etl`. The second repository's `HEAD` was on an
+   unrelated branch at its remote tip, and no name was a string prefix of another, so
+   the rule of Part 11 item 3 gave it one suggestion, the unrelated branch, and a plain
+   `yes` would have continued it. The rule now compares stems. The common stem of a
+   remote branch B and a seed name A, another repository's explicit branch or `HEAD`
+   suggestion and never one this rule adds, so the rule runs once, is their longest
+   common prefix when that is the whole of A or of B, and otherwise that prefix cut
+   back to its last `/`, `-`, `_`, or `.`, the separator excluded. B is suggested
+   when the stem is not empty, was not cut at a `/`, and is not a prefix of B's
+   repository's default branch. A plain prefix is the whole-name case, so the old rule is
+   a special case and its wording is deleted. The stem must not stop at a `/` because
+   naming conventions share a directory such as `feature/user/` across unrelated
+   work, and a shared directory alone would suggest every branch a person has pushed. It
+   must not be a prefix of the default branch because such a match says nothing about
+   the task: under the old rule `main` would have been suggested whenever another
+   repository's branch began with `main`, and the stem rule never suggests the default
+   branch. A repository can still get two suggestions, its `HEAD` branch and a sibling;
+   `yes` does not cover it, and the reply names the choice in a line. The rule is tuned
+   to over-suggest: a false positive costs one `<path>@<branch>` line in the reply,
+   because `yes` stops covering that repository, while a false negative continues the
+   wrong branch. The known case is a shared year or `YYYY.MM` stem:
+   `feature/user/2026.09-migration-fixes` and `feature/user/2026.10-other` share
+   `feature/user/2026`, which qualifies, so unrelated branches of the same year or month
+   are suggested.
+
+Supersessions and qualifications:
+
+- Part 11 item 3, suggestions from remote branches whose names are string prefixes of
+  each other: superseded by item 1. The rest of item 3 is kept.
 
 ## Rules stated elsewhere in the loop, with reasons
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.1 - 2026-10-01
+
+### Fixed
+
+- The branch question suggests a remote branch when its name shares a stem with another
+  repository's suggested or explicit branch, not only when one name is a string prefix
+  of the other. The stem is the longest common prefix, cut back to its last `/`, `-`,
+  `_`, or `.` unless it is a whole name; it must not stop at a `/` and must not be a
+  prefix of the default branch, so a shared directory alone and the default branch are
+  never suggested. Sibling names such as `feature/user/2026.09-migration-fixes` and
+  `feature/user/2026.09-migration-heart` matched under neither prefix test, so in a live
+  run a repository whose `HEAD` was on an unrelated branch got that branch as its only
+  suggestion, and a plain `yes` would have continued it.
+
 ## 0.8.0 - 2026-09-30
 
 Requires codex-lite 0.8.0 or later, as in 0.7.0. `--cwd` reviews of additional

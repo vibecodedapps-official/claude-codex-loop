@@ -217,7 +217,7 @@ agents read them directly. In this mode:
   from `--branch` or `--continue`, and an additional repository's from its `@<branch>`.
   A repository with no explicit state is covered by one branch question at adoption,
   which suggests branches from each checkout's `HEAD` and from remote branches that share
-  a name prefix, and takes `yes` for the single suggestions plus one `<path>@<branch>` or
+  a name stem, and takes `yes` for the single suggestions plus one `<path>@<branch>` or
   `<path>@new` line for each other repository. Each chosen branch is checked against its
   remote, and any other reply ends the run in `stopped`. Artifacts live only in the
   primary's `.ccl/<run-id>/`. No slice spans repositories. Every `gh` call for an

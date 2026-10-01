@@ -181,9 +181,25 @@ Per repository, the suggestions are:
 
 - The branch HEAD is on, when its tip equals `<remote>/<that branch>` and it is not the
   default branch.
-- Every remote branch, from `git -C <path> ls-remote --heads <remote>`, whose name has
-  another repository's suggested or explicit branch name as a string prefix, or is a
-  string prefix of one.
+- Every remote branch B, from `git -C <path> ls-remote --heads <remote>`, whose common
+  stem with a seed name A of another repository qualifies. The seed names are each
+  repository's explicit branch and its suggestion from the rule above, computed first
+  for every repository. This rule runs once over them, and a branch it suggests is never
+  itself a seed. The common stem is the longest common prefix of A and B when that
+  prefix is the whole of A or of B, and otherwise that prefix cut back to its last
+  separator character (`/`, `-`, `_`, or `.`), the separator excluded. It qualifies when
+  it is not empty, was not cut at a `/`, and is not a prefix of this repository's
+  default branch name. So a shared directory such as `feature/user/` alone never
+  qualifies, and this rule never suggests the default branch.
+
+For example, the primary is on `feature/user/2026.09-migration-fixes` and a third
+repository on `feature/user/2026.09-migration-etl`, each at its remote tip. The second
+repository is on an unrelated branch at its remote tip and has a remote branch
+`feature/user/2026.09-migration-heart`. Its common stem with either of the other names is
+`feature/user/2026.09-migration`, which qualifies, so the second repository's line
+suggests its `HEAD` branch and `feature/user/2026.09-migration-heart`. A repository with
+two suggestions is not covered by `yes`, so the reply names the choice in a
+`<path>@<branch>` line.
 
 Print one line per repository, `<path>: suggested <branch>[, <branch>]` or `<path>: no
 suggestion`, then ask:

@@ -1053,7 +1053,7 @@ plan or the report.
 
 ## M9: 0.8.0, 2026-09-30
 
-Setup for items 142 to 166: the common setup, plus codex-lite 0.8.0 or later installed and
+Setup for items 142 to 167: the common setup, plus codex-lite 0.8.0 or later installed and
 enabled, plus the setup each item names. Items that name codex-lite 0.9.0 need it. They
 are hand runs against throwaway repos. Items 146 to 157 and 161 use the setup of item 75
 (a primary and a second checkout `other`, each with a bare remote) unless they say
@@ -1251,6 +1251,26 @@ clear answers, for example "what does that mean?".
      session is left detached at its previous commit. A third run with the session on
      `t166` at its remote tip asks only to detach and continues the same way. Rerun
      after any change to Step 0.2, Step 0.3, or `worktree.md`.
+167. **Branches: a sibling name with a shared stem is suggested.** Setup: as item 146,
+     with a third checkout `third`, with its own bare remote, that the handoff also asks
+     to change. Push `feature/u/2026.09-mig-fixes` in the primary,
+     `feature/u/2026.09-mig-heart`, `feature/u/9999-unrelated`, `feature/u/0001-noise`,
+     and `feature/u/2026.10-later` in `other`, and `feature/u/2026.09-mig-etl` in
+     `third`. The primary is on `feature/u/2026.09-mig-fixes`, `third` on
+     `feature/u/2026.09-mig-etl`, and `other` on `feature/u/9999-unrelated`, each at its
+     remote tip. Command: `/ccl:run handoff.md --no-codex`, reply `yes` to the
+     repository question. Expected: the branch question prints "<path>: suggested
+     feature/u/2026.09-mig-fixes" for the primary, "<path>: suggested
+     feature/u/2026.09-mig-etl" for `third`, and for `other` one line naming
+     `feature/u/9999-unrelated`, `feature/u/2026.09-mig-heart`, and
+     `feature/u/2026.10-later`, so it has three suggestions, and not
+     `feature/u/0001-noise`, which shares only the directory. `feature/u/2026.10-later`
+     shares the stem `feature/u/2026` and is the intended over-suggestion. A
+     reply of `yes` alone is not clear, because it does not cover `other`, and the run
+     ends `stopped` with the question in the report. Then rerun and reply `yes` and
+     `<other path>@feature/u/2026.09-mig-heart` on the next line: all three repositories
+     continue the stated branches, and `other` is switched with the reply as consent
+     (item 155). Rerun after any change to the branch question.
 
 ## Record of runs
 
