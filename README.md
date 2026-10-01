@@ -410,8 +410,10 @@ A run that made a commit of its own at Step 7.1 also writes `handoff.md` and
 
 ## Pairing with cca
 
-The `cca` plugin audits work after it is built. When a run has at least one commit of
-its own from Step 7.1, in any terminal state, it writes two files to `.ccl/<run-id>/`:
+The `cca` plugin audits work after it is built. Pairing requires cca 0.2.0 or later;
+with an older cca, ccl writes the files by the same shapes and skips cca's check. When a
+run has at least one commit of its own from Step 7.1, in any terminal state, it writes two
+files to `.ccl/<run-id>/`:
 
 - `handoff.md`: a typed record of the run, with its bundles (one per repository), its
   tickets, the decisions taken and who made them, and the items the run deferred. It is
@@ -422,7 +424,7 @@ its own from Step 7.1, in any terminal state, it writes two files to `.ccl/<run-
 
 A run with no commit of its own writes neither, and the report says why. ccl never
 commits to make a handoff possible. After you commit, `/cca:handoff` in the session can
-write one.
+write one, with cca 0.2.0 or later.
 
 The report has a `Handoff:` line with the path and an `Audit:` line. When the work has
 more than one bundle, more than one ticket, or 500 or more changed lines, the `Audit:`

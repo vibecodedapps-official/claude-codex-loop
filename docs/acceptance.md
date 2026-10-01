@@ -1274,10 +1274,11 @@ clear answers, for example "what does that mean?".
 
 ## M10: 0.9.0, 2026-10-01
 
-Setup for items 168 to 175: the common setup, plus the cca plugin installed for the
-items that name it. Items 168 to 175 are not yet run and have no entry in the record of
-runs. Item 168 is the check that fails if the handoff mapping breaks: it is run with cca's
-`handoff.sh check`. Items 173 and 175 need a second input or a second issue, as they say.
+Setup for items 168 to 176: the common setup, plus the cca plugin, 0.2.0 or later,
+installed for the items that name it. Items 168 to 176 are not yet run and have no entry
+in the record of runs. Item 168 is the check that fails if the handoff mapping breaks: it
+is run with cca's `handoff.sh check`. Items 173 and 175 need a second input or a second
+issue, as they say. Item 176 needs item 174's setup.
 "The handoff" is `.ccl/<run-id>/handoff.md`, and "the manifest" is
 `.ccl/<run-id>/cca-manifest.json`. "The audit line" is the report's `Audit:` header line.
 
@@ -1321,13 +1322,15 @@ runs. Item 168 is the check that fails if the handoff mapping breaks: it is run 
      issue's milestone title and first assignee, or `none`. Rerun after any change to
      input parsing or the ticket rules.
 174. **A Multi-repo run with different branches per repository gives one bundle each.**
-     Not yet run. Setup: item 75's primary and `other`, each with a bare remote and a
-     commit-worthy change, with `other` continuing an existing branch `t174-b` through
-     `--repo`. Command: `/ccl:run #1 <URL of the second repo's issue> --no-codex --repo
-     <other path>@t174-b`. Expected: the handoff has two bundles, the primary first, each
-     with its own `repo`, `pr`, `branch`, and `base`; the manifest has the same two
-     bundles; names follow the naming rule, with `-2` on a clash. Rerun after any change to
-     the bundle rules.
+     Not yet run. Setup: item 75's two throwaway GitHub repos on the same host, each with
+     a commit-worthy change. The branch `t174-b` is created in the second repo and pushed
+     to its GitHub remote beforehand, and both checkouts are clean at their remote tips
+     before the run. `other` continues `t174-b` through `--repo`. Command: `/ccl:run #1
+     <URL of the second repo's issue> --no-codex --repo <other path>@t174-b`. Expected:
+     the handoff has two bundles, the primary first, each with its own `repo`, `pr`,
+     `branch`, and `base`; the manifest has the same two bundles; each `base` is
+     `<remote>/<base branch>` for that repository's remote; names follow the naming rule,
+     with `-2` on a clash. Rerun after any change to the bundle rules.
 175. **An input with no commit lists the first bundle and `commits: none`.** Not yet run.
      Setup: the common setup, with two inputs where one, a quoted description, asks for
      nothing the diff changes, so no commit message names it. Command: `/ccl:run #1
@@ -1335,6 +1338,15 @@ runs. Item 168 is the check that fails if the handoff mapping breaks: it is run 
      `<run-id>/input-2` lists the first bundle and has `commits: none`; the other ticket
      lists its commits; `cca`'s `handoff.sh check` accepts the handoff. Rerun after any
      change to the ticket mapping.
+176. **A Multi-repo run does not claim a check that failed in the ticket's first bundle's
+     repository.** Not yet run. Setup: as item 174, with one check command (for example a
+     `test` script) present in both repos, passing in the primary and failing at baseline
+     in the second repo, where the failure is allowed. Command: as item 174. Expected: the
+     ticket for #1 lists that command in `verified` as passed, naming the primary's bundle
+     and its absolute directory; the ticket for the second repo's issue, whose first
+     bundle is the second repo's, does not list it as passed, and its `verified` is `none`
+     or lists only checks that passed in the second repo; cca's `handoff.sh check`
+     accepts the handoff. Rerun after any change to the `verified` rule.
 
 ## Record of runs
 

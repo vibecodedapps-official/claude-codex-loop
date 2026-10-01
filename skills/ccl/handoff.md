@@ -8,9 +8,12 @@ The handoff format's home is the cca plugin's `skills/cca/handoff.md`. This file
 only what ccl needs. The result must pass the cca plugin's `handoff.sh check`. To find the
 script, run `claude plugin list --json` and take the entry whose `id` starts with `cca@`:
 the script is `<installPath>/skills/cca/scripts/handoff.sh`, where `installPath` is that
-entry's. Run `sh <script> check <path of handoff.md>`, which prints `handoff: ok` on
-success, and fix what it names. With no such entry the plugin is absent: follow the shapes
-below exactly and say in the report that the check was not run.
+entry's. cca is supported only when that script exists, which is cca 0.2.0 or later. Run
+`sh <script> check <path of handoff.md>`, which prints `handoff: ok` on success, and fix
+what it names. With no such entry the plugin is absent: follow the shapes below exactly
+and say in the report that the check was not run. With the entry but no script, treat it
+the same way and say in the report that the check was not run because the installed cca
+is older than 0.2.0.
 
 ## When
 
@@ -20,9 +23,10 @@ after Step 7.1 committed, and `blocked` or `stopped` after Step 7.1.
 
 A run with no commit of its own writes neither: `plan-only`, `--no-publish` before Step
 7.1 committed, and any state before Step 7.1. The report's `Handoff:` line says "not
-written: no commit from this run". When the run left changes, it adds that `/cca:handoff`
-in this session can write one after the user commits. Never commit to make a handoff
-possible.
+written: no commit from this run". When the run left changes and cca is supported (the
+`cca@` entry and its script both exist, as above), it adds that `/cca:handoff` in this
+session can write one after the user commits; otherwise it says that `/cca:handoff`
+needs cca 0.2.0 or later. Never commit to make a handoff possible.
 
 Both files go in `.ccl/<run-id>/`: `handoff.md` and `cca-manifest.json`. They are never
 committed. Never overwrite a file this run did not write.
@@ -85,8 +89,9 @@ One line per repository with at least one commit from this run, in Multi-repo or
   manifest names that path too, so the worktree must stay until the audit has run.
 - `pr`: the PR as `github:<owner>/<repo>#<n>`, or `none`.
 - `branch`: that repository's branch.
-- `base`: that repository's PR base branch, else `<selected remote>/<default branch>`, the
-  ref ccl fetched.
+- `base`: always `<selected remote>/<base branch>`, where the remote is that repository's
+  selected remote and the base branch is the PR's base branch when a PR exists, else the
+  default branch. cca refreshes only a remote-tracking base.
 
 ### Tickets
 
@@ -108,8 +113,12 @@ One `### <ticket id>` per distinct input.
   a one-input run, every commit; `none` when the input has none. The sha is 7 to 40
   lowercase hex digits. A commit on a continued branch from before this run is not listed
   as a claim; the audit still covers it, and cca groups it by its own rules.
-- `verified`: `  - <check> passed; check: <command>` for each Step 6 check that ran and
-  passed; `none` when none ran.
+- `verified`: `  - <check> passed in <bundle> (<directory>); check: <command>` for each
+  Step 6 check that ran and passed in the repository of the ticket's first bundle, where
+  `<bundle>` is that bundle and `<directory>` is the absolute path the check ran in;
+  `none` when no check passed there. Step 6 runs per repository in Multi-repo mode. A
+  check from another bundle of the ticket is not listed, because cca attributes every
+  verified entry to the first bundle.
 
 ### Decisions
 
@@ -151,9 +160,9 @@ line of `## Bundles`:
 - `pr`: `github:<owner>/<repo>#<n>` when a PR exists and its head on the remote is the
   local head of that repository's branch (`git rev-parse <remote>/<branch>`, which the
   run's own push updated, equals `git rev-parse HEAD`); else `branch` and `base`, as in
-  the handoff. cca audits a PR at its
-  remote head, so a PR whose head lacks this run's commits (a declined push, or an
-  unpushed CI repair) is named by its local branch instead.
+  the handoff, with the same `base` value, `<selected remote>/<base branch>`. cca audits a
+  PR at its remote head, so a PR whose head lacks this run's commits (a declined push,
+  or an unpushed CI repair) is named by its local branch instead.
 - `tickets`: the issue inputs that list that bundle, as `github:` ids.
 
 and a `claims` list holding one entry, the absolute path of `handoff.md`. cca reads it as
@@ -199,7 +208,7 @@ generated: 2026-10-01T09:30:00Z
 - commits:
   - widget-app 4e1a9c2: cap the sync retries and raise the last error
 - verified:
-  - The unit tests passed; check: npm test
+  - The unit tests passed in widget-app (/home/dev/widget-app); check: npm test
 
 ## Decisions
 

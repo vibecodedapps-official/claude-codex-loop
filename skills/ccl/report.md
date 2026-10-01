@@ -168,11 +168,15 @@ non-blocking and anything out of scope. No issues were opened.
 - `Handoff:` is the absolute path of `.ccl/<run-id>/handoff.md` when `handoff.md` in this
   skill's base directory had the run write it, with the path of `cca-manifest.json` beside
   it. Otherwise it says "not written" and why: "no commit from this run" for a run that
-  never reached a commit at Step 7.1, and, when the run left changes, that `/cca:handoff`
-  in this session can write one after the user commits. Say when the cca `handoff.sh check`
-  was not run because the plugin is absent. In a worktree run, the manifest names the
-  worktree's path, so the line also says the worktree must stay until the audit has run,
-  even though the report says how to remove it.
+  never reached a commit at Step 7.1, and, when the run left changes and cca is
+  supported, that `/cca:handoff` in this session can write one after the user commits;
+  otherwise that `/cca:handoff` needs cca 0.2.0 or later. cca is supported when the
+  `cca@` entry of `claude plugin list --json` exists and
+  `<installPath>/skills/cca/scripts/handoff.sh` exists. Say when the cca `handoff.sh
+  check` was not run because the plugin is absent, or because the installed cca is older
+  than 0.2.0. In a worktree run, the manifest names the worktree's path, so the line also
+  says the worktree must stay until the audit has run, even though the report says how to
+  remove it.
 - `Audit:` is filled only when the handoff was written and the work is larger than cca's low
   tier, modeled on its bounds: more than one bundle, more than one ticket in the handoff, or
   500 or more changed lines (added plus deleted, over each bundle's three-dot diff from its

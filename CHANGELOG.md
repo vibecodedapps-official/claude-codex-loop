@@ -13,6 +13,12 @@
 - Two report header lines: `Handoff:` gives the path or why none was written, and `Audit:`
   suggests `/cca:audit` on the manifest when the work has more than one bundle, more
   than one ticket, or 500 or more changed lines. The bounds are a suggestion.
+- cca pairing requires cca 0.2.0 or later, the first with `handoff.sh`. With an older cca
+  the files are written by the same shapes, cca's check is not run, and the report says
+  so and does not suggest `/cca:handoff`.
+- A ticket's `verified` lists only the passed Step 6 checks of its first bundle's
+  repository, each naming the bundle and the directory. A bundle's `base` is always
+  `<selected remote>/<base branch>`, since cca refreshes only a remote-tracking base.
 
 ### Changed
 
