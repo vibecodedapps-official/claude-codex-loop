@@ -843,6 +843,13 @@ reason.
    and nothing else. Anything but a clear reply ends in `stopped`. Step 0.1 predicts the
    question, so the prediction still precedes the prompt, and the `date` times around it
    are held in memory until Step 0.5, so nothing is written before the run directory.
+   The promise after `drop` covers what the run writes, not the repository's diff: a
+   native `codex-lite:review --base` reads that diff, which the run does not write. So
+   before every native review (the primary's, and each additional repository's `--cwd`
+   one) the Step 0.1 scan runs over `git diff <base>`, ignoring each line's leading
+   diff mark, and a match reviews through `codex-lite:ask` with a patch file whose
+   values are redacted, in a fresh thread. That closes the diff-context case. A Codex
+   implementer still reads the checkout's files, and the promise does not cover that.
    The scan guards common shapes and is not a guarantee, and the README says so. The
    command's step 3 echo is unchanged: it repeats to the person what they typed, in the
    same terminal, and it is also the Skill args.
@@ -850,10 +857,11 @@ reason.
    repository gate moves from Step 1.4 to Step 1.2, reads the inputs only, and stays in
    force afterwards: a further writable checkout found by Step 1.3 or Step 2 ends in
    `blocked`. A candidate is an absolute path in the inputs, trailing punctuation
-   stripped, that is an existing directory where `git rev-parse --show-toplevel`
-   succeeds, mapped to its toplevel; a path inside the primary, a submodule of the
-   primary, and a path already in `repos` are not candidates. Only candidates the inputs
-   ask to change are flagged, by the judgment the 0.7.0 gate already makes. When Step 0.3
+   stripped, that is an existing directory, or an existing file whose parent directory is
+   used, where `git -C <dir> rev-parse --show-toplevel` succeeds, mapped to its toplevel;
+   a path inside the primary, a submodule of the primary, and a path already in `repos`
+   are not candidates. Only candidates the inputs ask to change are flagged, by the
+   judgment the 0.7.0 gate already makes. When Step 0.3
    created a worktree for the primary, the run ends in `blocked` before asking, because
    `multi-repo.md` withholds the worktree exception. The question offers `yes` for all or
    a comma-separated subset of paths. After a subset, a flagged candidate still missing
@@ -869,12 +877,13 @@ reason.
    <path>@<branch>` names a repository and the branch it continues. A value that is an
    existing directory is a path and is never split, so a path containing `@` keeps
    working; otherwise the split is at the last `@` when the right part passes the
-   `--continue` charset rule and the left part is an existing directory. The branch is
-   validated as `--continue` is, with `git check-ref-format --branch` and an `ls-remote`
-   of `refs/heads/<branch>` on that repository's remote, and a missing explicit branch is
-   a rejection, never a creation. `@<branch>` does not need `--continue`, so a run may
-   create a branch in the primary and continue one elsewhere. A repository's state is
-   `new` or `continue <branch>`, and Step 0.2, Step 3.5 item 3, Step 3.7.2, Step 7, and
+   `--continue` charset rule and the left part is an existing directory. The command
+   checks the branch's form with `git check-ref-format --branch`, and Step 0.2 checks
+   that it exists, once, on the remote Host detection selects, because the command's
+   `origin`-or-sole-remote choice could differ from it. A missing explicit branch is a
+   preflight failure, never a creation. `@<branch>` does not need `--continue`, so a run
+   may create a branch in the primary and continue one elsewhere. A repository's state
+   is `new` or `continue <branch>`, and Step 0.2, Step 3.5 item 3, Step 3.7.2, Step 7, and
    the `prepared` commands use that repository's own. The branch question is asked once
    at adoption for every repository with no explicit state, the primary included when
    neither `--branch` nor `--continue` was given. The run suggests, from a checkout's
@@ -903,7 +912,20 @@ reason.
    to the divergent branch. The previous `HEAD` is recorded per repository in `run.md`,
    the report lists each switch under "Where the work is", and the run does not switch
    back. The switch applies in plan-only too, since the plan must read the branch's code.
-   The clean-tree check reruns on every edited repository after every reply.
+   The switch ran before Step 0.3 decided on a worktree, and `worktree.md` then blocked
+   on the branch the session held, so Step 0.2 now runs Step 0.3's flagged-file
+   check before switching the primary outside Multi-repo mode. When it predicts a worktree
+   run, the switch is `git switch --detach <remote>/<branch>`, and then a behind local
+   branch is fast-forwarded with
+   `git fetch . refs/remotes/<remote>/<branch>:refs/heads/<branch>`
+   without being checked out, so the branch stays free for the worktree, also from a
+   `HEAD` already on a behind local branch. A session on the branch at its tip is asked
+   nothing, is not moved, and still blocks. The reply can come after a long
+   wait, so after it and before any switch the run reruns that repository's clean-tree
+   check, the local-branch comparison, the `HEAD` check, and the worktree list check, and
+   a change ends in `blocked`. For a question asked before Step 0.3 the clean-tree check
+   runs right after the reply on the repository the answer acts on, and after Step 0.3 on
+   every repository the run edits.
 5. **The blocked report gives rerun text without choosing a branch.** The rerun command
    keeps the 0.7.0 shape, the same inputs and flags plus `--repo <path>` per missing
    checkout. When neither `--branch` nor `--continue` was given, one block adds how to

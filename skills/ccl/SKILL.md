@@ -88,11 +88,11 @@ the plan is final and asks the user to approve it before anything is implemented
 one; see Step 0.2 and Step 7.2. It is not repair mode: the run reads no review comments
 and no CI state from before the run. `--run-budget` sets the run budget in minutes.
 `repos` lists additional writable checkouts; see `multi-repo.md`. A `@<branch>` after a
-path is the existing remote branch that repository continues; the command has already
-validated it. Each repository has its own branch state, `new` or `continue <branch>`: the
-primary's comes from `branch` or `continue`, an additional repository's from its
-`@<branch>`, else from `continue` when its remote has that name, else `new`. Step 1.2 can
-add repositories to `repos` by a clear reply.
+path is the existing remote branch that repository continues; the command has checked
+its form, and Step 0.2 checks that it exists. Each repository has its own branch state,
+`new` or `continue <branch>`: the primary's comes from `branch` or `continue`, an
+additional repository's from its `@<branch>`, else from `continue` when its remote has
+that name, else `new`. Step 1.2 can add repositories to `repos` by a clear reply.
 
 ## Tools
 
@@ -433,7 +433,17 @@ above 60 minutes is passed as 3600, and the cap and the value passed are recorde
 5. Codex has no network access. Every input it needs is in `.ccl/`: `inputs.md`, the plan,
    `diff.patch`. Name each file by its repo-relative path in a reviewer request. An
    implementer request is covered by the Implementer prompt. After a `drop` answer
-   (Step 0.1a), no request, file, or patch it reads carries a credential value.
+   (Step 0.1a), no artifact, request, or patch file the run writes carries a credential
+   value. A native `codex-lite:review` (item 3) reads the repository's own diff, which the
+   run does not write, so after `drop`, before every native `codex-lite:review` call and
+   after item 3's `git add -N` marking, run the Step 0.1 credential scan over `git diff
+   <base-commit>` of that repository (`git -C <path>` for an additional one), reading
+   each line without the diff's leading `+`, `-`, or space. On a match, skip that call
+   and review through `codex-lite:ask` with a patch file of that diff in which each
+   matched value is replaced by `<redacted: key>`, in a fresh thread that becomes that
+   repository's thread (the stage's thread for the primary), and record the substitution
+   and the thread id in `run.md`. After `drop`, every patch file the run writes from a
+   diff is scanned the same way and carries the same replacements.
 6. Each call, an `implement` call included, prints a result that ends with a status line
    and `thread <id>`. Record the id and stage in `run.md`. Steps 3 and 5 are separate
    threads, so always resume by explicit id.
@@ -609,9 +619,11 @@ branches), and Step 3.5 ask the user in the session by one set of rules:
    Step 0.5 creates `run.md`, hold the times in memory and write them there; no file is
    written for a question before the run directory exists.
 3. Silence ends the turn and waits for the reply.
-4. After the reply, recheck mutable state: once Step 0.3 has run, rerun its clean-tree
-   check on every repository the run edits. A failure ends in `blocked` naming what
-   changed.
+4. After the reply, recheck mutable state. For a question asked before Step 0.3, run Step
+   0.3's clean-tree check now on the repository the answer acts on (the credentials
+   question acts on none); Step 0.2's switch question also reruns the checks Step 0.2
+   names before any switch. After Step 0.3, rerun the clean-tree check on every repository
+   the run edits. A failure ends in `blocked` naming what changed.
 
 ### Multi-repo mode
 
@@ -705,19 +717,20 @@ it. Step 0 creates nothing except artifacts.
    list each match by key name and line number only, never the value, then ask, under
    Questions: "The inputs contain credentials. Reply `keep` to write them to `inputs.md`
    and forward them to Codex with the other inputs, or `drop` to replace each value with
-   `<redacted: key>` in every artifact and every Codex request." A clear `keep` or `drop`
-   continues; anything else ends in `stopped` with the question in the report. Hold the
-   `date` times in memory for Step 0.5. With `drop`, Step 0.5 writes `inputs.md`
-   redacted, and every implementer prompt, reviewer request, and patch file carries the
-   redacted form. Keep the originals in the session for a read-only probe the inputs ask
-   for, and for nothing else. Step 0.5 records the decision in `run.md`.
+   `<redacted: key>` in every artifact and every Codex request the run writes." A clear
+   `keep` or `drop` continues; anything else ends in `stopped` with the question in the
+   report. Hold the `date` times in memory for Step 0.5. With `drop`, Step 0.5 writes
+   `inputs.md` redacted, and every implementer prompt, reviewer request, and patch file
+   carries the redacted form. Keep the originals in the session for a read-only probe the
+   inputs ask for, and for nothing else. Step 0.5 records the decision in `run.md`.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
    Each repository that continues a branch (`continue` or its `@<branch>`) uses its own
    branch in what follows, and a repository whose state is `new` is not affected. An
-   `@<branch>` missing on that repository's selected remote (Host detection) is a
-   preflight failure, never a creation, whatever remote the command checked. With
-   `continue`, also fetch the branch with the explicit refspec
+   `@<branch>` missing on that repository's selected remote (Host detection), checked with
+   `git -C <path> ls-remote --heads <remote> refs/heads/<branch>`, is a preflight failure,
+   never a creation; the command does not check existence for an additional repository.
+   With `continue`, also fetch the branch with the explicit refspec
    `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because `git fetch <remote>
    <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it, and record
    `<remote>/<branch>` after that fetch as the base commit, in place of the default branch
@@ -741,25 +754,43 @@ it. Step 0 creates nothing except artifacts.
    which Step 3.5 item 3 rechecks. The consent, under Questions, is the branch
    question's reply (Step 1.2) for a repository it adopted; for an explicit `@<branch>` or
    `continue`, ask one line: "<path> is at <short sha> on <branch or detached>. Switch to
-   <branch>?", answered `yes`, else `stopped`. Step 0.1 item 3 predicts this question, so
-   Step 0.7 records it as predicted. Record each repository's previous `HEAD` in `run.md`;
-   the report lists each switch under "Where the work is". The run does not switch back:
-   it leaves each repository on the branch it pushed or prepared. This applies in a
+   <branch>?", answered `yes`, else `stopped`. After the reply that consents, this
+   question's or the branch question's, and before any switch or fast-forward, rerun on
+   that repository the clean-tree check (`git status --porcelain`, `git diff --cached
+   --quiet`), the comparison of the local branch with `<remote>/<branch>`, the `HEAD`
+   check (`HEAD` is still where the question said), and the `git worktree list
+   --porcelain` check. A change ends in `blocked` naming it. Before switching the primary
+   outside Multi-repo mode, run Step 0.3's flagged-file check (`git ls-files -v` and `git
+   cat-file --filters`, both pre-approved). When it predicts a worktree run, every case
+   above, a `HEAD` already on a behind local branch included, switches with `git -C
+   <path> switch --detach <remote>/<branch>` instead, so the branch stays free for the
+   worktree, and then a local branch that is behind is fast-forwarded without being
+   checked out by
+   `git -C <path> fetch . refs/remotes/<remote>/<branch>:refs/heads/<branch>`,
+   which refuses anything but a fast-forward. Record the detached switch in `run.md`. A
+   session on the branch at its tip is asked nothing and not moved, and `worktree.md`
+   decides the outcome. Step 0.1 item 3 predicts this question, so Step 0.7 records it as
+   predicted. Record each repository's previous `HEAD` in `run.md`; the report lists each
+   switch under "Where the work is", a detached one as detached. The run does not switch
+   back: it leaves each repository on the branch it pushed or prepared, or, after a
+   detached switch, the session's checkout detached at the base commit. This applies in a
    plan-only run too, because the plan must read the branch's code. When `HEAD` is not
    at the base commit and the switch does not apply (the tree is dirty, the local branch
    is ahead or divergent, or the branch is checked out in another worktree, below), it is
    a preflight failure whose message gives `git merge --ff-only <remote>/<branch>` when
    the session is on that branch and the local branch is behind the remote, `git switch
    <branch>` when the session is elsewhere and the local branch equals the remote or is
-   absent, and `git switch --detach <remote>/<branch>` otherwise, and says a dirty tree
-   must be cleaned first. A switch would not repair these cases.
+   absent, and `git switch --detach <remote>/<branch>` otherwise or when a worktree run
+   is predicted, and says a dirty tree must be cleaned first. A switch would not repair
+   these cases.
    In Multi-repo mode the same holds for each repository that continues a branch. With
    `continue`, also run
    `git worktree list --porcelain`: a branch checked out in a worktree other than the one
    the run will use is a preflight failure naming that worktree, because `git switch`
    refuses it. The run uses the session's checkout, unless Step 0.3 creates a worktree,
    where `worktree.md` makes the session's checkout a failure too, so a session on the
-   branch blocks a worktree run and one detached at the base commit does not. On `github`,
+   branch blocks a worktree run and one detached at the base commit does not, which is why
+   the consented switch detaches when a worktree run is predicted. On `github`,
    read the open pull requests of the branch with `gh pr list --head <branch> --state open
    --limit 100 --json number,state,baseRefName,url,isCrossRepository`, and keep only the
    entries whose `isCrossRepository` is false, so a fork's branch of the same name is
@@ -812,9 +843,9 @@ it. Step 0 creates nothing except artifacts.
    (Step 0.3); on the `other` host fetch nothing. Start `run.md` with the records from 0.1 to
    0.4, the run start time, and the run budget in force with its source. Also write the
    question and reply times held in memory (Step 0.1a, Step 0.2), the credentials
-   decision, and each repository's previous `HEAD` when Step 0.2 switched it. With
-   `drop`, write `inputs.md` and every later artifact with each credential value replaced
-   by `<redacted: key>`.
+   decision, and each repository's previous `HEAD` when Step 0.2 switched it, and whether
+   that switch was detached. With `drop`, write `inputs.md` and every later artifact with
+   each credential value replaced by `<redacted: key>`.
 6. Check Codex availability as described in Mechanics, including the codex-lite version of
    0.8.0 or later. Record the result and any reason, and the codex-lite version actually
    found, not only that it passed, so `multi-repo.md` can gate on 0.9.0. Apply
@@ -841,10 +872,11 @@ switch` or fast-forward of a clean checkout (Step 0.2), recorded in `run.md`.
    flagged; the judgment is whether the inputs ask for it to change.
    - A candidate is an absolute path in the inputs that, after stripping trailing `,`,
      `.`, `;`, `:`, `)`, and quote characters, and with either path separator, is an
-     existing directory where `git -C <path> rev-parse --show-toplevel` succeeds. The
-     candidate is the printed toplevel, so a subdirectory maps to its checkout. A path
-     inside the primary, a submodule of the primary, or a path already in `repos` is not
-     a candidate. Only a candidate the inputs ask to change is flagged. With no flagged
+     existing directory, or an existing file, in which case its parent directory is used,
+     where `git -C <dir> rev-parse --show-toplevel` succeeds. The candidate is the
+     printed toplevel, so a subdirectory maps to its checkout. A path inside the primary,
+     a submodule of the primary, or a path already in `repos` is not a candidate. Only a
+     candidate the inputs ask to change is flagged. With no flagged
      repository, go on to item 3.
    - When Step 0.3 created a worktree for the primary, end in `blocked` now, because
      `multi-repo.md` withholds the worktree exception. The report says the rerun needs

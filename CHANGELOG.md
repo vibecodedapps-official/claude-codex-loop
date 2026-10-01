@@ -14,7 +14,8 @@ repositories need codex-lite 0.9.0 or later; below it the 0.7.0 patch rule stays
   repository continues, and the primary needs no `--continue` for it, so one run may
   create a branch in the primary and continue another elsewhere. A value that is an
   existing directory is a path and is never split, so a path containing `@` still works.
-  A branch that is missing on the remote is rejected, never created. Each repository has
+  The command checks only the branch's form. A branch that is missing on that
+  repository's remote fails preflight in Step 0.2, never created. Each repository has
   its own branch state, `new` or `continue <branch>`, and the rule that every repository
   uses one branch name is gone. In 0.7.0 an additional repository whose remote lacked the
   `--continue` branch created it under that name; now such a repository with no
@@ -24,7 +25,10 @@ repositories need codex-lite 0.9.0 or later; below it the 0.7.0 patch rule stays
   branch becomes a switch question instead of a preflight failure. With consent the run
   runs `git switch`, or a fast-forward when the local branch is behind the remote, also
   from a `HEAD` detached at the remote head, and records the previous `HEAD` per
-  repository in `run.md`. A divergent local branch, a
+  repository in `run.md`. When a worktree run is predicted, the switch is `git switch
+  --detach <remote>/<branch>` and a behind local branch is fast-forwarded without being
+  checked out, so the worktree can check out the branch. The checks rerun after the
+  reply, before any switch, and a change ends in `blocked`. A divergent local branch, a
   dirty tree, and a branch checked out in another worktree still fail preflight.
 - Breaking: up to three new in-session questions make a run attended: credentials,
   repositories, and branches, plus the switch question for an explicit continuation. Step
@@ -51,10 +55,14 @@ repositories need codex-lite 0.9.0 or later; below it the 0.7.0 patch rule stays
   (`password`, `secret`, `token`, `api_key`, and the like), an AWS access key id, a PEM
   header, or a block under a credentials heading asks "keep or drop". `keep` writes them
   to `inputs.md` and forwards them to Codex. `drop` replaces each value with `<redacted:
-  key>` in every artifact and Codex request. The scan is a guard for common shapes, not a
+  key>` in every artifact and Codex request the run writes. A native `codex-lite:review`
+  reads the repository's own diff, so after `drop` the same scan runs over that diff
+  before each native review, and a match reviews through `codex-lite:ask` with a
+  redacted patch file in a fresh thread. The scan is a guard for common shapes, not a
   guarantee.
 - Adoption of repositories from prose by question at Step 1.2. A writable checkout the
-  inputs ask to change and `--repo` did not name is offered as an adoption. `yes` or a
+  inputs ask to change and `--repo` did not name is offered as an adoption, and a path to
+  a file inside a checkout counts through its parent directory. `yes` or a
   subset of paths enters Multi-repo mode; anything else ends in `stopped`, and a flagged
   path still missing after a subset ends in `blocked`. A worktree primary or a dirty
   adopted repository ends in `blocked`. Silent adoption stays rejected.

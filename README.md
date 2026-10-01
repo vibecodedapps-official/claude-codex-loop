@@ -123,7 +123,10 @@ are scanned for credentials: a key such as `password`, `secret`, `token`, or `ap
 with a value, an AWS access key id, a PEM header, or a block under a credentials heading.
 A match prompts a keep-or-drop question. `keep` writes them to `inputs.md` and forwards
 them to Codex, and `drop` replaces each value with `<redacted: key>` in every artifact and
-every Codex request. Any other reply ends the run in `stopped`. The scan is a guard for
+every Codex request the run writes. Any other reply ends the run in `stopped`. After
+`drop`, the repository's diff is scanned the same way before each Codex diff review, and
+a match sends that review through a redacted patch file instead of a native diff review.
+A Codex implementer still reads the checkout's files directly. The scan is a guard for
 common shapes, not a guarantee.
 
 ### Flags
@@ -145,8 +148,9 @@ common shapes, not a guarantee.
 - `--repo <path>[@<branch>]`: an additional writable checkout, and optionally the
   existing remote branch it continues. Repeatable. A value that is an existing directory
   is a path and is never split, so a path containing `@` works. Otherwise the value
-  splits at the last `@`, and a branch that is missing on that repository's remote is
-  rejected, never created. `@<branch>` does not need `--continue`. See Multi-repo mode.
+  splits at the last `@`, and a branch that is missing on that repository's remote fails
+  preflight in Step 0.2, never created. `@<branch>` does not need `--continue`. See
+  Multi-repo mode.
 - `--branch <name>`: the branch to work on. The default is a new branch off the
   resolved default branch in the current checkout. With `--plan-only` the name is only
   recorded in the plan.
@@ -165,8 +169,12 @@ common shapes, not a guarantee.
   `git switch <branch>`, or `git switch -c <branch>
   <remote>/<branch>` when the local branch is absent, with `git merge --ff-only
   <remote>/<branch>` when it is behind the remote, also from a `HEAD` detached at the
-  remote head, so that Step 3.7.2 never switches to a stale local branch. Any other
-  reply ends the run in
+  remote head, so that Step 3.7.2 never switches to a stale local branch. When the run
+  will use a worktree (skip-worktree or assume-unchanged edits), the switch is
+  `git switch --detach <remote>/<branch>` instead, and a behind local branch is
+  fast-forwarded without being checked out, so the worktree can take the branch. After
+  the `yes`, the clean-tree and branch checks rerun before anything is switched, and a
+  change ends the run in `blocked`. Any other reply ends the run in
   `stopped`. A divergent local branch, a dirty tree, and a branch checked out in another
   worktree still fail preflight. The previous `HEAD` is recorded in `run.md` and the
   report lists the switch; the run does not switch back. The branch must not be the

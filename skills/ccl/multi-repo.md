@@ -54,10 +54,12 @@ names, for each repository, and leaves the rest of that step as written.
 - `continue`: each repository has its own branch state, `new` or `continue <branch>`.
   The primary's comes from `--branch` or `--continue`; its branch must exist on its
   remote, which the command checks. An additional repository's comes from its
-  `@<branch>`, which the command checks on that repository's remote; without one, from
-  `--continue` when that repository's remote has that name, checked with `git -C <path>
-  ls-remote --heads <remote> refs/heads/<branch>`; else `new`. The branch question
-  (Adoption at Step 1.2) can set the state of a repository that has no explicit one.
+  `@<branch>`, whose form the command checks and whose existence Step 0.2 checks on that
+  repository's selected remote (Host detection), a missing one failing preflight; without
+  one, from `--continue` when that repository's remote has that name, checked with
+  `git -C <path> ls-remote --heads <remote> refs/heads/<branch>`; else `new`. The branch
+  question (Adoption at Step 1.2) can set the state of a repository that has no explicit
+  one.
   A repository that continues a branch follows Step 0.2 for it, including the `HEAD`
   requirement and the consented switch. A `new` repository creates its branch in Step
   3.7.2 under the naming rule, with the collision check. Branch names may differ
@@ -84,6 +86,16 @@ names, for each repository, and leaves the rest of that step as written.
     every additional repository with a diff, in both cases below, because the fallback
     subagent and the Claude substitute read it. When the primary has a diff, review it
     with `codex-lite:review --base <primary base>`.
+    - After a `drop` answer, the Reviewer contract item 5 diff scan runs before each
+      native `codex-lite:review` call, the primary's and each `--cwd` one, over `git -C
+      <path> diff <base>` of that repository, after the `add -N` of new files. On a match
+      that repository is reviewed through `codex-lite:ask` with its patch file
+      (`diff.patch` or `diff-<slug>.patch`), the matched values replaced by `<redacted:
+      key>`, in a fresh thread that becomes that repository's thread (for the primary,
+      the stage's thread), recorded in `run.md`; its follow-ups resume that thread. Below
+      0.9.0 the additional repositories already go through `codex-lite:ask` with a
+      patch, and only the replacement applies to them. Every patch file written after
+      `drop` carries the same replacements.
     - With codex-lite 0.9.0 or later, as recorded in Step 0.6: review each additional
       repository with a diff by `codex-lite:review --base <its base> --model <id>
       --timeout <s>` on the first line and `--cwd <absolute path of that repository>` on
