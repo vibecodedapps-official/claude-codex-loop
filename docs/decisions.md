@@ -1029,6 +1029,35 @@ Supersessions and qualifications:
 - Part 11 item 3, suggestions from remote branches whose names are string prefixes of
   each other: superseded by item 1. The rest of item 3 is kept.
 
+## Part 13: 0.9.0, 2026-10-01
+
+Goal: a run hands the cca plugin what it needs to audit the work, with no extra prompt.
+
+1. **ccl writes the handoff, because it holds the record.** A run already has the
+   inputs, the plan with its review log, the run log, the PR body, and git. The user
+   would otherwise rebuild that record by hand for cca. The writer uses only those
+   durable files and writes `none`, `none recorded`, or `not recorded` for a value they
+   lack, never an invented one. To make the decisions available, Step 0.5 now fetches
+   each issue's `assignees` and `milestone`, and `run.md` records each decision with its
+   choice, reason, rejected options, who decided, and where it was published.
+2. **The handoff is written only after Step 7.1.** The audit needs a range of commits.
+   Before Step 7.1 the run has none, and ccl never commits to make one. So a run with a
+   commit of its own writes the handoff in any terminal state, a `prepared` run whose push
+   was withheld after Step 7.1 included, and a run with no commit of its own (`--no-publish`,
+   `plan-only`, any state before Step 7.1) writes none. The report says why, and that
+   `/cca:handoff` in the session can write one after the user commits.
+3. **A manifest, not a bare command.** `/cca:audit` needs every bundle's PR, or its
+   branch and base, and the handoff's path. A bare command names one path and cannot carry
+   a Multi-repo run's bundles. `cca-manifest.json` holds them, and cca reads it as an
+   ordinary manifest.
+4. **The audit hint uses bounds modeled on cca's low tier, and it is a suggestion.** The
+   line appears when the handoff was written and the work has more than one bundle, more
+   than one ticket, or 500 or more changed lines. ccl does not know cca's tier rules
+   beyond these bounds and does not run the audit. cca sets its own tier.
+5. **`decided_by` is a role, never a person.** ccl does not record the user's name, so
+   the handoff writes `role: session user`, `role: session user (plan approval)`,
+   `checkpoint (recommended option taken)`, or `not recorded`, and never `person:`.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.

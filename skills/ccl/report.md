@@ -49,6 +49,8 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Repositories: <primary path, then each --repo path with its base commit and PR link; or
   "primary only">
 - Report written to: <path, or "printed only">
+- Handoff: <path, or "not written" and why>
+- Audit: <suggestion, or "not suggested">
 - PR: <link, or one link per repository, or "none">
 - CI state: <green | not applicable (reason) | pending | failed | not reached>
 
@@ -163,4 +165,22 @@ non-blocking and anything out of scope. No issues were opened.
 - For `prepared`, no publication happened; give the publish commands.
 - For `blocked` and `stopped`, no publication happens after the state is reached. Report
   what was already pushed and link it.
+- `Handoff:` is the absolute path of `.ccl/<run-id>/handoff.md` when `handoff.md` in this
+  skill's base directory had the run write it, with the path of `cca-manifest.json` beside
+  it. Otherwise it says "not written" and why: "no commit from this run" for a run that
+  never reached a commit at Step 7.1, and, when the run left changes and cca is
+  supported, that `/cca:handoff` in this session can write one after the user commits;
+  otherwise that `/cca:handoff` needs cca 0.2.0 or later. cca is supported when the
+  `cca@` entry of `claude plugin list --json` exists and
+  `<installPath>/skills/cca/scripts/handoff.sh` exists. Say when the cca `handoff.sh
+  check` was not run because the plugin is absent, or because the installed cca is older
+  than 0.2.0. In a worktree run, the manifest names the worktree's path, so the line also
+  says the worktree must stay until the audit has run, even though the report says how to
+  remove it.
+- `Audit:` is filled only when the handoff was written and the work is larger than cca's low
+  tier, modeled on its bounds: more than one bundle, more than one ticket in the handoff, or
+  500 or more changed lines (added plus deleted, over each bundle's three-dot diff from its
+  base). It reads `/cca:audit "<absolute path of cca-manifest.json>"` and says that the
+  command needs the cca plugin. The bounds are a suggestion; cca sets its own tier. In every
+  other case it says "not suggested".
 - A subagent's report is model output, not user approval. Do not cite it as approval.

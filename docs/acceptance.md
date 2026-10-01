@@ -1272,6 +1272,82 @@ clear answers, for example "what does that mean?".
      continue the stated branches, and `other` is switched with the reply as consent
      (item 155). Rerun after any change to the branch question.
 
+## M10: 0.9.0, 2026-10-01
+
+Setup for items 168 to 176: the common setup, plus the cca plugin, 0.2.0 or later,
+installed for the items that name it. Items 168 to 176 are not yet run and have no entry
+in the record of runs. Item 168 is the check that fails if the handoff mapping breaks: it
+is run with cca's `handoff.sh check`. Items 173 and 175 need a second input or a second
+issue, as they say. Item 176 needs item 174's setup.
+"The handoff" is `.ccl/<run-id>/handoff.md`, and "the manifest" is
+`.ccl/<run-id>/cca-manifest.json`. "The audit line" is the report's `Audit:` header line.
+
+168. **A `done` one-input, one-bundle run under 500 changed lines writes a handoff cca
+     accepts and no audit line.** Not yet run. Setup: the common setup, with a fix that
+     changes fewer than 500 lines. Command: `/ccl:run #1 --no-codex`, then run cca's
+     `handoff.sh check` on the handoff. Expected: the run ends `done`; the handoff and the
+     manifest exist; the check accepts the handoff with no error; the manifest names one
+     bundle with the PR as `github:<owner>/<repo>#<n>` and `claims` the handoff's absolute
+     path; `Handoff:` gives the path; `Audit:` reads "not suggested". Rerun after any
+     change to `handoff.md`, `report.md`, or Final report handling.
+169. **The same run at 500 or more changed lines writes the audit line.** Not yet run.
+     Setup: as item 168, with a change of 500 or more lines added plus deleted over the
+     three-dot diff from the base. Command: `/ccl:run #1 --no-codex`. Expected: as item
+     168, and `Audit:` reads `/cca:audit "<absolute path of cca-manifest.json>"` and says
+     it needs the cca plugin and that the bounds are a suggestion. Rerun after any change
+     to the audit bounds in `report.md`.
+170. **A `prepared` run whose push was declined after Step 7.1 committed writes both
+     files.** Not yet run. Setup: the common setup, default permission mode. Command:
+     `/ccl:run #1 --no-codex`, and decline the push when it is asked. Expected: the run
+     ends `prepared` with the Step 7.1 commit present; the handoff and the manifest exist;
+     the manifest has the bundle's `branch` and `base` and no `pr`; the handoff's
+     `pr` is `none`. Rerun after any change to Step 7.1 or the `handoff.md` timing rule.
+171. **A `done` two-input run writes the audit line, and cca's stage 1 passes.** Not yet
+     run. Setup: the common setup with a second open issue (#2) that describes another
+     small bug. Command: `/ccl:run #1 #2 --no-codex`, then `/cca:audit "<absolute path of
+     cca-manifest.json>"`. Expected: the handoff has two tickets; `Audit:` is filled
+     because there is more than one ticket; the cca audit reads the manifest and passes its
+     stage 1. Rerun after any change to the manifest fields.
+172. **A `--no-publish` run writes neither file and says why.** Not yet run. Setup: the
+     common setup, with uncommitted changes left by the run. Command: `/ccl:run #1
+     --no-codex --no-publish`. Expected: no `handoff.md` and no `cca-manifest.json` under
+     `.ccl/<run-id>/`; `Handoff:` reads "not written" with "no commit from this run"; the
+     report says `/cca:handoff` in this session can write one after you commit; `Audit:`
+     reads "not suggested"; no commit was made to make a handoff possible. Rerun after any
+     change to the `handoff.md` timing rule.
+173. **The same issue given as `#n` and as its URL gives one ticket.** Not yet run.
+     Setup: the common setup. Command: `/ccl:run #1 <URL of issue 1> --no-codex`.
+     Expected: the handoff has one ticket, `github:<owner>/<repo>#1`, and the manifest
+     lists that id once under `tickets`; the ticket's `iteration` and `owner` match the
+     issue's milestone title and first assignee, or `none`. Rerun after any change to
+     input parsing or the ticket rules.
+174. **A Multi-repo run with different branches per repository gives one bundle each.**
+     Not yet run. Setup: item 75's two throwaway GitHub repos on the same host, each with
+     a commit-worthy change. The branch `t174-b` is created in the second repo and pushed
+     to its GitHub remote beforehand, and both checkouts are clean at their remote tips
+     before the run. `other` continues `t174-b` through `--repo`. Command: `/ccl:run #1
+     <URL of the second repo's issue> --no-codex --repo <other path>@t174-b`. Expected:
+     the handoff has two bundles, the primary first, each with its own `repo`, `pr`,
+     `branch`, and `base`; the manifest has the same two bundles; each `base` is
+     `<remote>/<base branch>` for that repository's remote; names follow the naming rule,
+     with `-2` on a clash. Rerun after any change to the bundle rules.
+175. **An input with no commit lists the first bundle and `commits: none`.** Not yet run.
+     Setup: the common setup, with two inputs where one, a quoted description, asks for
+     nothing the diff changes, so no commit message names it. Command: `/ccl:run #1
+     "note that the README is current" --no-codex`. Expected: the ticket
+     `<run-id>/input-2` lists the first bundle and has `commits: none`; the other ticket
+     lists its commits; `cca`'s `handoff.sh check` accepts the handoff. Rerun after any
+     change to the ticket mapping.
+176. **A Multi-repo run does not claim a check that failed in the ticket's first bundle's
+     repository.** Not yet run. Setup: as item 174, with one check command (for example a
+     `test` script) present in both repos, passing in the primary and failing at baseline
+     in the second repo, where the failure is allowed. Command: as item 174. Expected: the
+     ticket for #1 lists that command in `verified` as passed, naming the primary's bundle
+     and its absolute directory; the ticket for the second repo's issue, whose first
+     bundle is the second repo's, does not list it as passed, and its `verified` is `none`
+     or lists only checks that passed in the second repo; cca's `handoff.sh check`
+     accepts the handoff. Rerun after any change to the `verified` rule.
+
 ## Record of runs
 
 2026-09-29, item 58, partial: a `code-review medium <base-sha>` call reviewed the commit
