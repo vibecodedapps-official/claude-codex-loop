@@ -504,11 +504,11 @@ Setup for items 62 to 82: the common setup, plus the setup each item names. Item
     the worktree. Rerun after any change to Step 0.3, Step 5.2, `worktree.md`, or the
     Reviewer contract.
 74. **Skip-worktree files at high tier.** Setup: as item 72, and codex-lite installed.
-    Command: `/ccl:run #1 --effort high`. Expected: the run is not `blocked` at Step 1.5;
+    Command: `/ccl:run #1 --effort high`. Expected: the run is not `blocked` at Step 1.6;
     it works in the detached worktree, the Claude slot of Step 5 is an Opus subagent given
     the worktree's diff, recorded in `run.md` and named in the report as a substitute and
     not a swap, no `code-review` call appears in the tool trace, and the report names the
-    worktree path. Rerun after any change to Step 0.3, Step 1.5, or `worktree.md`.
+    worktree path. Rerun after any change to Step 0.3, Step 1.6, or `worktree.md`.
 75. **Two-repo run at medium tier.** Setup: two throwaway GitHub repos on the same host,
     each with one open issue (#1 in each) that describes a one-line bug, the second
     checked out beside the first, and codex-lite installed. Command: run from the primary
@@ -643,22 +643,29 @@ branch or detached at the remote head unless the item says otherwise.
 90. **Multi-repo with the branch on the primary only.** Setup: as item 75, with branch
     `t90` pushed to the primary's remote with an open PR, and no `t90` on the second
     repo's remote. Command: as item 75 with `--continue t90`. Expected: the primary
-    switches to `t90` and the second repo creates `t90` from its default branch; the
-    primary has no `gh pr create` and no body edit, and the second repo gets a new PR
+    switches to `t90`, and the second repo is `new`: it creates a branch from its default
+    branch under the Step 3.7.2 naming rule, with the collision check, not named `t90`;
+    the primary has no `gh pr create` and no body edit, and the second repo gets a new PR
     whose body says "pending" for its sibling link; the comment on the continued PR is
     posted only after the second repo's PR is open, with its "Related pull requests"
     section filled; `gh pr edit` covers only the second repo's PR; and each issue comment
     names both PRs. Rerun after any change to `multi-repo.md` or Step 7.2.
-91. **An unnamed writable checkout ends `blocked` in Step 1.** Setup: an issue whose text
-    asks for a change in a second checkout on disk, for example "also update
-    `../other/README.md`", and a run with no `--repo`. Command: `/ccl:run #1
-    --no-codex`. Expected: `blocked` in Step 1 before Step 2, nothing implemented, and a
-    report with the rerun command: the same inputs and flags plus `--repo <path>`, with
-    the path from the issue. The run does not adopt Multi-repo mode. Then change the
-    issue so the second checkout is only read: the run is not blocked there. Then ask for
-    changes in two other checkouts and pass `--repo` for one of them: `blocked` in Step
-    1 again, and the rerun command adds one `--repo` for the missing checkout only. Rerun
-    after any change to Step 1.4.
+91. **An unnamed writable checkout leads to the Step 1.2 adoption question.** Setup: an
+    issue whose text asks for a change in a second checkout on disk, for example "also
+    update `/abs/path/other/README.md`", and a run with no `--repo`. Command: `/ccl:run
+    #1 --no-codex`. Expected: Step 1.2 asks to adopt the toplevel of that checkout before
+    Step 2, and a reply that is not `yes` or a path from the question ends `stopped`
+    with the question and the rerun text in the report, nothing implemented and the
+    checkout not adopted. The rerun text is the same inputs and flags plus `--repo
+    <path>`, with the path from the issue, and, because neither `--branch` nor
+    `--continue` was given, a block that names `--continue <branch>` and `@<branch>` and
+    lists each checkout's `HEAD` as the run saw it, without choosing a branch. A reply
+    of `yes` adopts it, as item 146. Then change the issue so the second checkout is only
+    read: no question is asked and the run is not blocked there. Then ask for changes in
+    two other checkouts, pass `--repo` for one of them, and reply with the path of the
+    other only: the run asks about the unnamed one only, and a subset that leaves a
+    flagged checkout missing ends `blocked` in Step 1.2 with the rerun command adding one
+    `--repo` for the missing checkout only. Rerun after any change to Step 1.2.
 92. **An additional repo with a differing skip-worktree file continues.** Setup: as item
     75, plus `git update-index --skip-worktree <file>` in the second repo and an edit to
     that file, so `git status --porcelain` is empty there and the file differs from
@@ -752,18 +759,21 @@ branch or detached at the remote head unless the item says otherwise.
      `t103` equal to the remote, and `--continue t103`, commit to local `t103` during the
      wait: `blocked` naming the branch, with the branch not switched. Rerun after any
      change to Step 3.5.
-104. **`--continue` with `HEAD` off the base commit is a preflight failure.** Setup:
+104. **`--continue` with `HEAD` off the base commit asks to switch.** Setup:
      branch `t104` pushed, local `t104` absent or equal to the remote, and the session on
-     the default branch. Command: `/ccl:run #1 --no-codex --continue t104`, then
-     `/ccl:plan #1 --continue t104`. Expected: each is a preflight failure in Step 0.2
-     whose message gives `git switch t104` or `git switch --detach <remote>/t104`, the
-     report printed, nothing written, no branch switched, and nothing pushed. Then run
-     `git switch --detach <remote>/t104` and rerun the first command: it is not refused
-     for `HEAD`, `run.md` records `HEAD` as the planning snapshot, and the plan review
-     and the Step 1.2 reproduction read that code. Then add a `skip-worktree` edit so a
-     worktree run is needed: with the session on `t104` the run ends `blocked` naming the
-     session's checkout, and with the session detached at `<remote>/t104` it does not.
-     Rerun after any change to Step 0.2 or `worktree.md`.
+     the default branch with a clean tree. Command: `/ccl:run #1 --no-codex --continue
+     t104`, then `/ccl:plan #1 --continue t104`. Expected: the Step 0.1 statement predicts
+     the question, and in Step 0.2 each run asks "<path> is at <short sha> on <branch>.
+     Switch to t104?" before anything is written. A non-answer ends `stopped` with nothing
+     switched, written, or pushed. On `yes` the run switches with `git switch t104`, or
+     `git switch -c t104 <remote>/t104` when local `t104` is absent, `run.md` records the
+     previous `HEAD`, and the run continues. Then run `git switch --detach <remote>/t104`
+     and rerun the first command: no question is asked, `run.md` records `HEAD` as the
+     planning snapshot, and the plan review and the Step 1.3 reproduction read that code.
+     Then add a `skip-worktree` edit so a worktree run is needed: with the session on
+     `t104` the run ends `blocked` naming the session's checkout, and with the session
+     detached at `<remote>/t104` it does not. Rerun after any change to Step 0.2 or
+     `worktree.md`.
 105. **A plan-only `--continue` records the conditions that matter only for building.**
      Setup: `HEAD` at the base commit, and in turn one of these for branch `t105`: a
      local `t105` with one commit that is not on the remote; `t105` checked out in
@@ -815,8 +825,9 @@ branch or detached at the remote head unless the item says otherwise.
      has a submodule at `sub/`, and an issue whose fix edits a file under `sub/`.
      Command: `/ccl:run #1 --no-codex --plan-only`. Expected: Step 1 does not end in
      `blocked` for a writable checkout not listed in `repos`. Then with an issue that
-     edits a path in an unrelated git checkout: `blocked` with the rerun command. Rerun
-     after any change to Step 1.4.
+     edits a path in an unrelated git checkout that it names by absolute path: the Step
+     1.2 adoption question, and a non-answer ends `stopped` with the rerun command in the
+     report. Rerun after any change to Step 1.2.
 113. **A reverification revision with no round left ends `blocked`.** Setup: a plan whose
      Step 3 review used all 3 rounds and whose planning snapshot is not the base commit
      in a way that changes the plan; `--confirm-plan`. Command: `/ccl:run #1 --no-codex
@@ -830,12 +841,13 @@ branch or detached at the remote head unless the item says otherwise.
      checkout with `--body-file` set to an absolute path under the original checkout's
      `.ccl/<run-id>/`, and the comment posts. Rerun after any change to Step 7.2 or
      `worktree.md`.
-115. **A repository that lacks the continued branch creates it under that name.** Setup:
-     Multi-repo mode with a second checkout whose remote lacks branch `t115`, and the
-     primary's remote has it. Command: `/ccl:run #1 --no-codex --continue t115 --repo
-     <path>`. Expected: both repositories end on a branch named `t115`, with no derived
-     `feat/...` name, and the collision check runs for the second repository. Rerun after
-     any change to Step 3.7.2 or `multi-repo.md`.
+115. **A repository that lacks the continued branch is `new`.** Setup: Multi-repo mode
+     with a second checkout whose remote lacks branch `t115`, and the primary's remote
+     has it. Command: `/ccl:run #1 --no-codex --continue t115 --repo <path>`. Expected:
+     the primary continues `t115`, and the second repository is `new`: it gets the name
+     the Step 3.7.2 naming rule produces, not `t115`, and the collision check runs for
+     it. To continue a differently named branch there, pass `--repo <path>@<branch>`.
+     Rerun after any change to Step 3.7.2 or `multi-repo.md`.
 116. **A PR opened for a continued branch names the unreviewed commits.** Setup: branch
      `t116` pushed with two commits beyond the default branch and no open PR. Command:
      `/ccl:run #1 --no-codex --continue t116`. Expected: the PR opens against the default
@@ -890,14 +902,17 @@ branch or detached at the remote head unless the item says otherwise.
      need edits in a second writable checkout not passed with `--repo`. Command:
      `/ccl:run #1 --no-codex`. Expected: `blocked` with the rerun command that adds
      `--repo <path-to-owner/repo>`, no branch created, and no `git submodule status` call
-     in the tool trace. Rerun after any change to Step 1.4 or Step 2.
-124. **The `HEAD` failure names the command that works.** Setup: branch `t124` pushed,
-     and a local `t124` one commit behind the remote. Command: `/ccl:plan #1 --continue
-     t124` with the session on local `t124`. Expected: a preflight failure whose message
-     gives `git merge --ff-only <remote>/t124`. Then with the session on the default
-     branch and local `t124` equal to the remote or absent: the message gives `git switch
-     t124`. Then with local `t124` holding a commit that is not on the remote: the message
-     gives `git switch --detach <remote>/t124`. Rerun after any change to Step 0.2.
+     in the tool trace. Rerun after any change to Step 1.2 or Step 2.
+124. **A `HEAD` that is off the branch is switched or fails with the command that works.**
+     Setup: branch `t124` pushed, and a local `t124` one commit behind the remote.
+     Command: `/ccl:plan #1 --continue t124` with the session on local `t124`. Expected:
+     the switch question is asked, and on `yes` the run does not switch, because `HEAD` is
+     already on it, and runs `git merge --ff-only <remote>/t124`. Then with the session on
+     the default branch and local `t124` equal to the remote or absent: the question is
+     asked, and on `yes` the run runs `git switch t124`, or `git switch -c t124
+     <remote>/t124`. Then with local `t124` holding a commit that is not on the remote:
+     a preflight failure whose message gives `git switch --detach <remote>/t124`, with no
+     question. Rerun after any change to Step 0.2.
 125. **A pull request list that may be incomplete is a preflight failure.** Setup: branch
      `t125` pushed with no PR from this repository, and 100 open PRs from a fork's branch
      `t125`, each against its own base branch in this repository (scripted with `git
@@ -1035,6 +1050,168 @@ plan or the report.
      call whose last option is `--cwd <worktree path>` and whose request names files by
      absolute path or carries their content. Rerun after any change to `worktree.md` or
      the Claude review contract.
+
+## M9: 0.8.0, 2026-09-30
+
+Setup for items 142 to 163: the common setup, plus codex-lite 0.8.0 or later installed and
+enabled, plus the setup each item names. Items that name codex-lite 0.9.0 need it. They
+are hand runs against throwaway repos. Items 146 to 157 and 161 use the setup of item 75
+(a primary and a second checkout `other`, each with a bare remote) unless they say
+otherwise, and a prose input names `other` by absolute path and asks for a change in it,
+with no `--repo`. "The question" is the in-session question the item names, and a reply
+is typed in the session. A non-answer is any reply that is not one of the question's
+clear answers, for example "what does that mean?".
+
+142. **Credentials: `keep` writes and forwards them.** Setup: a handoff file with a line
+     `api_key: sk-test-0001` and a line `password=hunter2`. Command: `/ccl:run
+     handoff.md --no-codex`. Expected: the Step 0.1 prediction lists the credentials
+     question first, before the prompt; the question lists `api_key` and `password` by key
+     name and line number and shows neither value; after `keep`, `inputs.md` holds both
+     values, `run.md` records the decision and the two `date` times taken before and
+     after the question, and no file was written before Step 0.5. Rerun after any change
+     to Step 0.1 or Step 0.1a.
+143. **Credentials: `drop` redacts every artifact and request.** Setup: as item 142, at
+     medium tier with Codex. Command: `/ccl:run handoff.md --effort medium`, reply `drop`.
+     Expected: `inputs.md` holds `<redacted: api_key>` and `<redacted: password>` in place
+     of the values; a search of `.ccl/<run-id>/`, every Codex request file, every
+     implementer prompt in the tool trace, and every patch finds neither `sk-test-0001`
+     nor `hunter2`; and `run.md` records `drop`. Rerun after any change to Step 0.5 or
+     the reviewer and implementer prompts.
+144. **Credentials: no match asks nothing.** Setup: a handoff file with the words
+     "token" and "password" in prose only, with no `key: value`, `key=value`, or
+     `"key": "value"` form with a value, and no AWS key id or PEM header. Command:
+     `/ccl:run handoff.md --no-codex`. Expected: no credentials question, none predicted
+     in the Step 0.1 statement, and `run.md` records no credentials decision. Rerun after
+     any change to the scan shapes.
+145. **Credentials: a non-answer ends `stopped`.** Setup: as item 142. Command: `/ccl:run
+     handoff.md --no-codex`, reply "continue". Expected: `stopped`, the report holds the
+     question, with key names and line numbers and no value, no `.ccl/` directory holds a
+     credential value, and nothing else ran. Rerun after any change to Step 0.1a.
+146. **Repositories: `yes` adopts the checkout.** Setup: a prose handoff file naming
+     `other` by absolute path and asking for a change in it. Command: `/ccl:run
+     handoff.md --no-codex`, reply `yes` to the repository question and `yes` to the
+     branch question where it is asked. Expected: the question lists the toplevel of
+     `other`, the run enters Multi-repo mode with `other` as an additional repository,
+     `run.md` records "Multi-repo mode adopted at Step 1.2 by reply", Host detection,
+     instruction files, default branch, and clean tree ran for `other` and the permission
+     statement was printed again with `other`'s push and PR, and the run is not `blocked`.
+     Rerun after any change to Step 1.2 or the late-entry order in `multi-repo.md`.
+147. **Repositories: a subset that leaves a repository missing ends `blocked`.** Setup:
+     as item 146, with a third checkout `third` that the handoff also asks to change.
+     Command: `/ccl:run handoff.md --no-codex`, reply with the path of `other` only.
+     Expected: `blocked` in Step 1.2 before Step 2, nothing implemented, and the report
+     gives the rerun command with `--repo <path>` for `third`, and the branch block of
+     item 91, because no `--branch` or `--continue` was given. Rerun after any change to
+     Step 1.2.
+148. **Repositories: a non-answer ends `stopped`.** Setup: as item 146. Command: as item
+     146, reply "which one is that?". Expected: `stopped`, the report holds the question
+     and the rerun text, `other` is not adopted, and nothing in `other` was touched.
+     Rerun after any change to Step 1.2.
+149. **Adoption is `blocked` when the primary is a worktree run.** Setup: as item 146,
+     with the primary clean in status and index and a skip-worktree file differing from
+     `HEAD`, so Step 0.3 creates a worktree. Command: `/ccl:run handoff.md --no-codex`.
+     Expected: `blocked` before the repository question is asked, nothing in `other`
+     touched, and the report says the rerun needs the skip-worktree edits cleared and the
+     `--repo` flags. Rerun after any change to Step 1.2 or Step 0.3.
+150. **Adoption is `blocked` when an adopted repository is dirty.** Setup: as item 146,
+     with an uncommitted edit in `other`. Command: `/ccl:run handoff.md --no-codex`, reply
+     `yes`. Expected: `blocked` naming `other` as dirty, no stash or checkout in the tool
+     trace, the edit in `other` intact, and no branch question asked. Rerun after any
+     change to the late-entry order in `multi-repo.md`.
+151. **Branches: `yes` takes one suggestion per repository.** Setup: as item 146, with the
+     primary on branch `t151` at its remote tip and `other` on branch `t151-etl` at its
+     remote tip, both pushed. Command: `/ccl:run handoff.md --no-codex`, reply `yes` to
+     the repository question and `yes` to the branch question. Expected: the question
+     prints "<path>: suggested t151" for the primary and "<path>: suggested t151-etl" for
+     `other`; each repository's `run.md` state is `continue` with that branch; no switch
+     happens because each is at its tip; and the base commit of each is its remote branch
+     head. Rerun after any change to the branch question in Step 1.2.
+152. **Branches: a repository with two suggestions needs a line.** Setup: as item 151,
+     plus a third checkout `third` on an unrelated branch at its remote tip and a remote
+     branch `t151-heart` on `third`, so it has two suggestions. Command: as item 151 with
+     `third` in the handoff, reply `yes` alone. Expected: the reply is not clear, because
+     it does not cover `third`, and the run ends `stopped` with the question in the
+     report. Then rerun and reply `yes` and `<third path>@t151-heart` on the next line:
+     all three repositories continue the stated branches, and `third` is switched
+     (item 155). Rerun after any change to the branch question.
+153. **Branches: `@new` creates a branch in one repository.** Setup: as item 151. Command:
+     as item 151, reply `yes` and `<other path>@new`. Expected: the primary continues
+     `t151`, `other` is in state `new`, and a new branch is created in `other` under
+     Step 3.7.2's naming rule, not the primary's branch name. Rerun after any change to
+     the branch question or Step 3.7.2.
+154. **Branches: a non-answer ends `stopped`.** Setup: as item 151. Command: as item 151,
+     reply `yes` to the repository question and "whatever you think" to the branch
+     question. Expected: `stopped` with the question in the report, no switch, no branch
+     created, and no file edited. Rerun after any change to the branch question.
+155. **A clean checkout behind its branch is switched with consent.** Setup: as item 146,
+     `other` clean on an unrelated branch, with branch `t155` pushed to its remote and a
+     local `t155` one commit behind it. Command: `/ccl:run handoff.md --no-codex
+     --repo <other path>@t155`, reply `yes` to the switch question. Expected: the Step 0.1
+     statement predicts the switch question; the question reads "<path> is at <short sha>
+     on <branch>. Switch to t155?"; after `yes` the tool trace has `git -C <other path>
+     switch t155` followed by `git -C <other path> merge --ff-only <remote>/t155`;
+     `run.md` records the previous `HEAD`; the clean-tree check reruns; the report lists
+     the switch under "Where the work is"; and the run ends without switching back. A
+     second run with the local `t155` absent uses `git switch -c t155 <remote>/t155`. A
+     third run with the session detached at `<remote>/t155` and the local `t155` one
+     commit behind still asks, and after `yes` fast-forwards `t155`, so Step 3.7.2 does
+     not switch to a stale branch. Rerun after any change to Step 0.2 or Step 0.1 item 3.
+156. **A divergent local branch still fails preflight.** Setup: as item 155, with local
+     `t155` holding a commit the remote lacks as well as lacking one the remote has.
+     Command: as item 155. Expected: preflight fails with the 0.7.0 message for a
+     divergent local branch, no switch question is asked, and no `git switch` runs. Rerun
+     after any change to Step 0.2.
+157. **A dirty checkout still fails preflight.** Setup: as item 155, with an uncommitted
+     edit in `other`. Command: as item 155. Expected: `blocked` or preflight failure
+     naming `other` as dirty, no switch question, no `git switch`, no stash, and the edit
+     intact. Rerun after any change to Step 0.2 or Step 0.3.
+158. **`--repo <path>@<branch>` is accepted without `--continue`.** Setup: as item 75,
+     with branch `t158` pushed to `other`'s remote. Command: `/ccl:run #1 --no-codex
+     --repo <other path>@t158`. Expected: the command does not reject the value; the
+     invocation block has `repos: <other path>@t158`; the primary's state is `new` with a
+     new branch and `other`'s is `continue t158`; and no `--continue` was needed. Rerun
+     after any change to `commands/run.md` or `commands/plan.md` step 2.
+159. **A missing explicit branch is rejected.** Setup: as item 158 with no `t159` on
+     `other`'s remote. Command: `/ccl:run #1 --no-codex --repo <other path>@t159`.
+     Expected: rejected before Step 0 as a missing branch, the skill not loaded, no file
+     written, and the branch not created. A right part that passes the charset rule but
+     fails `git check-ref-format --branch`, such as `@a..b`, splits and is rejected as
+     an invalid branch; a right part that fails the charset rule, such as `@a~b` or
+     `@a b`, means no split, and the value is rejected as a missing directory.
+     Rerun after any change to the commands' `--repo` rules.
+160. **A path containing `@` with no branch is accepted.** Setup: a checkout at a
+     directory whose name contains `@`, for example `other@v2`. Command: `/ccl:run #1
+     --no-codex --repo <path to other@v2>`. Expected: the whole value is taken as a path,
+     no split happens, the run proceeds with that repository in state `new`, and the
+     invocation block holds the full path. Rerun after any change to the `--repo` split
+     rule.
+161. **`prepared` gives each repository its own branch.** Setup: three repositories on a
+     non-GitHub host (local bare remotes, as item 62), the primary and two additional,
+     each with a diff. Branch `t161-a` is on the primary's remote and `t161-b` on the
+     second's, and the third's remote lacks `t161-a`, so its state is `new`. Command:
+     `/ccl:run "rename the README heading" --no-codex --continue t161-a --repo
+     <b path>@t161-b --repo <c path>`. Expected: Step 7 never runs, the run ends
+     `prepared`, and the report gives `git push <remote> t161-a`, `git push <remote>
+     t161-b`, and `git push <remote> <the new branch>`, one per repository with a diff,
+     each from that repository, and no push ran. Rerun after any change to Terminal
+     states or Step 3.7.2.
+162. **`review --cwd` reviews each additional repository at codex-lite 0.9.0, and the
+     patch rule applies below it.** Setup: item 75 at medium tier with codex-lite 0.9.0,
+     and a second session with codex-lite 0.8.0. Command: `/ccl:run #1 --effort medium
+     --repo <other path>`, in each. Expected: at 0.9.0 the Step 5 trace has a
+     `codex-lite:review --base <other's base> --model <id> --timeout <s>` call with
+     `--cwd <other path>` on its second line for `other`, a separate thread from the
+     primary's, `run.md` records a thread id per repository, and `diff-<slug>.patch` is
+     still written; at 0.8.0 `other` is reviewed through `ask` with the patch and no
+     `review --cwd` call appears. Rerun after any change to `multi-repo.md` Step 5.2 or
+     the Reviewer contract.
+163. **A follow-up resumes the right repository's thread.** Setup: as item 162 at 0.9.0,
+     with a defect planted in `other` that its reviewer finds and one in the primary.
+     Command: `/ccl:run #1 --effort medium --repo <other path>`. Expected: the Step 5.4
+     follow-up for `other` is an `ask --resume` on `other`'s thread id with
+     `diff-<slug>.patch`, the primary's follow-up uses the primary's thread, and no call
+     resumes another repository's thread; a CI repair in `other` does the same. Rerun
+     after any change to `multi-repo.md` Step 5.4 or Step 7.3.5.
 
 ## Record of runs
 

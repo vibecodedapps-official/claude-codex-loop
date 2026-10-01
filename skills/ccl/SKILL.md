@@ -11,6 +11,7 @@ allowed-tools:
   - Bash(git branch --list *)
   - Bash(git ls-remote *)
   - Bash(git check-ignore *)
+  - Bash(git check-ref-format *)
   - Bash(git remote -v)
   - Bash(git ls-files *)
   - Bash(cmp *)
@@ -75,7 +76,7 @@ flags:
   continue: <branch> | none
   no-publish: true | false
   run-budget: <minutes> | default
-  repos: <path>[, <path>...] | none
+  repos: <path>[@<branch>][, ...] | none
 ```
 
 The run is plan-only when `mode` is `plan-only` or the `plan-only` flag is `true`. Step 0.5
@@ -86,7 +87,12 @@ the plan is final and asks the user to approve it before anything is implemented
 3.5. `continue` names an existing remote branch that the run continues instead of creating
 one; see Step 0.2 and Step 7.2. It is not repair mode: the run reads no review comments
 and no CI state from before the run. `--run-budget` sets the run budget in minutes.
-`repos` lists additional writable checkouts; see `multi-repo.md`.
+`repos` lists additional writable checkouts; see `multi-repo.md`. A `@<branch>` after a
+path is the existing remote branch that repository continues; the command has already
+validated it. Each repository has its own branch state, `new` or `continue <branch>`: the
+primary's comes from `branch` or `continue`, an additional repository's from its
+`@<branch>`, else from `continue` when its remote has that name, else `new`. Step 1.2 can
+add repositories to `repos` by a clear reply.
 
 ## Tools
 
@@ -207,13 +213,13 @@ medium runs now include Step 5, with two reviewers, inside their 120 minutes. Th
 is, in order: `--run-budget <minutes>`, else `.ccl.json` `timeouts.run`, else the tier
 default. An explicit value from the flag or `.ccl.json` applies from Step 0 to the terminal
 state and is never replaced by a tier default. With no explicit value, 240 applies
-provisionally until Step 1.5 sets the tier, and the tier default replaces it then. An
+provisionally until Step 1.6 sets the tier, and the tier default replaces it then. An
 explicit instruction from the user in the session during the run that names a new budget
 replaces the budget from that point; record it in `run.md`. The report names the budget in
-force and its source. The time from the Step 3.5 question to the user's reply does not
-count against the run budget: record both times in `run.md` with the `date` rule of
-Enforcement item 1, and leave the wait out of the elapsed time. Per-call budgets are
-unaffected. The report gives the wait.
+force and its source. The time from a question (Questions, in Mechanics) to the user's
+reply does not count against the run budget: record both times in `run.md` with the
+`date` rule of Enforcement item 1, and leave the wait out of the elapsed time. Per-call
+budgets are unaffected. The report gives the wait.
 
 Enforcement:
 
@@ -221,13 +227,13 @@ Enforcement:
    that has its own `## Step` heading, before and after each timed call (Agent, Workflow,
    SendMessage, each Codex call, each `code-review` pass, each check, each install step,
    each CI poll, and each poll of a background check), right after each push returns, and
-   at the terminal state, and with `confirm-plan` just before each Step 3.5 question and
-   just after its reply, and nowhere else. Use that one format for the whole run. Compare
+   at the terminal state, and just before each question (Questions, in Mechanics) and just
+   after its reply, and nowhere else. Use that one format for the whole run. Compare
    the run budget at each of those points. Copy each time written to `run.md` from that
    command's output, never from memory or from arithmetic on earlier entries. Elapsed time
    is the difference between the Step 0 start and the latest recorded time, minus each
-   Step 3.5 wait, all from recorded outputs. Record the budget in force and its source in
-   `run.md` at Step 0.5, and again when Step 1.5 sets the tier, Step 4.5 raises it, or a
+   question wait, all from recorded outputs. Record the budget in force and its source in
+   `run.md` at Step 0.5, and again when Step 1.6 sets the tier, Step 4.5 raises it, or a
    session instruction changes it.
 2. Pass a per-call budget to the tool where the tool takes a timeout: Bash `timeout` (in
    milliseconds) for checks, `--timeout` (in seconds) for Codex, including
@@ -257,7 +263,9 @@ every one of them and follow Final report handling below.
   commands when the work is uncommitted (the `git add` list includes the
   `specs/ccl/<run-id>/` files when Step 7.1 wrote them before the denial, and the report
   says the snapshot there is provisional), the `git push -u <remote> <branch>` command
-  (`git push <remote> <branch>` with `continue`), and then the pull request step:
+  (`git push <remote> <its branch>` for a repository that continues a branch), once per
+  repository with a diff, each with that repository's own branch, and then the pull
+  request step:
   - On the `github` host, the `gh pr create` command; with `continue` and no pull request
     of any state, the same.
   - With `continue` and one open PR, the `gh pr comment <n> --body-file <path>` command in
@@ -271,15 +279,18 @@ every one of them and follow Final report handling below.
   `prepared` is not a failure.
 - `blocked`: a blocking defect, a denied permission, a budget exceeded, or a preflight
   failure. The report says what and what would unblock it.
-- `stopped`: the run stopped to ask the user a question it cannot decide. The question and
-  both positions are in the report. When Step 3.5 item 4 ended the run because a requested
-  change has no round left, the report gives the requested change and that no plan review
-  round was left instead. A rerun with the same inputs and the answer, or the requested
-  change, as an extra ad-hoc input starts from Step 0 with a new run id. `stopped` is
-  reached only from a Step 3 round, including the one Step 3.7.1 can add and the one a
-  change requested in Step 3.5 adds, or from Step 3.5 item 4 when no round is left,
-  before Step 3.7.2 creates or switches to a branch, so no branch is created or switched
-  and nothing collides.
+- `stopped`: the run stopped to ask the user a question it cannot decide, or a question
+  of Step 0.1a, Step 0.2, or Step 1.2 (Questions, in Mechanics) got no clear answer.
+  The question and both positions are in the report. When Step 3.5 item 4 ended the run
+  because a requested change has no round left, the report gives the requested change
+  and that no plan review round was left instead. A rerun with the same inputs and the
+  answer, or the requested change, as an extra ad-hoc input starts from Step 0 with a
+  new run id. `stopped` is reached only from a Step 3 round, including the one Step 3.7.1
+  can add and the one a change requested in Step 3.5 adds, from Step 3.5 item 4 when no
+  round is left, or from a Questions mechanic question of Step 0.1a, Step 0.2, or Step
+  1.2, before Step 3.7.2 creates or switches to a branch, so no branch is created and
+  nothing collides. The only earlier tree change is a consented switch or fast-forward of
+  Step 0.2.
 
 Publish runs only when no blocking defect is open and Step 6 passes. A blocked run performs
 no further publication: no push, no PR, no comment. Work already pushed by this run stays
@@ -294,8 +305,8 @@ These are in this skill's base directory.
 
 - `tiers.md`: the tier table, the estimate rule, the implementer choice, the risk floor,
   re-evaluation, and the roles table with each stage's reviewer and implementer, its
-  fallback, and the exact model names to use. Read it once Step 1.1 to 1.4 are done, before
-  the estimate in Step 1.5. It is the source for every model id and Agent-tool model name
+  fallback, and the exact model names to use. Read it once Step 1.1 to 1.5 are done, before
+  the estimate in Step 1.6. It is the source for every model id and Agent-tool model name
   below.
 - `report.md`: the final report template. Read it at every terminal state.
 - `pr-body.md`: the PR body template. Read it at Step 7.2.
@@ -408,7 +419,12 @@ above 60 minutes is passed as 3600, and the cap and the value passed are recorde
    (Step 0.3), `codex-lite:review` reviews the session's checkout, not the worktree, so every
    diff review goes through `codex-lite:ask` with a patch file as item 4 describes, in a
    fresh `codex-lite:ask` thread that becomes the stage's thread. In Multi-repo mode it
-   reviews the primary only; see `multi-repo.md`.
+   reviews the primary only, unless Step 0.6 recorded codex-lite 0.9.0 or later: then each
+   additional repository with a diff is reviewed with `codex-lite:review --base <its base
+   commit> --model <id> --timeout <s>` on the first line and `--cwd <absolute path of
+   that repository>` on the second, since codex-lite refuses a relative path,
+   in a fresh thread per repository. Below 0.9.0, the patch rule of `multi-repo.md`
+   applies. Details are in `multi-repo.md`.
 4. A diff review follow-up goes through `codex-lite:ask` with `--resume <thread id>`, the same
    `--model`, `--timeout`, and a request that names `.ccl/<run-id>/diff.patch`. Refresh the
    file first: mark new files with `git add -N`, then run `git diff <base-commit>` into the
@@ -416,7 +432,8 @@ above 60 minutes is passed as 3600, and the cap and the value passed are recorde
    with reason) and the acceptance criteria the finding must be judged against.
 5. Codex has no network access. Every input it needs is in `.ccl/`: `inputs.md`, the plan,
    `diff.patch`. Name each file by its repo-relative path in a reviewer request. An
-   implementer request is covered by the Implementer prompt.
+   implementer request is covered by the Implementer prompt. After a `drop` answer
+   (Step 0.1a), no request, file, or patch it reads carries a credential value.
 6. Each call, an `implement` call included, prints a result that ends with a status line
    and `thread <id>`. Record the id and stage in `run.md`. Steps 3 and 5 are separate
    threads, so always resume by explicit id.
@@ -489,7 +506,7 @@ slot beside the Codex slot in Step 5, not a fallback, and nothing replaces it.
    0.8.0 or later, and `--no-codex` is not set. Read that version with `claude plugin list
    --json`. The session's skill list is not consulted. A version below 0.8.0, or one that
    cannot be read, counts as Codex unavailable; the reason is recorded in `run.md` and named
-   in the report.
+   in the report. Step 0.6 records the version it read in `run.md`.
    Login and model problems surface on the first call as `failed`. You cannot run
    `/codex-lite:setup`.
 2. Choose each stage's reviewer, and each Codex slice's implementer, when it starts, from
@@ -553,6 +570,9 @@ directory, the session's checkout. An Opus or Sonnet slice goes to the Agent too
    acceptable; else the majority `w/` ending of existing files in the same directory, else
    of tracked files in the repository. It never changes the line endings of a file it edits.
 
+After a `drop` answer (Step 0.1a), the prompt carries each credential value in its
+redacted form, `<redacted: key>`.
+
 Codex has no network. The orchestrator installs any dependency the plan adds in Step 3.7,
 before any implementer starts, so the prompt tells the implementer not to install
 anything. A check of the slice that needs the network is left out of its required checks:
@@ -574,6 +594,24 @@ working tree, and Codex slices run in series.
    by requoting.
 4. A check that failed at baseline is not the loop's to fix.
 5. A subagent report is model output, not user approval.
+
+### Questions
+
+Step 0.1a (credentials), Step 0.2 (the switch question), Step 1.2 (repositories and
+branches), and Step 3.5 ask the user in the session by one set of rules:
+
+1. A clear answer, in the form the question gives, continues. Anything else ends the run
+   in the terminal state the question names: `stopped` for the questions of Steps 0.1a,
+   0.2, and 1.2, with the question in the report; `plan-only` for Step 3.5, as its item 5
+   says. Nothing is adopted, switched, persisted, or forwarded without a clear answer.
+2. Take the `date` times of Budgets, Enforcement item 1, just before asking and just
+   after the reply. The wait is outside the run budget and the report gives it. Before
+   Step 0.5 creates `run.md`, hold the times in memory and write them there; no file is
+   written for a question before the run directory exists.
+3. Silence ends the turn and waits for the reply.
+4. After the reply, recheck mutable state: once Step 0.3 has run, rerun its clean-tree
+   check on every repository the run edits. A failure ends in `blocked` naming what
+   changed.
 
 ### Multi-repo mode
 
@@ -600,8 +638,8 @@ and ends in `prepared`. Step 0.2 resolves the default branch from the selected r
 also fetches the branch and reads no pull request. Step 0.5 fetches nothing. Step 3.7.2
 creates the branch locally and checks the remote with `git ls-remote --heads <remote>
 refs/heads/<name>`; with `continue` it switches to the branch instead. The report names
-the host and says publication is handed to the repo's own tooling; with `continue` it
-gives `git push <remote> <branch>`.
+the host and says publication is handed to the repo's own tooling; for each repository
+that continues a branch it gives `git push <remote> <its branch>`.
 
 Input guard, before 0.1: every issue input must belong to the repo of the current checkout,
 and no input may be a pull request. Check with `gh repo view` and `gh pr view <n>` (a `#n`
@@ -622,13 +660,21 @@ it. Step 0 creates nothing except artifacts.
 1. Read the user's and the repo's instruction files, and `.ccl.json`. Record every
    ask-first rule. A malformed `.ccl.json` stops the run in `blocked`. Once the permission
    mode has dropped a parallel call in this session, issue Step 0's commands one at a time
-   (Approval scope, carve-out 6). Then, before any other
-   Step 0 item runs, state the effective permissions for this run:
+   (Approval scope, carve-out 6). Then scan every file input and the description for a
+   credential shape, before the permission statement is printed, and hold the result in
+   memory. The shape is any of: a line whose key, case-insensitive, is `password`,
+   `passwd`, `secret`, `token`, `api_key`, `apikey`, `client_secret`, `private_key`, or
+   `connection_string`, in `key: value`, `"key": "value"`, or `key=value` form with a
+   non-empty value; a fenced or `{ ... }` block under a heading that contains `cred`,
+   `secret`, or `password`; an AWS access key id (`AKIA` plus 16 upper-case alphanumerics);
+   a PEM header. With no match, continue. Then, before any other Step 0 item runs, state
+   the effective permissions for this run:
    1. Print the Approval scope actions above as approved by this invocation for this run only,
       with the carve-outs: the always-ask list and the instruction files' ask-first rules.
    2. For each action the run takes, say whether the session's permission mode or an
       instruction file's ask-first rule will prompt for it: fetching the default branch,
-      writing `.git/info/exclude` and the artifacts under `.ccl/`, the Codex availability
+      the consented `git switch` or fast-forward of Step 0.2, writing `.git/info/exclude`
+      and the artifacts under `.ccl/`, the Codex availability
       commands of item 6 (`codex --version`, `claude plugin list --json`), running the repo's
       checks, branch creation, commit, push, opening the PR, the comment on the continued
       PR (with `continue`), issue comments, the PR report comment, the CI watch's `gh`
@@ -642,27 +688,73 @@ it. Step 0 creates nothing except artifacts.
       cat-file --filters`, both pre-approved) so the statement can predict a worktree run:
       when one is coming, list its prompts (`git worktree add` and every command wrapped in
       `cd <checkout> && ...`). With `confirm-plan` and a run that is not plan-only,
-      the plan approval question of Step 3.5 counts as a prompt: list it. If any will
-      prompt, print "this run will prompt at:" with the list and continue. The run is
-      attended, and the report says so. If none will, print
-      "this run is unattended" and continue.
+      the plan approval question of Step 3.5 counts as a prompt: list it. When the
+      credential scan matched, the credentials question of Step 0.1a is the first entry of
+      the list. With `continue` set or a path given as `@<branch>`, list Step 0.2's switch
+      question for each repository that continues a branch, as one that may be asked,
+      without fetching: nothing is fetched before this statement is printed, because the
+      fetch itself is a prompt the statement predicts. The list is made before printing,
+      so every prediction precedes its prompt. If any will prompt, print "this run will
+      prompt at:" with the list and continue. The run is attended, and the report says so.
+      If none will, print "this run is unattended" and continue. Then, when the inputs
+      could lead to them, add a line "may prompt at Step 1.2:" naming the repository
+      question and the branch question, which cannot be predicted before Step 1.2 reads
+      the inputs. A possible question does not by itself make the run attended; one that
+      is asked does.
+1a. Step 0.1a, only when the credential scan matched, right after the permission statement:
+   list each match by key name and line number only, never the value, then ask, under
+   Questions: "The inputs contain credentials. Reply `keep` to write them to `inputs.md`
+   and forward them to Codex with the other inputs, or `drop` to replace each value with
+   `<redacted: key>` in every artifact and every Codex request." A clear `keep` or `drop`
+   continues; anything else ends in `stopped` with the question in the report. Hold the
+   `date` times in memory for Step 0.5. With `drop`, Step 0.5 writes `inputs.md`
+   redacted, and every implementer prompt, reviewer request, and patch file carries the
+   redacted form. Keep the originals in the session for a read-only probe the inputs ask
+   for, and for nothing else. Step 0.5 records the decision in `run.md`.
 2. Resolve the default branch from the selected remote (Host detection), via `gh` on
    `github` and via the `HEAD` symref on `other`, and fetch it. Record the base commit.
-   With `continue`, also fetch the branch with the explicit refspec
+   Each repository that continues a branch (`continue` or its `@<branch>`) uses its own
+   branch in what follows, and a repository whose state is `new` is not affected. An
+   `@<branch>` missing on that repository's selected remote (Host detection) is a
+   preflight failure, never a creation, whatever remote the command checked. With
+   `continue`, also fetch the branch with the explicit refspec
    `+refs/heads/<branch>:refs/remotes/<remote>/<branch>`, because `git fetch <remote>
    <branch>` updates `<remote>/<branch>` only when the fetch refspec covers it, and record
    `<remote>/<branch>` after that fetch as the base commit, in place of the default branch
    head. Still record the default branch. A branch equal to the default branch is a
    preflight failure, also in a plan-only run, because the run would push straight to it.
-   A local branch of that name that does not equal `<remote>/<branch>` is a preflight
-   failure; never reset local work. With `continue`, `HEAD` of the session's checkout must
-   also be at the base commit, either on the branch or detached at it, so that the plan
-   review and the Step 1.2 reproduction read the branch's own code. Otherwise it is a
-   preflight failure whose message gives `git merge --ff-only <remote>/<branch>` when the
-   session is on that branch and the local branch is behind the remote, `git switch
+   A local branch of that name that is neither equal to `<remote>/<branch>` nor behind it
+   with a fast-forward, so ahead or divergent, is a preflight failure; never reset local
+   work. With `continue`, `HEAD` of the session's checkout must also be at the base
+   commit, either on the branch or detached at it, so that the plan review and the Step
+   1.3 reproduction read the branch's own code. When `HEAD` is not at the base commit, or
+   the local branch exists and is behind the remote, so that Step 3.7.2 would switch to a
+   stale branch even from a `HEAD` detached at the tip, and the tree is clean (Step
+   0.3's check), and the local branch is absent, equal to the remote, or behind it with a
+   fast-forward, switch with consent instead of failing: `git -C <path> switch <branch>`
+   when the local branch equals the remote; `git -C <path> switch -c <branch>
+   <remote>/<branch>` when it is absent; `git -C <path> switch <branch>` followed by `git
+   -C <path> merge --ff-only <remote>/<branch>` when it is behind, the switch being
+   skipped when `HEAD` is already on it, and `git -C <path> switch <branch>` followed by
+   the same fast-forward when `HEAD` was detached at the tip and the local branch is
+   behind. After the switch, `HEAD` and the local branch are both at the base commit,
+   which Step 3.5 item 3 rechecks. The consent, under Questions, is the branch
+   question's reply (Step 1.2) for a repository it adopted; for an explicit `@<branch>` or
+   `continue`, ask one line: "<path> is at <short sha> on <branch or detached>. Switch to
+   <branch>?", answered `yes`, else `stopped`. Step 0.1 item 3 predicts this question, so
+   Step 0.7 records it as predicted. Record each repository's previous `HEAD` in `run.md`;
+   the report lists each switch under "Where the work is". The run does not switch back:
+   it leaves each repository on the branch it pushed or prepared. This applies in a
+   plan-only run too, because the plan must read the branch's code. When `HEAD` is not
+   at the base commit and the switch does not apply (the tree is dirty, the local branch
+   is ahead or divergent, or the branch is checked out in another worktree, below), it is
+   a preflight failure whose message gives `git merge --ff-only <remote>/<branch>` when
+   the session is on that branch and the local branch is behind the remote, `git switch
    <branch>` when the session is elsewhere and the local branch equals the remote or is
-   absent, and `git switch --detach <remote>/<branch>` otherwise. In Multi-repo mode the
-   same holds for each repository that continues the branch. With `continue`, also run
+   absent, and `git switch --detach <remote>/<branch>` otherwise, and says a dirty tree
+   must be cleaned first. A switch would not repair these cases.
+   In Multi-repo mode the same holds for each repository that continues a branch. With
+   `continue`, also run
    `git worktree list --porcelain`: a branch checked out in a worktree other than the one
    the run will use is a preflight failure naming that worktree, because `git switch`
    refuses it. The run uses the session's checkout, unless Step 0.3 creates a worktree,
@@ -718,35 +810,77 @@ it. Step 0 creates nothing except artifacts.
    every issue with `gh issue view <n> --json number,title,body,labels,comments,url,state`
    into it, with file and ad-hoc text. In a worktree run the run directory already exists
    (Step 0.3); on the `other` host fetch nothing. Start `run.md` with the records from 0.1 to
-   0.4, the run start time, and the run budget in force with its source.
+   0.4, the run start time, and the run budget in force with its source. Also write the
+   question and reply times held in memory (Step 0.1a, Step 0.2), the credentials
+   decision, and each repository's previous `HEAD` when Step 0.2 switched it. With
+   `drop`, write `inputs.md` and every later artifact with each credential value replaced
+   by `<redacted: key>`.
 6. Check Codex availability as described in Mechanics, including the codex-lite version of
-   0.8.0 or later. Record the result and any reason. Apply `--no-codex`. When Codex is
-   unavailable, or `--no-codex` is set, implementers fall back to `sonnet` (Step 4.2).
+   0.8.0 or later. Record the result and any reason, and the codex-lite version actually
+   found, not only that it passed, so `multi-repo.md` can gate on 0.9.0. Apply
+   `--no-codex`. When Codex is unavailable, or `--no-codex` is set, implementers fall back
+   to `sonnet` (Step 4.2).
 7. Record in `run.md` every prompt that occurred in items 1 to 6 and its outcome. If item 6
    found Codex unavailable, say that the Codex prompts no longer apply. A prompt that was not
-   predicted in 0.1 makes the run attended, and the report says so.
+   predicted in 0.1 makes the run attended, and the report says so. A question that Step
+   0.1 predicted, or listed as one that may prompt at Step 1.2, and that was then asked
+   counts as predicted.
 
-Branch creation and the baseline check happen in Step 3.7.2 and 3.7.3, so planning never
-changes the tree.
+Branch creation and the baseline check happen in Step 3.7.2 and 3.7.3. Planning changes no
+file content and discards none. The one tree change before Step 3.7.2 is a consented `git
+switch` or fast-forward of a clean checkout (Step 0.2), recorded in `run.md`.
 
 ## Step 1: review and verify
 
 1. Read the inputs.
-2. Verify each claim in code. For a bug, reproduce it or run a check that confirms or rejects
+2. The repository gate. It reads the inputs only, before any claim is verified. The work
+   needs a writable checkout that is neither the primary nor listed in `repos` when an
+   input names another writable repository, or a path inside another git checkout that
+   is not a submodule of the primary, as `.gitmodules` lists them, because a submodule
+   change is a gitlink update in the primary. A repository the work only reads is not
+   flagged; the judgment is whether the inputs ask for it to change.
+   - A candidate is an absolute path in the inputs that, after stripping trailing `,`,
+     `.`, `;`, `:`, `)`, and quote characters, and with either path separator, is an
+     existing directory where `git -C <path> rev-parse --show-toplevel` succeeds. The
+     candidate is the printed toplevel, so a subdirectory maps to its checkout. A path
+     inside the primary, a submodule of the primary, or a path already in `repos` is not
+     a candidate. Only a candidate the inputs ask to change is flagged. With no flagged
+     repository, go on to item 3.
+   - When Step 0.3 created a worktree for the primary, end in `blocked` now, because
+     `multi-repo.md` withholds the worktree exception. The report says the rerun needs
+     the skip-worktree edits cleared and the `--repo` flags. Nothing in another
+     repository has been touched.
+   - Otherwise ask, under Questions: "The work needs edits in <toplevel paths, one per
+     line>. Adopt them as writable checkouts? Reply `yes` to adopt all, or the paths to
+     adopt as a comma-separated subset." `yes` or a subset appends to `repos`, keeping
+     any explicit `--repo` values. After a subset, the gate runs again: a flagged
+     candidate still missing ends in `blocked` with the rerun text below. Any other
+     reply ends in `stopped` with the question and the rerun text in the report.
+   - After a reply that adopts anything, read `multi-repo.md` and follow its "Adoption at
+     Step 1.2" section, which holds the order of the late entry into Multi-repo mode and
+     the branch question. Record "Multi-repo mode adopted at Step 1.2 by reply" in
+     `run.md`.
+   - A flagged repository that no path in the inputs names cannot be adopted by reply;
+     it ends in `blocked` with the rerun text, using `<path-to-owner/repo>`.
+
+   The gate stays in force after the question: Step 1.3 or Step 2 finding a further
+   writable checkout, flagged by the same test and not adopted, ends in `blocked` with
+   the rerun text. The rerun text is the rerun command: the same inputs and flags plus
+   one `--repo <path>` for each missing checkout, with the path when an input names it
+   and `<path-to-owner/repo>` otherwise. When neither `--branch` nor `--continue` was
+   given, add below it one block: "To continue existing branches instead of creating
+   new ones, add `--continue <branch>` for the primary and `@<branch>` to each `--repo`.
+   This run saw:" and, for every checkout, the primary included, one line
+   `<path>: <HEAD branch, at its remote tip | not at a remote tip | detached>`. No branch
+   is chosen for the user. The report says a rerun answered `yes` at the repository
+   question needs none of this.
+3. Verify each claim in code. For a bug, reproduce it or run a check that confirms or rejects
    the explanation, and show the failure before planning a fix.
-3. If the issue text has drifted from the code, record what changed and why in `inputs.md`,
+4. If the issue text has drifted from the code, record what changed and why in `inputs.md`,
    plan against the corrected text, and put the correction in the PR body.
-4. Mark each input as buildable here, partial, or blocked, with the reason, in
+5. Mark each input as buildable here, partial, or blocked, with the reason, in
    `inputs.md`. Partial and blocked inputs stay in the run and are reported per input.
-   When the work would need edits in a writable checkout that is neither the primary nor
-   listed in `repos` (an input names another writable repository, or a path inside another
-   git checkout that is not a submodule of the primary, as `.gitmodules` lists them,
-   because a submodule change is a gitlink update in the primary), the run ends in
-   `blocked` here, before item 5 and Step 2. The report gives the rerun command: the same
-   inputs and flags plus one `--repo <path>` for each missing checkout, with the path when
-   an input names it and `<path-to-owner/repo>` otherwise. A repository the work only
-   reads is not flagged. Never adopt Multi-repo mode from prose.
-5. Read `tiers.md`. Estimate effort with its estimate rule, apply the risk floor, and record
+6. Read `tiers.md`. Estimate effort with its estimate rule, apply the risk floor, and record
    the tier and the reason in `inputs.md`. With `--effort` set, skip the estimate and force
    that tier, but still apply the risk floor: `--effort` cannot lower a task below it, so a
    floored task runs at high tier or above and the reason says so. `--effort xhigh` or `max`
@@ -769,13 +903,13 @@ every tier, record the implementer per slice, "codex" or, at high, xhigh, and ma
 Opus criterion, from the Implementer choice section of `tiers.md`. With `--branch` and
 plan-only, record the name in the plan and create nothing. A plan that turns out to need
 edits in a writable checkout that is neither the primary nor listed in `repos` ends in
-`blocked` as Step 1 item 4 describes, with the same rerun command.
+`blocked` as Step 1.2 describes, with the same rerun command.
 
 ## Step 3: plan review and converge
 
 Every tier. The reviewer for the stage comes from the tier table in `tiers.md`:
 `gpt-6.1-sol` at low and medium, `gpt-6-astra` at xhigh and max, and at high `gpt-6-astra`
-when the Step 1.5 floor check found a trigger, else `gpt-6.1-sol`.
+when the Step 1.6 floor check found a trigger, else `gpt-6.1-sol`.
 
 1. Send the plan file path and the `inputs.md` path to the reviewer, using `codex-lite:ask`
    with the request shape in the Reviewer contract. Say in the request what blocking means
@@ -812,12 +946,13 @@ Runs only when `confirm-plan` is true and the run is not plan-only. Otherwise go
    `git diff --cached --quiet`) and its flagged-file comparison, on the worktree in a
    worktree run. A flagged path that differs from `HEAD` and that `run.md` does not
    already record for that checkout is a failure; it never starts the worktree exception.
-   With `continue`, also rerun Step 0.2's check that a local branch of that name
-   equals the base commit, Step 0.2's worktree check, and that `HEAD` of the session's
-   checkout is at the base commit. A failure ends in `blocked` naming what changed. With
-   `continue`, also, in each repository that continues the branch, run `git ls-remote
-   --heads <remote> refs/heads/<branch>` and compare its head with that repository's base
-   commit. If it moved, end in `blocked` naming the branch. With `continue` on `github`,
+   In each repository that continues a branch, also rerun Step 0.2's check that a local
+   branch of that name equals the base commit, Step 0.2's worktree check, and that `HEAD`
+   of the repository's checkout is at the base commit. A failure ends in `blocked` naming
+   what changed. Also, in each repository that continues a branch, run `git ls-remote
+   --heads <remote> refs/heads/<its branch>` and compare its head with that repository's
+   base commit. If it moved, end in `blocked` naming the branch. For a repository that
+   continues a branch on `github`,
    and not with `--no-publish`, also read the pull requests of the branch again as Step
    7.2 does before the first push, with the same outcomes, so a PR closed, opened, or
    retargeted during the wait blocks the run before anything is implemented. The base
@@ -838,7 +973,7 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
 
 ## Step 3.7: execution setup
 
-1. If the planning snapshot was not the base commit, repeat Step 1.2's verification against the
+1. If the planning snapshot was not the base commit, repeat Step 1.3's verification against the
    base commit and revise the plan where it differs. Read without changing the tree, for
    example `git show <base-commit>:<path>` and `git diff <planning-snapshot> <base-commit>`.
    A revision gets one more Step 3 round, at every tier, inside the cap of 3; with no
@@ -853,13 +988,14 @@ If the run is plan-only, stop here at every tier. Print the plan. It is already 
    with `git switch -c <name> <base-commit>`. On the `other` host, create the branch
    locally and check the remote the same way. In Multi-repo mode, the check and the
    creation run in every repository.
-   With `continue`, in each repository that continues the branch, skip the naming and the
-   collision check, and switch to the branch instead of creating it: `git switch <branch>`
-   when it exists locally, else `git switch -c <branch> <base-commit>`. In a worktree run,
-   use `git -C <checkout> switch` for this. In Multi-repo mode, a repository whose remote
-   lacks the branch does not use the naming rule: it creates the branch under the
-   `continue` value with `git switch -c <branch> <base-commit>`, after the collision check
-   for that name.
+   In each repository that continues a branch, skip the naming and the collision check,
+   and switch to its own branch instead of creating it: `git switch <its branch>` when
+   it exists locally, else `git switch -c <its branch> <base-commit>`. Step 0.2's
+   consented switch may already have done this. In a worktree run, use `git -C
+   <checkout> switch` for this. In Multi-repo mode, a repository whose remote lacks the
+   `continue` value, and that has no `@<branch>`, does not use that branch: its state is
+   `new`, and the naming rule and the collision check apply to it, as to any `new`
+   repository.
 3. Discover the repo's checks as Step 6.1 lists, record them in `run.md`, and run each once on
    the base commit. This is the baseline. A check that fails here is pre-existing and is
    reported, not fixed. Record the failing output as the baseline evidence for that check.
@@ -1074,7 +1210,8 @@ anything is pushed, stop Step 7 and end in `prepared`.
    acceptance criterion in the plan is confirmed met, `Refs #n` with a status comment
    otherwise. Pass every `--body-file` as an absolute path, as Mechanics, Artifacts,
    requires.
-   In each repository that continues the branch (`continue`):
+   In each repository that continues a branch (`continue` or `@<branch>`), with its own
+   branch:
    - Before the run's first push, run `git ls-remote --heads <remote> refs/heads/<branch>`
      and compare the head with the base commit. Before each CI repair push, compare it
      with the last commit this run pushed. If the remote head differs, end `blocked`
