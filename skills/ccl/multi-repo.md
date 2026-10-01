@@ -1,8 +1,9 @@
 # Multi-repo mode
 
 Read this file at the start of Step 0, before host detection, when `repos` is not
-`none`. It holds the rules for a run that writes to additional checkouts, and they
-apply for the rest of the run.
+`none`. It is also read on adoption at Step 1.2, when a reply adds repositories; see
+Adoption at Step 1.2 below. It holds the rules for a run that writes to additional
+checkouts, and they apply for the rest of the run.
 
 `repos` names additional writable checkouts. The current checkout is the primary. Read-only
 repositories are not named; agents read them directly. Every rule below changes the step it
@@ -50,14 +51,19 @@ names, for each repository, and leaves the rest of that step as written.
   them. The permission statement lists each repository's push and PR.
 - Steps 0.2 to 0.4 run per repository. Record a base commit and a planning snapshot for
   each.
-- `continue`: the branch must exist on the primary's remote, which the command checks.
-  Step 0.2 checks each additional repository's remote with `git -C <path> ls-remote
-  --heads <remote> refs/heads/<branch>`. A repository whose remote has the branch
-  continues it as Step 0.2 says. A repository whose remote lacks it creates it in Step
-  3.7.2 as a new branch from its default branch, under the `continue` name, with the
-  collision check for that name and not the naming rule. Step 0.2's `HEAD`
-  requirement applies to each repository that continues it. Different branch names per
-  repository are not supported.
+- `continue`: each repository has its own branch state, `new` or `continue <branch>`.
+  The primary's comes from `--branch` or `--continue`; its branch must exist on its
+  remote, which the command checks. An additional repository's comes from its
+  `@<branch>`, whose form the command checks and whose existence Step 0.2 checks on that
+  repository's selected remote (Host detection), a missing one failing preflight; without
+  one, from `--continue` when that repository's remote has that name, checked with
+  `git -C <path> ls-remote --heads <remote> refs/heads/<branch>`; else `new`. The branch
+  question (Adoption at Step 1.2) can set the state of a repository that has no explicit
+  one.
+  A repository that continues a branch follows Step 0.2 for it, including the `HEAD`
+  requirement and the consented switch. A `new` repository creates its branch in Step
+  3.7.2 under the naming rule, with the collision check. Branch names may differ
+  between repositories. Each repository's state is recorded in `run.md`.
 - Ignoring `.ccl/`: write the exclude in every repository. Artifacts live only in the
   primary's `.ccl/<run-id>/`, with a section per repository in `inputs.md` and `run.md`.
 - Input guard: an issue may belong to any listed repository. Compare the issue URL's owner
@@ -65,10 +71,10 @@ names, for each repository, and leaves the rest of that step as written.
 - Step 0.5: fetch each issue from its owning repository with `gh issue view <n> -R
   <owner>/<repo>`.
 - Step 2: name the repository of every slice. No slice spans repositories.
-- Step 3.7: 3.7.2 creates the same branch name in every repository, and the name check runs
-  in every repository, except that with `continue` a repository whose remote has the
-  branch switches to it and skips the name check, and one whose remote lacks it uses the
-  `continue` name. 3.7.3 runs a baseline per repository.
+- Step 3.7: 3.7.2 switches or creates per repository with its own branch state. A
+  repository that continues a branch switches to it and skips the name check. A `new`
+  repository creates its branch under the naming rule, with the collision check run in
+  that repository. 3.7.3 runs a baseline per repository.
 - Step 4: each implementer prompt names the repository path of its slice as the only
   checkout it edits. A Codex implementer call for an additional repository passes `--cwd
   <absolute path of that repository>` as its last option, and its request names files by
@@ -76,13 +82,32 @@ names, for each repository, and leaves the rest of that step as written.
 - Step 5.2: review only repositories that have a diff from their base commit (`git -C <path>
   diff <base> --stat`, after `git -C <path> add -N` of new files). A repository with an
   empty diff is skipped and named in `run.md`.
-  - Codex: when the primary has a diff, review it with `codex-lite:review --base <primary
-    base>`; that thread becomes the stage's thread. When no primary review happened, the
-    first additional repository's patch review starts the stage's thread, as a fresh
-    `codex-lite:ask` thread. Every later additional repository resumes it
-    with `codex-lite:ask --resume <stage thread>`, naming `.ccl/<run-id>/diff-<slug>.patch`,
-    written from `git -C <path> diff <base>`, because codex-lite reviews only the session's
-    checkout.
+  - Codex: write `.ccl/<run-id>/diff-<slug>.patch` from `git -C <path> diff <base>` for
+    every additional repository with a diff, in both cases below, because the fallback
+    subagent and the Claude substitute read it. When the primary has a diff, review it
+    with `codex-lite:review --base <primary base>`.
+    - After a `drop` answer, the Reviewer contract item 5 diff scan runs before each
+      native `codex-lite:review` call, the primary's and each `--cwd` one, over `git -C
+      <path> diff <base>` of that repository, after the `add -N` of new files. On a match
+      that repository is reviewed through `codex-lite:ask` with its patch file
+      (`diff.patch` or `diff-<slug>.patch`), the matched values replaced by `<redacted:
+      key>`, in a fresh thread that becomes that repository's thread (for the primary,
+      the stage's thread), recorded in `run.md`; its follow-ups resume that thread. Below
+      0.9.0 the additional repositories already go through `codex-lite:ask` with a
+      patch, and only the replacement applies to them. Every patch file written after
+      `drop` carries the same replacements.
+    - With codex-lite 0.9.0 or later, as recorded in Step 0.6: review each additional
+      repository with a diff by `codex-lite:review --base <its base> --model <id>
+      --timeout <s>` on the first line and `--cwd <absolute path of that repository>` on
+      the second, resolved as the Step 4 implementer rule does, a fresh thread
+      per repository. `run.md` records a thread id per repository. A Step 5.4 follow-up
+      for that repository resumes that repository's thread with `codex-lite:ask --resume
+      <its thread>`, naming `diff-<slug>.patch`, never another repository's thread.
+    - Below 0.9.0, codex-lite reviews only the session's checkout. The primary's review
+      thread becomes the stage's thread. When no primary review happened, the first
+      additional repository's patch review starts the stage's thread, as a fresh
+      `codex-lite:ask` thread. Every later additional repository resumes it with
+      `codex-lite:ask --resume <stage thread>`, naming its patch file.
   - Under `--no-codex` or after a swap, the stage's fallback subagent (Codex availability
     item 3) is given every repository's patch file, `diff.patch` for the primary and
     `diff-<slug>.patch` for each additional repository, instead of reading `git diff
@@ -99,21 +124,85 @@ names, for each repository, and leaves the rest of that step as written.
     name it in the report. It is the one Claude pass that is continued rather than fresh:
     Step 5.4 follow-ups continue the same subagent with SendMessage.
 - Step 6: discover and run checks per repository.
-- Step 7: commit and push per repository that has a diff, and open one PR per such
-  repository. Each body has a "Related pull requests" section, with "pending" there in the
-  first PR opened. Then edit each body once with `gh pr edit <n> --body-file` to fill the
-  sibling links. With `continue`, a continued PR gets no body edit: its comment is posted
-  after every PR of the run is open, so its "Related pull requests" section is filled from
-  the start, and the `gh pr edit` pass covers only the PRs this run opened. Watch CI per
-  PR, and comment on each issue with every PR link. `done` needs every PR green. A
-  `blocked` in any repository blocks the run, and no further publication happens in any
-  repository, with one exception: the sibling-link edit of a PR this run already opened
-  still runs, so no PR is left saying "pending". The exception covers only PRs this run
-  opened; a continued PR whose comment was not yet posted gets none. Editing the body of
-  this run's own PR is inside the approval scope and publishes nothing new.
-- Step 7.3.5: a CI repair review for an additional repository uses the Step 5.2 patch rule
-  (Codex through `codex-lite:ask --resume`, and the repository's Claude subagent), never
-  `codex-lite:review`.
+- Step 7: commit and push per repository that has a diff, each to its own branch, and open
+  one PR per such repository. Each body has a "Related pull requests" section, with
+  "pending" there in the first PR opened. Then edit each body once with `gh pr edit <n>
+  --body-file` to fill the sibling links. With `continue`, a continued PR gets no body
+  edit: its comment is posted after every PR of the run is open, so its "Related pull
+  requests" section is filled from the start, and the `gh pr edit` pass covers only the
+  PRs this run opened. Watch CI per PR, and comment on each issue with every PR link.
+  `done` needs every PR green. A `blocked` in any repository blocks the run, and no
+  further publication happens in any repository, with one exception: the sibling-link
+  edit of a PR this run already opened still runs, so no PR is left saying "pending".
+  The exception covers only PRs this run opened; a continued PR whose comment was not
+  yet posted gets none. Editing the body of this run's own PR is inside the approval
+  scope and publishes nothing new.
+- Step 7.3.5: a CI repair review for an additional repository uses the Step 5.2 rule for
+  the recorded codex-lite version. With 0.9.0 or later, Codex resumes that repository's
+  own thread through `codex-lite:ask --resume`, naming `diff-<slug>.patch`, never another
+  repository's thread. Below 0.9.0, it uses the stage thread with the patch, never
+  `codex-lite:review`. The repository's Claude subagent is continued in both cases.
 - Closing references: an issue is closed only by the PR in its own repository (`Closes #n`).
   Every other PR of the run cites it as `Refs <owner>/<repo>#n`. The issue status comment
   names the PR in the issue's repository first, then the siblings.
+
+## Adoption at Step 1.2
+
+Step 1.2 reads this section when the reply to its repository question adds repositories
+to `repos`. From the reply on, the run is Multi-repo mode with the rules above. After the
+reply, do these in order, across all adopted repositories, not one repository at a time:
+
+1. Host detection for each adopted repository. A host mismatch is a preflight failure.
+2. Step 0.1 for each: the instruction files and ask-first rules, unioned with those
+   already read. Print the permission statement again, with each repository's push and
+   PR.
+3. Step 0.2 for each: the default branch and the base commit.
+4. Step 0.3 for each: the clean-tree check. A dirty adopted repository ends in `blocked`
+   naming it. Never stash.
+5. The branch question below.
+6. Step 0.2's `continue` checks for each repository that continues a branch, the primary
+   included when the reply set its branch, in this order: fetch the branch with the
+   explicit refspec; replace the base commit with `<remote>/<branch>`; run Step 0.2's
+   `HEAD` check, with the consented switch when `HEAD` is not at the new base or the
+   local branch is behind it; revise
+   the snapshot note Step 0.5 wrote to `run.md`. Step 1.3 verifies against the new base.
+7. Step 0.4 snapshot for each, and the `.ccl/` exclude for each.
+8. The sections for each repository in `inputs.md` and `run.md`. Record "Multi-repo mode
+   adopted at Step 1.2 by reply" in `run.md`.
+
+### The branch question
+
+Ask it once, after item 4, for every repository with no explicit branch state: each
+adopted repository, and the primary when neither `--branch` nor `--continue` was given.
+Explicit values are never changed by this question. The run does not infer intent from
+checkout state; it suggests, and the reply decides.
+
+Per repository, the suggestions are:
+
+- The branch HEAD is on, when its tip equals `<remote>/<that branch>` and it is not the
+  default branch.
+- Every remote branch, from `git -C <path> ls-remote --heads <remote>`, whose name has
+  another repository's suggested or explicit branch name as a string prefix, or is a
+  string prefix of one.
+
+Print one line per repository, `<path>: suggested <branch>[, <branch>]` or `<path>: no
+suggestion`, then ask:
+
+> Which branch does each repository continue? Reply `yes` on the first line to take the
+> suggestion in every repository that has exactly one, then one `<path>@<branch>` or
+> `<path>@new` line for each other repository. Lines alone, without `yes`, are also
+> accepted. A repository with no suggestion or several must have a line. A checkout that
+> is clean and not at its branch tip is switched to it.
+
+The reply must cover every repository the question lists. Validate each chosen branch
+as the command does for `--continue`: `git check-ref-format --branch`, then `git -C
+<path> ls-remote --heads <remote> refs/heads/<branch>` on that repository's selected
+remote; a missing branch is a failure, never a fallback to creating it. `@new` sets
+the state `new`. A clear reply continues. Anything else, including a reply that does not
+cover every repository or names a missing branch, ends in `stopped` with the question in
+the report, under the Questions mechanic in Mechanics, and the wait is outside the run
+budget. After the reply, rerun Step 0.3's clean-tree check on every repository the run
+edits.
+
+For an adopted repository, and for the primary when the reply set its branch, the reply
+is the consent for the switch in Step 0.2; no further question is asked.

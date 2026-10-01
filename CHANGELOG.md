@@ -1,5 +1,78 @@
 # Changelog
 
+## 0.8.0 - 2026-09-30
+
+Requires codex-lite 0.8.0 or later, as in 0.7.0. `--cwd` reviews of additional
+repositories need codex-lite 0.9.0 or later; below it the 0.7.0 patch rule stays.
+
+### Changed
+
+- Breaking: Step 1 is renumbered. The repository gate moves from 1.4 to 1.2, claim
+  verification is 1.3, drift is 1.4, buildable status is 1.5, and tiers are 1.6. Every
+  cross-reference follows.
+- Breaking: `--repo` takes `<path>[@<branch>]`. `@<branch>` names the branch that
+  repository continues, and the primary needs no `--continue` for it, so one run may
+  create a branch in the primary and continue another elsewhere. A value that is an
+  existing directory is a path and is never split, so a path containing `@` still works.
+  The command checks only the branch's form. A branch that is missing on that
+  repository's remote fails preflight in Step 0.2, never created. Each repository has
+  its own branch state, `new` or `continue <branch>`, and the rule that every repository
+  uses one branch name is gone. In 0.7.0 an additional repository whose remote lacked the
+  `--continue` branch created it under that name; now such a repository with no
+  `@<branch>` is `new`, gets the name the naming rule produces, and meets the collision
+  check.
+- Breaking: a `HEAD` that is not at the base commit on a clean checkout that continues a
+  branch becomes a switch question instead of a preflight failure. With consent the run
+  runs `git switch`, or a fast-forward when the local branch is behind the remote, also
+  from a `HEAD` detached at the remote head, and records the previous `HEAD` per
+  repository in `run.md`. When a worktree run is predicted, the session's files are not
+  touched, because a checkout would be refused when a flagged file differs between the
+  commits; the run asks only to detach the session in place when it is on the branch
+  and to fast-forward a behind local branch without checking it out, and the worktree,
+  created at the base commit, is what the plan reads. The checks rerun after the
+  reply, before any switch, and a change ends in `blocked`. A divergent local branch, a
+  dirty tree, and a branch checked out in another worktree still fail preflight.
+- Breaking: up to three new in-session questions make a run attended: credentials,
+  repositories, and branches, plus the switch question for an explicit continuation. Step
+  0.1 predicts the credentials question and lists the switch question as one that may
+  be asked, without fetching before the statement is printed. The repository and
+  branch questions are listed as "may prompt at Step 1.2". Each question follows Step
+  3.5's mechanics: a clear answer continues, anything else ends the run in the terminal
+  state the question names, the wait is outside the run budget, and mutable state is
+  rechecked after the reply. The credentials, repository, and branch questions end in
+  `stopped`; Step 3.5 keeps `plan-only` for a non-approval.
+- A `blocked` report for unnamed writable checkouts adds, when neither `--branch` nor
+  `--continue` was given, a block that says how to continue existing branches and lists
+  each checkout's `HEAD` as the run saw it. No branch is chosen for the user.
+- A `prepared` run gives `git push <remote> <its branch>` for each repository with a
+  diff.
+- With codex-lite 0.9.0 or later, each additional repository with a diff is reviewed with
+  `codex-lite:review --cwd <absolute path>` in a fresh thread, and a follow-up or CI
+  repair for it resumes that thread. The patch files are still written, because the Claude substitute
+  reviewer and the `--no-codex` fallback read them.
+
+### Added
+
+- Credential scan of the inputs before Step 0.1. A line with a credential key
+  (`password`, `secret`, `token`, `api_key`, and the like), an AWS access key id, a PEM
+  header, or a block under a credentials heading asks "keep or drop". `keep` writes them
+  to `inputs.md` and forwards them to Codex. `drop` replaces each value with `<redacted:
+  key>` in every artifact and Codex request the run writes. A native `codex-lite:review`
+  reads the repository's own diff, so after `drop` the same scan runs over that diff
+  before each native review, and a match reviews through `codex-lite:ask` with a
+  redacted patch file in a fresh thread. The scan is a guard for common shapes, not a
+  guarantee.
+- Adoption of repositories from prose by question at Step 1.2. A writable checkout the
+  inputs ask to change and `--repo` did not name is offered as an adoption, and a path to
+  a file inside a checkout counts through its parent directory. `yes` or a
+  subset of paths enters Multi-repo mode; anything else ends in `stopped`, and a flagged
+  path still missing after a subset ends in `blocked`. A worktree primary or a dirty
+  adopted repository ends in `blocked`. Silent adoption stays rejected.
+- A branch question asked once at adoption for every repository with no explicit branch
+  state, with suggestions from each checkout's `HEAD` and from remote branches that share
+  a name prefix with another repository's branch. The reply decides, and each chosen
+  branch is validated against its remote.
+
 ## 0.7.0 - 2026-09-30
 
 Requires codex-lite 0.8.0 or later, for `codex-lite:implement`. 0.7.0 is no longer enough.

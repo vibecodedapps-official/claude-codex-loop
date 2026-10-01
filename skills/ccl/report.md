@@ -39,7 +39,9 @@ Every run ends in exactly one terminal state, writes the report, and prints it.
 - Host: <github | other (hostname)>
 - Run budget: <minutes> (<flag | .ccl.json | tier default | session instruction at hh:mm>)
 - Base commit: <sha, or "not resolved">
-- Branch: <name, or "none created">
+- Branch: <name, or "none created">; with several repositories, each repository's branch
+  and whether it is new or continued, and each repository switched in Step 0.2 with its
+  previous HEAD
 - Continued: <no | the existing branch continued, and the PR this run commented on, or
   "no PR"; in a plan-only or `--no-publish` run, also each condition recorded instead of
   failed>
@@ -79,7 +81,7 @@ Per input, one entry:
   - Completion status: <complete | partial | blocked | not started>
   - Changes: <files and behavior, short>
   - Acceptance criteria: <each criterion, confirmed met or not, with the evidence>
-  - Drift corrections from Step 1.3: <what the issue said, what the code showed, or "none">
+  - Drift corrections from Step 1.4: <what the issue said, what the code showed, or "none">
 
 ## Decisions
 
@@ -114,14 +116,23 @@ non-blocking and anything out of scope. No issues were opened.
 
 - What is blocked or what question is open: <state the blocking defect, denied permission,
   budget, preflight item, the question with both positions, or the change requested under
-  `--confirm-plan` and that no plan review round was left>
+  `--confirm-plan` and that no plan review round was left. For a `stopped` run, the
+  credentials, repositories, or branches question, quoted as asked>
 - Steps marked not done: <list, or "none">
-- Where the work is: <local branch name, PR link, or "nothing created">
-- What would unblock it: <specific action>
+- Where the work is: <local branch name, PR link, or "nothing created">; for each
+  repository the run switched in Step 0.2, the previous HEAD and the branch it moved to
+- What would unblock it: <specific action. For a `blocked` repository gate: the rerun
+  command, which keeps the same inputs and flags and adds `--repo <path>` per missing
+  checkout. Below it, when neither `--branch` nor `--continue` was given: "To continue
+  existing branches instead of creating new ones, add `--continue <branch>` for the
+  primary and `@<branch>` to each `--repo`. This run saw: <path>: <HEAD branch, at its
+  remote tip | not at a remote tip | detached>", one entry for every checkout, and no
+  branch chosen for the user. Say that a rerun answered `yes` at the repository
+  question needs none of this>
 - If a budget expired: <which budget, its value, the step or call>
 - If work was already pushed: <PR link; nothing further was published>
 - Prepared: <branch, commit state, and the publish commands Terminal states gives for
-  `prepared`;
+  `prepared`, `git push <remote> <its branch>` for each repository with a diff;
   with `"commit": true` and a commit made, that the commit carries the `publishing`
   snapshot; or "not prepared">
 

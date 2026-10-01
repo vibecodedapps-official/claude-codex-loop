@@ -1,6 +1,6 @@
 # Tiers, roles, and fallbacks
 
-Read this file during Step 1, before the estimate in Step 1.5. It holds the effort tier
+Read this file during Step 1, before the estimate in Step 1.6. It holds the effort tier
 table, the estimate rule, the implementer choice, the risk floor, re-evaluation, and the
 reviewer and implementer roles with their fallbacks.
 
@@ -90,7 +90,7 @@ Rules for roles:
 "With a trigger" means a risk floor trigger exists for the change: it adds, alters, or
 removes an item in the risk floor list, directly or through shared code. It does not mean
 the floor raised the tier. The trigger is judged at high tier only, and only two cells
-depend on it. For the high tier plan review, the trigger is judged from the Step 1.5 floor
+depend on it. For the high tier plan review, the trigger is judged from the Step 1.6 floor
 check: a floored high run gets `gpt-6-astra`, a high run that is only cross-cutting gets
 `gpt-6.1-sol`. For the high tier final review, a trigger counts when it was present at the
 estimate or is present in the diff after Step 4: the run then gets Codex `gpt-6-astra` and

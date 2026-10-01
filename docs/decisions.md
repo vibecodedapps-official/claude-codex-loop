@@ -818,6 +818,178 @@ these rules; each has its reason.
     call for `implement` that errors because the skill is not listed follows Part 8
     item 4.
 
+## Part 11: 0.8.0, prose handoffs, 2026-09-30
+
+Goal: a de-identified prose handoff runs with its text unchanged and with no manual
+checkout step first. The run asks at most three in-session questions before planning:
+credentials, repositories, and branches. Nothing is adopted, switched, persisted, or
+forwarded without a clear answer, and the explicit flags stay the non-interactive path.
+ccl 0.8.0 works with codex-lite 0.8.0; codex-lite 0.9.0 adds one optional feature. The
+plan was reviewed by a second read of the files on 2026-09-30, and its objections are
+resolved in the items below. No incident is recorded for these rules; each has its
+reason.
+
+1. **Credentials in the inputs are scanned, and a keep-or-drop question decides.** Before
+   Step 0.1 prints the permission statement, every file input and the description is
+   scanned for a credential shape: a line whose key is `password`, `passwd`, `secret`,
+   `token`, `api_key`, `apikey`, `client_secret`, `private_key`, or `connection_string`
+   with a non-empty value, a block under a heading that contains `cred`, `secret`, or
+   `password`, an AWS access key id, or a PEM header. Inputs are persisted under `.ccl/`
+   and sent to Codex, so a secret in them would leave the session without the person
+   having chosen that. The question lists each match by key name and line number, never
+   the value, and takes `keep` or `drop`. `drop` replaces each value with `<redacted:
+   key>` in `inputs.md`, every implementer prompt, reviewer request, and patch; the
+   orchestrator keeps the originals in session for a read-only probe the inputs ask for
+   and nothing else. Anything but a clear reply ends in `stopped`. Step 0.1 predicts the
+   question, so the prediction still precedes the prompt, and the `date` times around it
+   are held in memory until Step 0.5, so nothing is written before the run directory.
+   The promise after `drop` covers what the run writes, not the repository's diff: a
+   native `codex-lite:review --base` reads that diff, which the run does not write. So
+   before every native review (the primary's, and each additional repository's `--cwd`
+   one) the Step 0.1 scan runs over `git diff <base>`, ignoring each line's leading
+   diff mark, and a match reviews through `codex-lite:ask` with a patch file whose
+   values are redacted, in a fresh thread. That closes the diff-context case. A Codex
+   implementer still reads the checkout's files, and the promise does not cover that.
+   The scan guards common shapes and is not a guarantee, and the README says so. The
+   command's step 3 echo is unchanged: it repeats to the person what they typed, in the
+   same terminal, and it is also the Skill args.
+2. **A prose repository is adopted by question at Step 1.2, never silently.** The
+   repository gate moves from Step 1.4 to Step 1.2, reads the inputs only, and stays in
+   force afterwards: a further writable checkout found by Step 1.3 or Step 2 ends in
+   `blocked`. A candidate is an absolute path in the inputs, trailing punctuation
+   stripped, that is an existing directory, or an existing file whose parent directory is
+   used, where `git -C <dir> rev-parse --show-toplevel` succeeds, mapped to its toplevel;
+   a path inside the primary, a submodule of the primary, and a path already in `repos`
+   are not candidates. Only candidates the inputs ask to change are flagged, by the
+   judgment the 0.7.0 gate already makes. When Step 0.3
+   created a worktree for the primary, the run ends in `blocked` before asking, because
+   `multi-repo.md` withholds the worktree exception. The question offers `yes` for all or
+   a comma-separated subset of paths. After a subset, a flagged candidate still missing
+   ends in `blocked` with the rerun text of item 5. Anything else ends in `stopped`. After
+   the reply the run enters Multi-repo mode late, in an order that does each step for all
+   adopted repositories before the next: `multi-repo.md`, host detection, instruction
+   files and ask-first rules with the permission statement printed again, default branch
+   and base commit, clean tree (a dirty adopted repository ends in `blocked`, never a
+   stash), the branch question, the `continue` checks, the snapshot, the `.ccl/` exclude,
+   and the sections of `inputs.md` and `run.md`. The run records "Multi-repo mode adopted
+   at Step 1.2 by reply". This resolves findings 2, 5, and 7 of the feedback together.
+3. **Each repository has its own branch state, and one question sets them.** `--repo
+   <path>@<branch>` names a repository and the branch it continues. A value that is an
+   existing directory is a path and is never split, so a path containing `@` keeps
+   working; otherwise the split is at the last `@` when the right part passes the
+   `--continue` charset rule and the left part is an existing directory. The command
+   checks the branch's form with `git check-ref-format --branch`, and Step 0.2 checks
+   that it exists, once, on the remote Host detection selects, because the command's
+   `origin`-or-sole-remote choice could differ from it. A missing explicit branch is a
+   preflight failure, never a creation. `@<branch>` does not need `--continue`, so a run
+   may create a branch in the primary and continue one elsewhere. A repository's state
+   is `new` or `continue <branch>`, and Step 0.2, Step 3.5 item 3, Step 3.7.2, Step 7, and
+   the `prepared` commands use that repository's own. The branch question is asked once
+   at adoption for every repository with no explicit state, the primary included when
+   neither `--branch` nor `--continue` was given. The run suggests, from a checkout's
+   `HEAD` when its tip equals the remote branch and it is not the default branch, and
+   from remote branches whose names are string prefixes of another repository's suggested
+   or explicit name or have it as a prefix. The run does not infer intent from checkout
+   state, because a checkout's `HEAD` says where the person last worked and not what this
+   task continues. The reply decides, `yes` takes the single suggestions, a line
+   `<path>@<branch>` or `<path>@new` covers each other repository, and every chosen
+   branch is validated against its remote. Anything else ends in `stopped`.
+4. **A clean checkout that is not at its branch tip is switched with consent.** When a
+   repository continues a branch, `HEAD` is not at the base commit or the local branch
+   is behind the remote with `HEAD` detached at the tip, the tree is clean, and the
+   local branch is absent, equal to the remote, or behind it by a fast-forward, Step
+   0.2 switches instead of failing: `git switch`, `git switch -c <branch>
+   <remote>/<branch>`, or `git switch` and `git merge --ff-only`. The consent is the
+   branch question's reply for an adopted repository, and a one-line question in Step
+   0.2 for an explicit `@<branch>` or `--continue`, which Step 0.1 lists as a question
+   that may be asked, without fetching, because the fetch is itself a prompt the
+   statement predicts. The behind-local-branch case is covered even from a `HEAD`
+   detached at the tip, because Step 3.7.2 would otherwise switch to the stale local
+   branch. The earlier rule failed with a command for
+   the person to type, which is a manual checkout step the goal removes. A divergent
+   local branch, a dirty tree, and a branch checked out in another worktree stay
+   preflight failures, because a switch would not repair them and Step 3.7.2 would return
+   to the divergent branch. The previous `HEAD` is recorded per repository in `run.md`,
+   the report lists each switch under "Where the work is", and the run does not switch
+   back. The switch applies in plan-only too, since the plan must read the branch's code.
+   The switch ran before Step 0.3 decided on a worktree, and `worktree.md` then blocked
+   on the branch the session held, so Step 0.2 now runs Step 0.3's flagged-file
+   check before asking the primary's switch question outside Multi-repo mode. When it
+   predicts a worktree run, the session's files are not touched at all: a reproduction
+   showed that `git switch --detach <remote>/<branch>` is refused with "Your local
+   changes to the following files would be overwritten by checkout" when a skip-worktree
+   file differs between the commits, even with a clean status and index. The `HEAD`
+   requirement is met by the worktree, created at the base commit, which the plan reads.
+   The run asks once, with consent, to detach the session in place when it is on the
+   branch, which changes no file, and to fast-forward a behind local branch with
+   `git fetch . refs/remotes/<remote>/<branch>:refs/heads/<branch>`
+   without checking it out, so Step 3.7.2 can switch to the branch inside the worktree.
+   The previous `HEAD` is held in memory until Step 0.5 writes `run.md`, so a report
+   printed by an earlier stop can give it. The reply can come after a long
+   wait, so after it and before any switch the run reruns that repository's clean-tree
+   check, the local-branch comparison, the `HEAD` check, and the worktree list check, and
+   a change ends in `blocked`. For a question asked before Step 0.3 the clean-tree check
+   runs right after the reply on the repository the answer acts on, and after Step 0.3 on
+   every repository the run edits.
+5. **The blocked report gives rerun text without choosing a branch.** The rerun command
+   keeps the 0.7.0 shape, the same inputs and flags plus `--repo <path>` per missing
+   checkout. When neither `--branch` nor `--continue` was given, one block adds how to
+   continue existing branches, `--continue <branch>` for the primary and `@<branch>` on
+   each `--repo`, and lists each checkout's `HEAD` as the run saw it: at its remote tip,
+   not at a remote tip, or detached. No branch is chosen for the user. The report says a
+   rerun answered `yes` at the repository question needs none of this.
+6. **Auto-adoption from prose is rejected again, with the reasons recorded.** The
+   feedback's finding 1 asked that a git directory named in the text join the run as a
+   writable repository without a question. Adoption imports a per-repository preflight:
+   that repository's ask-first rules, a clean-tree requirement, a host check, the loss of
+   the worktree exception for the primary, and a branch in Step 3.7.2. A git directory
+   in text proves neither writable intent nor the checkout root, since the path may be a
+   subdirectory or a repository the task only reads. A wrong adoption would edit or
+   publish to the wrong place, which is hard to undo, so the run asks, and silence ends
+   the turn without adopting.
+7. **All questions share one mechanic.** A clear answer continues, anything else ends the
+   run in the terminal state the question names, the wait is left out of the run budget,
+   and mutable state is rechecked after the reply. The credentials, repository, and
+   branch questions, and the switch question, end in `stopped`, with the question in the
+   report; Step 3.5 keeps `plan-only` for a non-approval. Step 0.1 predicts the
+   credentials question and the switch question. The repository and branch questions
+   cannot be known at Step 0.1, because they depend on Step 1.2, so the statement lists
+   them as "may prompt at Step 1.2". A run that asks one is attended.
+8. **`codex-lite:review --cwd` replaces the patch for an additional repository when
+   codex-lite is 0.9.0 or later.** In 0.9.0 `review` accepts `--cwd <absolute path>` or
+   `--cwd=<path>` as the last line of the request, with implement's value rule, and runs
+   its checks and Codex from that repository, read-only. A `--cwd` anywhere else, or any
+   line after it, is refused. ccl, gated on the version from Step 0.6, reviews each
+   additional repository with a diff with `codex-lite:review --base <its base>` on the
+   first line and `--cwd <absolute path>` on the second, in a fresh thread per
+   repository, and records a thread id per repository in `run.md`. A follow-up or CI repair resumes that
+   repository's thread with `ask --resume` and the patch, never another repository's. The
+   patch files are still written for every repository with a diff, because the Claude
+   substitute reviewer and the `--no-codex` fallback read them. Below 0.9.0 the 0.7.0
+   patch rule stays, so the feature is optional and the minimum stays 0.8.0.
+
+Supersessions and qualifications:
+
+- Part 9 item 3, no adoption from prose: qualified. Adoption by a clear in-session reply
+  is allowed; silent adoption stays rejected.
+- Part 9 item 2, one continuation name for all repositories and a failing `HEAD`
+  mismatch with a command for the user: superseded by items 3 and 4. A divergent local
+  branch still fails.
+- Part 1 item 4, Part 2 item 3, and Part 3 item 16, planning leaves the tree unchanged:
+  qualified. One consented `git switch` or fast-forward of a clean checkout, recorded in
+  `run.md`, is the only tree change before Step 3.7.2. File content is never changed or
+  discarded.
+- Part 9 item 5, Step 3.5 approval mechanics: generalized into the shared mechanic of
+  item 7.
+- Part 2 item 11 and Part 3 item 19, prediction before prompting: kept. Item 1 puts the
+  credentials question in the prediction, and item 7 lists the others as "may prompt".
+- Part 2 item 12 and Part 3 item 5, no writes before the run directory: kept. Item 1
+  holds the timestamps in memory until Step 0.5.
+- Part 8 item 2, additional repositories reviewed through `ask` with a patch: qualified,
+  version-gated by item 8.
+- Part 8 item 1, `other` never runs Step 7: kept. Only the `prepared` command text under
+  Terminal states changes, to each repository's own branch.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.
