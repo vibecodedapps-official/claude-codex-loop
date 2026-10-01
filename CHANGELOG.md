@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.0 - 2026-10-01
+
+### Added
+
+- A handoff for the cca plugin, `.ccl/<run-id>/handoff.md`, written from the run's own
+  record whenever the run has a commit of its own from Step 7.1, in any terminal state.
+  A run with no commit writes none and the report says why. The writer's rules are in
+  `skills/ccl/handoff.md`.
+- An audit manifest, `.ccl/<run-id>/cca-manifest.json`, beside the handoff: each
+  repository's bundle with its PR, or its branch and base, and the handoff's path.
+- Two report header lines: `Handoff:` gives the path or why none was written, and `Audit:`
+  suggests `/cca:audit` on the manifest when the work has more than one bundle, more
+  than one ticket, or 500 or more changed lines. The bounds are a suggestion.
+
+### Changed
+
+- Step 0.5's issue fetch adds `assignees` and `milestone` to its `--json` fields.
+- `run.md` gains a decision record: the choice, its reason, the options weighed, who
+  decided, and where it was published.
+
 ## 0.8.1 - 2026-10-01
 
 ### Fixed

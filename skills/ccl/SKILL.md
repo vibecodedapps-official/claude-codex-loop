@@ -310,6 +310,8 @@ These are in this skill's base directory.
   below.
 - `report.md`: the final report template. Read it at every terminal state.
 - `pr-body.md`: the PR body template. Read it at Step 7.2.
+- `handoff.md`: the rules for the typed handoff and the audit manifest. Read it in Final
+  report handling when the run has a commit of its own from Step 7.1.
 - `multi-repo.md`: the rules for Multi-repo mode. Read it at the start of Step 0, before
   host detection, when `repos` is not `none`.
 - `worktree.md`: the rules for a run in the detached worktree. Read it as soon as the
@@ -337,6 +339,8 @@ append a numeric suffix (`-2`, `-3`). Never overwrite an existing file this run 
 | `diff.patch` | `.ccl/<run-id>/` | Step 5 follow-up rounds and CI repair rounds, and every diff review in a worktree run, and the first Step 5 round under a fallback in Multi-repo mode | The current diff from the base commit, for Codex to read |
 | `diff-<slug>.patch` | `.ccl/<run-id>/` | Multi-repo mode: Step 5 and CI repair, one per additional repo | That repo's current diff from its base commit |
 | `report.md` | `.ccl/<run-id>/` | Every terminal state | The final report |
+| `handoff.md` | `.ccl/<run-id>/` | Final report handling, when the run has a commit of its own from Step 7.1 | The typed handoff for the cca plugin, per `handoff.md` in this skill's base directory |
+| `cca-manifest.json` | `.ccl/<run-id>/` | With `handoff.md` | The manifest that lets `/cca:audit` read the run's bundles and the handoff |
 
 In a worktree run (Step 0.3), `<checkout-parent>/<checkout-name>-ccl-<run-id>`, a directory
 beside the checkout, is the run's checkout. It is never inside the checkout, so a toolchain
@@ -368,8 +372,11 @@ swap with its reason; the implementer per slice, as the Codex model or the Opus 
 and every implementer swap with its reason; the `--timeout` passed to each Codex
 implementer call and any cap; every Codex thread id with its stage, `implement` threads
 included; every Claude review pass with its stage, round, level, the diff it covered, and
-its result, clean or the findings count; the tier re-evaluation after Step 4; and the Step
-5 reviewers it resolved.
+its result, clean or the findings count; the tier re-evaluation after Step 4; the Step
+5 reviewers it resolved; and every decision: the choice, its reason, the options weighed
+with why each was rejected (from the plan review log), who decided (`user`, `plan
+approval`, `review`, or `run`), and where it was published (the PR body or a PR comment,
+with its URL, once Step 7.2 publishes it).
 
 ### Ignoring `.ccl/`
 
@@ -846,7 +853,7 @@ it. Step 0 creates nothing except artifacts.
    reverifies against the base commit.
 5. Ignore `.ccl/` as described in Mechanics. Allocate `<run-id>` and create the run
    directory. Write `inputs.md` with the invocation block and timestamp first, then fetch
-   every issue with `gh issue view <n> --json number,title,body,labels,comments,url,state`
+   every issue with `gh issue view <n> --json number,title,body,labels,comments,url,state,assignees,milestone`
    into it, with file and ad-hoc text. In a worktree run the run directory already exists
    (Step 0.3); on the `other` host fetch nothing. Start `run.md` with the records from 0.1 to
    0.4, the run start time, and the run budget in force with its source. Also write the
@@ -1299,6 +1306,10 @@ anything is pushed, stop Step 7 and end in `prepared`.
 At every terminal state:
 
 1. Read `report.md` in this skill's base directory and fill it from `run.md`, not from memory.
+   Before filling it, when the run has a commit of its own from Step 7.1 in some repository,
+   read `handoff.md` in this skill's base directory and write `.ccl/<run-id>/handoff.md` and
+   `.ccl/<run-id>/cca-manifest.json` as it says, whatever the terminal state. Otherwise write
+   neither.
 2. A failure before Step 0.5, when the run directory does not exist, prints the report and
    writes nothing: the tree may be dirty and `.ccl/` may not be ignored yet. Fill it from
    what Steps 0.1 to 0.4 hold in memory, the question times and each previous `HEAD`
@@ -1309,9 +1320,10 @@ At every terminal state:
 4. With `"commit": true` and the state `done`, also post the terminal report as one comment on
    the PR, because the committed snapshot says `publishing`. Post no comment on any other state.
 5. The report holds:
-   1. Terminal state, PR link or links, CI state, host, run budget in force with its
-      source, worktree path when one exists, and for `prepared` the branch, the commit
-      state, and the publish commands Terminal states gives for `prepared`. With
+   1. Terminal state, PR link or links, CI state, the `Handoff:` and `Audit:` header
+      lines, host, run budget in force with its source, worktree path when one exists, and
+      for `prepared` the branch, the commit state, and the publish commands Terminal states
+      gives for `prepared`. With
       `continue`, that the run continued an existing branch and which PR it commented on.
       For an additional repository, the flagged paths from the Worktree rule.
    2. Attended or unattended, and the prompts that occurred.

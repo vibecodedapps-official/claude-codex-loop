@@ -405,6 +405,31 @@ numeric suffix when the id already exists.
 
 A failure before the run directory exists prints the report and writes nothing.
 
+A run that made a commit of its own at Step 7.1 also writes `handoff.md` and
+`cca-manifest.json` there. See Pairing with cca.
+
+## Pairing with cca
+
+The `cca` plugin audits work after it is built. When a run has at least one commit of
+its own from Step 7.1, in any terminal state, it writes two files to `.ccl/<run-id>/`:
+
+- `handoff.md`: a typed record of the run, with its bundles (one per repository), its
+  tickets, the decisions taken and who made them, and the items the run deferred. It is
+  written from the run's own files and git, and holds `none` or `not recorded` where the
+  files hold no value. It holds no credentials. cca validates the handoff when it audits.
+- `cca-manifest.json`: each bundle's repository path, its PR or its branch and base, and
+  the handoff's path, so one `/cca:audit` call covers every repository.
+
+A run with no commit of its own writes neither, and the report says why. ccl never
+commits to make a handoff possible. After you commit, `/cca:handoff` in the session can
+write one.
+
+The report has a `Handoff:` line with the path and an `Audit:` line. When the work has
+more than one bundle, more than one ticket, or 500 or more changed lines, the `Audit:`
+line suggests `/cca:audit "<path of cca-manifest.json>"` and notes that it needs the cca
+plugin. The bounds are a suggestion, and cca sets its own tier. To fetch the ticket
+fields, Step 0.5 now reads each issue's assignees and milestone.
+
 ## Permission mode and unattended runs
 
 Default permission mode prompts at every Codex call, because codex-lite writes a request
