@@ -1348,6 +1348,25 @@ issue, as they say. Item 176 needs item 174's setup.
      or lists only checks that passed in the second repo; cca's `handoff.sh check`
      accepts the handoff. Rerun after any change to the `verified` rule.
 
+## M11: 0.10.0, 2026-10-02
+
+Setup for item 177: the common setup, a GitHub issue that has a parent issue, and cca
+installed at the version each part names. Item 177 is not yet run and has no entry in
+the record of runs. It needs cca 0.3.0, which is not yet released.
+
+177. **A run on an issue with a parent and a closing PR writes both keys with cca 0.3.0
+     and neither with cca 0.2.0.** Not yet run. Setup: the common setup, with an issue
+     that has a parent and a change whose run opens a PR that closes it. Install cca
+     0.3.0 for the first run and cca 0.2.0 for the second. Command:
+     `/ccl:run #<n> --no-codex`, run once with cca 0.3.0 and once with cca 0.2.0, then run
+     cca's `handoff.sh check` on each handoff. Expected: with cca 0.3.0 the run's ticket
+     has `parent: github:<owner>/<repo>#<parent>` and `links:` with a `closed by:` entry
+     for the run's own PR, both right after `owner`, and cca's `handoff.sh check` accepts
+     the handoff; with cca 0.2.0 the ticket has neither key, the check accepts it, and
+     the `Handoff:` line says the gate left them out with the installed version. Rerun
+     after any change to the version gate, the reads, or the ticket mapping in
+     `handoff.md`.
+
 ## Record of runs
 
 2026-09-29, item 58, partial: a `code-review medium <base-sha>` call reviewed the commit

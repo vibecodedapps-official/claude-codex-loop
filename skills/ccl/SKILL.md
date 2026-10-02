@@ -373,10 +373,12 @@ and every implementer swap with its reason; the `--timeout` passed to each Codex
 implementer call and any cap; every Codex thread id with its stage, `implement` threads
 included; every Claude review pass with its stage, round, level, the diff it covered, and
 its result, clean or the findings count; the tier re-evaluation after Step 4; the Step
-5 reviewers it resolved; and every decision: the choice, its reason, the options weighed
-with why each was rejected (from the plan review log), who decided (`user`, `plan
-approval`, `review`, or `run`), and where it was published (the PR body or a PR comment,
-with its URL, once Step 7.2 publishes it).
+5 reviewers it resolved; per issue input, the parent and closing PRs read for the
+handoff, or the failed read with its error line; once, that the cca version gate skipped
+the reads, with the installed cca version or that none was found; and every decision: the
+choice, its reason, the options weighed with why each was rejected (from the plan review
+log), who decided (`user`, `plan approval`, `review`, or `run`), and where it was
+published (the PR body or a PR comment, with its URL, once Step 7.2 publishes it).
 
 ### Ignoring `.ccl/`
 
@@ -1308,8 +1310,12 @@ At every terminal state:
 1. Read `report.md` in this skill's base directory and fill it from `run.md`, not from memory.
    Before filling it, when the run has a commit of its own from Step 7.1 in some repository,
    read `handoff.md` in this skill's base directory and write `.ccl/<run-id>/handoff.md` and
-   `.ccl/<run-id>/cca-manifest.json` as it says, whatever the terminal state. Otherwise write
-   neither.
+   `.ccl/<run-id>/cca-manifest.json` as it says, whatever the terminal state and whatever
+   the cca version. Without such a commit, write neither and make no read. Before the
+   handoff is written, read each issue input's parent and closing pull requests as
+   `handoff.md` "Parent and links" says, and record them in `run.md`, only when the cca
+   version gate in `handoff.md` passes. When the gate fails, make no read and still write
+   the handoff, without `parent` and `links`.
 2. A failure before Step 0.5, when the run directory does not exist, prints the report and
    writes nothing: the tree may be dirty and `.ccl/` may not be ignored yet. Fill it from
    what Steps 0.1 to 0.4 hold in memory, the question times and each previous `HEAD`

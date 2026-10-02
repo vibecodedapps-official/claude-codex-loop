@@ -1058,6 +1058,33 @@ Goal: a run hands the cca plugin what it needs to audit the work, with no extra 
    the handoff writes `role: session user`, `role: session user (plan approval)`,
    `checkpoint (recommended option taken)`, or `not recorded`, and never `person:`.
 
+## Part 14: 0.10.0, 2026-10-02
+
+Goal: an issue ticket tells cca its parent and closing PRs when the installed cca
+accepts those keys.
+
+1. **Write the keys only with cca 0.3.0 or later.** cca 0.2.0's `handoff.sh check`
+   rejects them: on 2026-10-01 it printed `unknown key 'parent'` and exited 1. A handoff
+   without `parent` and `links` is valid for every cca version.
+2. **Gate first and skip the reads when the gate fails.** Rejected: read always and gate
+   only the write. That adds `gh` calls and possible prompts for values the run will not
+   write.
+3. **Compare versions numerically on `major.minor.patch`.** An unparsable version fails
+   the gate. As strings, 0.10.0 sorts below 0.3.0, so a string comparison would reject a
+   later version.
+4. **Read after publishing, in Final report handling.** GitHub lists the run's own PR
+   only when it closes the issue. `links` records what the forge lists and can be
+   `none` for a `Refs` PR or a run with no PR. Record the reads in `run.md`, because
+   the handoff is written only from the run's files.
+5. **A failed read writes no key, never `links: none`.** `links: none` claims the record
+   shows no links. A failed read does not establish that.
+6. **The parent comes from GraphQL.** `gh issue view` has no `parent` field: gh 2.91.0
+   printed `Unknown JSON field: "parent"` on 2026-10-02.
+7. **The report names the gate and failed reads on the existing `Handoff:` line.**
+   Rejected: a new section. The line already says what the handoff holds and why.
+8. **Version 0.10.0 is a minor bump.** This adds handoff output, as 0.9.0 did. Rejected:
+   0.9.1, because this is a feature, not a fix.
+
 ## Rules stated elsewhere in the loop, with reasons
 
 These are not numbered decisions, but the same reasoning applies.

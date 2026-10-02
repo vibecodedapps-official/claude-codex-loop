@@ -174,9 +174,12 @@ non-blocking and anything out of scope. No issues were opened.
   `cca@` entry of `claude plugin list --json` exists and
   `<installPath>/skills/cca/scripts/handoff.sh` exists. Say when the cca `handoff.sh
   check` was not run because the plugin is absent, or because the installed cca is older
-  than 0.2.0. In a worktree run, the manifest names the worktree's path, so the line also
-  says the worktree must stay until the audit has run, even though the report says how to
-  remove it.
+  than 0.2.0. Name each ticket whose parent or links read failed, and which key was left
+  out. When the run has an issue input and the cca version gate left `parent` and `links`
+  out, say so with the installed cca version, or that no `cca@` entry was found. In a
+  worktree run, the manifest names the worktree's path, so the line also says the
+  worktree must stay until the audit has run, even though the report says how to remove
+  it.
 - `Audit:` is filled only when the handoff was written and the work is larger than cca's low
   tier, modeled on its bounds: more than one bundle, more than one ticket in the handoff, or
   500 or more changed lines (added plus deleted, over each bundle's three-dot diff from its
