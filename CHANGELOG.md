@@ -7,8 +7,11 @@
 - The optional `parent` and `links` keys on issue tickets, gated on cca 0.3.0 or later.
   Final report handling reads closing PRs with
   `gh issue view <URL> --json closedByPullRequestsReferences`, which needs gh 2.73.0 or
-  later, and the parent with a GraphQL `parent` query. File and text inputs and raised
-  tickets get neither key. A failed read writes no key, never `links: none`.
+  later, and the parent with a GraphQL `parent` query, always sent to the issue's host
+  with `--hostname`. File and text inputs and raised tickets get neither key. A failed
+  read writes no key, never `links: none`.
+- Acceptance items 177 to 181 cover the keys, a successful empty read, a missing cca,
+  each read failing on its own, and the version gate's numeric and unparsable cases.
 
 ### Changed
 

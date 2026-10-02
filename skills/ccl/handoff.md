@@ -68,8 +68,10 @@ URL, so an issue of an additional repository works:
   2.73.0 or later; an older gh fails the read.
 - Parent:
   `gh api graphql -f query='query{repository(owner:"<owner>",name:"<repo>"){issue(number:<n>){parent{number repository{nameWithOwner}}}}}'`,
-  with `--hostname <host>` when the issue URL's host is not `github.com`. `"parent":null`
-  means no parent. A parent's id is `github:<repository.nameWithOwner>#<number>`.
+  always with `--hostname <host>`, the issue URL's host, `github.com` included. Without
+  it, gh sends the query to its default host, which is the only saved login when `GH_HOST`
+  is unset, and can differ from the issue's host. `"parent":null` means no parent. A
+  parent's id is `github:<repository.nameWithOwner>#<number>`.
 
 Record the result in `run.md` per issue: the parent or none, and the closing PRs or
 none, with a failed read named in place of its result, with its error line. The handoff

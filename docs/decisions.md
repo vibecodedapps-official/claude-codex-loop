@@ -1084,6 +1084,12 @@ accepts those keys.
    Rejected: a new section. The line already says what the handoff holds and why.
 8. **Version 0.10.0 is a minor bump.** This adds handoff output, as 0.9.0 did. Rejected:
    0.9.1, because this is a feature, not a fix.
+9. **The parent query always names the issue's host.** Without `--hostname`, `gh api`
+   sends the query to gh's default host: `GH_HOST`, else the only saved login. On
+   2026-10-02, with one saved Enterprise login and a GitHub.com token in `GH_TOKEN`,
+   preflight resolved the GitHub.com repository while the parent query went to the
+   Enterprise host. A same-named repository there could return a wrong parent. Rejected:
+   `--hostname` only for Enterprise hosts, the rule before this review.
 
 ## Rules stated elsewhere in the loop, with reasons
 
