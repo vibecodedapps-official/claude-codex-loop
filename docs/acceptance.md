@@ -1348,6 +1348,72 @@ issue, as they say. Item 176 needs item 174's setup.
      or lists only checks that passed in the second repo; cca's `handoff.sh check`
      accepts the handoff. Rerun after any change to the `verified` rule.
 
+## M11: 0.10.0, 2026-10-02
+
+Setup for items 177 to 181: the common setup, and cca installed at the version each item
+names, or not installed when it says so. Items 177 and 180 also need a GitHub issue that
+has a parent issue. Items 180 and 181 use the fixtures they name. Items 177 to 181 are
+not yet run and have no entry in the record of runs. Every item but 179 needs cca 0.3.0,
+which is not yet released.
+
+177. **A run on an issue with a parent and a closing PR writes both keys with cca 0.3.0
+     and neither with cca 0.2.0.** Not yet run. Setup: the common setup, with an issue
+     that has a parent and a change whose run opens a PR that closes it. Install cca
+     0.3.0 for the first run and cca 0.2.0 for the second. Command:
+     `/ccl:run #<n> --no-codex`, run once with cca 0.3.0 and once with cca 0.2.0, then run
+     cca's `handoff.sh check` on each handoff. Expected: with cca 0.3.0 the run's ticket
+     has `parent: github:<owner>/<repo>#<parent>` and `links:` with a `closed by:` entry
+     for the run's own PR, both right after `owner`, and cca's `handoff.sh check` accepts
+     the handoff, and the tool trace shows the parent query with `--hostname github.com`;
+     with cca 0.2.0 the ticket has neither key, the check accepts it, the tool trace shows
+     neither read, and the `Handoff:` line says the gate left them out with the installed
+     version. Rerun after any change to the version gate, the reads, or the ticket mapping
+     in `handoff.md`.
+178. **A successful empty read writes `links: none` and no `parent`.** Not yet run.
+     Setup: the common setup with cca 0.3.0; issue #1 has no parent, and no PR closes it.
+     Command: `/ccl:run #1 --no-codex`, and decline the push when it is asked, so the run
+     ends `prepared` with its Step 7.1 commit and opens no PR. Expected: `run.md` records,
+     for #1, no parent and no closing PRs, with no failed read; the ticket has
+     `links: none` right after `owner` and no `parent` key; cca's `handoff.sh check`
+     accepts the handoff; the `Handoff:` line names no failed read. Rerun after any change
+     to the reads or the ticket mapping in `handoff.md`.
+179. **With no cca installed, no read is made and the report says why.** Not yet run.
+     Setup: the common setup with cca uninstalled, so `claude plugin list --json` has no
+     `cca@` entry. Command: `/ccl:run #1 --no-codex`. Expected: the run ends `done`; the
+     tool trace shows neither the `closedByPullRequestsReferences` read nor the
+     `gh api graphql` parent query; `run.md` records once that the gate skipped the reads
+     because no `cca@` entry was found; the ticket has neither key; the `Handoff:` line
+     says the gate left them out because no `cca@` entry was found, and that cca's check
+     was not run because the plugin is absent. Rerun after any change to the version gate
+     in `handoff.md`.
+180. **Each read can fail on its own, and a failed read writes no key.** Not yet run.
+     Setup: the common setup with cca 0.3.0 and an issue #<n> that has a parent. Fixture:
+     a script named `gh` in a directory placed first on `PATH` before Claude Code starts.
+     It exits 1 with a one-line error for one read and passes every other call, unchanged,
+     to the real `gh`. In the first run it fails a call whose arguments include
+     `closedByPullRequestsReferences`. In the second it fails a `gh api graphql` call whose
+     query contains `parent{`. Command: `/ccl:run #<n> --no-codex`, once per fixture
+     setting. Expected, first run: the ticket has `parent` and no `links` key; `run.md`
+     records the closing-PR read as failed with the error line; the `Handoff:` line names
+     the ticket and that `links` was left out. Second run: the ticket has `links` with a
+     `closed by:` entry for the run's own PR and no `parent` key; `run.md` records the
+     parent read as failed with the error line; the `Handoff:` line names the ticket and
+     that `parent` was left out. Neither run writes `links: none`, and cca's
+     `handoff.sh check` accepts both handoffs. Rerun after any change to the reads, the
+     failed-read rule, or the `Handoff:` rule.
+181. **The gate compares versions as numbers and fails closed on an unparsable one.** Not
+     yet run. Setup: the common setup. Fixture: a local copy of cca 0.3.0, installed from
+     a local marketplace in place of cca, with the `version` in its
+     `.claude-plugin/plugin.json` set to `0.10.0` for the first run and to a commit hash,
+     such as `0123456789ab`, for the second. Command: `/ccl:run #1 --no-codex`, once per
+     version. Expected, `0.10.0`: the gate passes; the tool trace shows both reads; the
+     ticket has `links` with a `closed by:` entry for the run's own PR and no `parent`,
+     since #1 has none; cca's `handoff.sh check` accepts the handoff. Commit hash: the gate
+     fails; the tool trace shows neither read; `run.md` records once that the gate skipped
+     the reads, with the installed version; the ticket has neither key; the `Handoff:` line
+     says the gate left them out, with the installed version. Rerun after any change to the
+     version gate in `handoff.md`.
+
 ## Record of runs
 
 2026-09-29, item 58, partial: a `code-review medium <base-sha>` call reviewed the commit

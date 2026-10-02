@@ -426,6 +426,14 @@ A run with no commit of its own writes neither, and the report says why. ccl nev
 commits to make a handoff possible. After you commit, `/cca:handoff` in the session can
 write one, with cca 0.2.0 or later.
 
+With cca 0.3.0 or later, each issue input's ticket also carries `parent` when the issue
+has a parent, and `links` for the pull requests that close it, or `none`. These are read
+after publishing so the run's own PR is included when GitHub lists it as closing the
+issue; `links` records what GitHub lists, nothing more. With an older cca, or none, both
+keys are left out; a handoff without them is valid for every cca version. Reading
+`links` needs gh 2.73.0 or later; with an older gh, the read fails. A read that fails
+leaves its key out, and the report says so.
+
 The report has a `Handoff:` line with the path and an `Audit:` line. When the work has
 more than one bundle, more than one ticket, or 500 or more changed lines, the `Audit:`
 line suggests `/cca:audit "<path of cca-manifest.json>"` and notes that it needs the cca
